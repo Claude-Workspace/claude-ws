@@ -1,0 +1,65 @@
+'use client';
+
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { Task, TaskStatus } from '@/types';
+import { TaskCard } from './task-card';
+import { cn } from '@/lib/utils';
+
+interface ColumnProps {
+  status: TaskStatus;
+  title: string;
+  tasks: Task[];
+  attemptCounts?: Map<string, number>;
+}
+
+export function Column({ status, title, tasks, attemptCounts = new Map() }: ColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+    data: {
+      type: 'column',
+      status,
+    },
+  });
+
+  const taskIds = tasks.map((task) => task.id);
+
+  return (
+    <div className="flex flex-col h-full min-w-[280px] max-w-[320px]">
+      <div className="flex items-center justify-between px-3 py-2 mb-3">
+        <h2 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+          {title}
+        </h2>
+        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+          {tasks.length}
+        </span>
+      </div>
+
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex-1 rounded-lg bg-gray-50 dark:bg-gray-900 p-2 transition-colors',
+          isOver && 'bg-blue-50 dark:bg-blue-950'
+        )}
+      >
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                attemptCount={attemptCounts.get(task.id) || 0}
+              />
+            ))}
+          </div>
+        </SortableContext>
+
+        {tasks.length === 0 && (
+          <div className="flex items-center justify-center h-32 text-sm text-gray-400 dark:text-gray-600">
+            No tasks
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
