@@ -1,65 +1,126 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { SocketProvider } from '@/components/providers/socket-provider';
+import { Header } from '@/components/header';
+import { Board } from '@/components/kanban/board';
+import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
+import { TaskDetailPanel } from '@/components/task/task-detail-panel';
+import { SettingsDialog } from '@/components/settings/settings-dialog';
+import { SetupDialog } from '@/components/settings/setup-dialog';
+import { useProjectStore } from '@/stores/project-store';
+import { useTaskStore } from '@/stores/task-store';
+
+function KanbanApp() {
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+
+  const { currentProject, projects, fetchProjects, loading: projectLoading } = useProjectStore();
+  const { selectedTask, fetchTasks } = useTaskStore();
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  // Show setup dialog if no projects, or auto-select first project
+  useEffect(() => {
+    if (!projectLoading) {
+      if (projects.length === 0) {
+        setSetupOpen(true);
+      } else if (!currentProject) {
+        // Auto-select first project if none selected
+        useProjectStore.getState().setCurrentProject(projects[0]);
+      }
+    }
+  }, [projectLoading, projects, currentProject]);
+
+  // Fetch tasks when project changes
+  useEffect(() => {
+    if (currentProject) {
+      fetchTasks(currentProject.id);
+    }
+  }, [currentProject, fetchTasks]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + N: New task
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        setCreateTaskOpen(true);
+      }
+      // Cmd/Ctrl + K: Search (TODO: implement search dialog)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        // Focus search input
+        const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+      // Escape: Close panels
+      if (e.key === 'Escape') {
+        if (selectedTask) {
+          useTaskStore.getState().setSelectedTask(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTask]);
+
+  if (projectLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen flex-col">
+      <Header
+        onCreateTask={() => setCreateTaskOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main content - Kanban board */}
+        <main className={`flex-1 overflow-auto transition-all ${selectedTask ? 'mr-[600px]' : ''}`}>
+          {currentProject ? (
+            <Board />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-4">No project selected</p>
+                <button
+                  onClick={() => setSetupOpen(true)}
+                  className="text-primary underline hover:no-underline"
+                >
+                  Set up a project
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Task detail panel - right sidebar */}
+        {selectedTask && <TaskDetailPanel />}
+      </div>
+
+      {/* Dialogs */}
+      <CreateTaskDialog open={createTaskOpen} onOpenChange={setCreateTaskOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SetupDialog open={setupOpen} onOpenChange={setSetupOpen} />
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <SocketProvider>
+      <KanbanApp />
+    </SocketProvider>
   );
 }
