@@ -10,6 +10,9 @@ interface SidebarState {
   selectedFile: string | null;
   previewFile: string | null;
   sidebarWidth: number;
+  // Git diff state
+  diffFile: string | null;
+  diffStaged: boolean;
 }
 
 interface SidebarActions {
@@ -23,6 +26,9 @@ interface SidebarActions {
   setPreviewFile: (path: string | null) => void;
   closePreview: () => void;
   setSidebarWidth: (width: number) => void;
+  // Git diff actions
+  setDiffFile: (path: string | null, staged?: boolean) => void;
+  closeDiff: () => void;
 }
 
 type SidebarStore = SidebarState & SidebarActions;
@@ -37,6 +43,8 @@ export const useSidebarStore = create<SidebarStore>()(
       selectedFile: null,
       previewFile: null,
       sidebarWidth: 280,
+      diffFile: null,
+      diffStaged: false,
 
       // Actions
       toggleSidebar: () => set((state) => ({ isOpen: !state.isOpen })),
@@ -77,6 +85,10 @@ export const useSidebarStore = create<SidebarStore>()(
       closePreview: () => set({ previewFile: null }),
 
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
+
+      setDiffFile: (diffFile, staged = false) => set({ diffFile, diffStaged: staged }),
+
+      closeDiff: () => set({ diffFile: null }),
     }),
     {
       name: 'sidebar-store',

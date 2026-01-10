@@ -5,6 +5,7 @@ import { FolderTree, GitBranch, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileTree } from './file-browser';
+import { GitPanel } from './git-changes';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { cn } from '@/lib/utils';
 
@@ -108,9 +109,7 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
         </TabsContent>
 
         <TabsContent value="git" className="flex-1 min-h-0 mt-0">
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Git changes (Phase 3)
-          </div>
+          <GitPanel />
         </TabsContent>
       </Tabs>
 

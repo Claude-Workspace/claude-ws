@@ -42,7 +42,6 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
         );
         if (!res.ok) throw new Error('Failed to fetch files');
         const data = await res.json();
-        console.log('File tree API response:', JSON.stringify(data, null, 2));
         setEntries(data.entries || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -105,16 +104,9 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
 
   // Render tree recursively
   const renderTree = (items: FileEntry[], level: number = 0) => {
-    if (level === 0) {
-      console.log('Rendering tree with items:', items.map(i => ({ name: i.name, type: i.type, hasChildren: !!i.children })));
-    }
     return items.map((entry) => {
       const isExpanded = expandedFolders.has(entry.path);
       const isSelected = selectedFile === entry.path;
-
-      if (entry.type === 'directory') {
-        console.log(`Dir "${entry.name}" at level ${level}: expanded=${isExpanded}, children=${entry.children?.length ?? 0}`);
-      }
 
       return (
         <div key={entry.path}>

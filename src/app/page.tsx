@@ -8,7 +8,7 @@ import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
 import { TaskDetailPanel } from '@/components/task/task-detail-panel';
 import { SettingsDialog } from '@/components/settings/settings-dialog';
 import { SetupDialog } from '@/components/settings/setup-dialog';
-import { SidebarPanel, FilePreviewPanel } from '@/components/sidebar';
+import { SidebarPanel, FilePreviewPanel, DiffPreviewPanel } from '@/components/sidebar';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
@@ -20,7 +20,7 @@ function KanbanApp() {
 
   const { currentProject, projects, fetchProjects, loading: projectLoading } = useProjectStore();
   const { selectedTask, fetchTasks } = useTaskStore();
-  const { toggleSidebar, previewFile } = useSidebarStore();
+  const { toggleSidebar, previewFile, diffFile } = useSidebarStore();
 
   // Fetch projects on mount
   useEffect(() => {
@@ -100,8 +100,11 @@ function KanbanApp() {
         {/* File preview panel - in flow, pushes content */}
         <FilePreviewPanel />
 
-        {/* Main content - Kanban board (hidden when file preview is open) */}
-        {!previewFile && (
+        {/* Diff preview panel - in flow, pushes content */}
+        <DiffPreviewPanel />
+
+        {/* Main content - Kanban board (hidden when preview is open) */}
+        {!previewFile && !diffFile && (
           <main className="flex-1 overflow-auto min-w-0">
             {currentProject ? (
               <Board />
