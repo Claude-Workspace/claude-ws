@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Get diff stats for staged and unstaged files
+    const [stagedStats, unstagedStats] = await Promise.all([
+      getDiffStats(resolvedPath, true),
+      getDiffStats(resolvedPath, false),
+    ]);
+
     const lines = statusOutput.trim().split('\n');
     const status: GitStatus = {
       branch: '',
@@ -88,17 +94,23 @@ export async function GET(request: NextRequest) {
 
       // Staged changes (index has status)
       if (indexStatus !== ' ' && indexStatus !== '?') {
+        const stats = stagedStats.get(actualPath);
         status.staged.push({
           path: actualPath,
           status: mapStatusCode(indexStatus),
+          additions: stats?.additions,
+          deletions: stats?.deletions,
         });
       }
 
       // Unstaged changes (worktree has status)
       if (worktreeStatus !== ' ' && worktreeStatus !== '?') {
+        const stats = unstagedStats.get(actualPath);
         status.unstaged.push({
           path: actualPath,
           status: mapStatusCode(worktreeStatus),
+          additions: stats?.additions,
+          deletions: stats?.deletions,
         });
       }
     }
@@ -173,4 +185,37 @@ function mapStatusCode(code: string): GitFileStatusCode {
     'U': 'U', // Unmerged
   };
   return statusMap[code] || 'M';
+}
+
+async function getDiffStats(
+  cwd: string,
+  staged: boolean
+): Promise<Map<string, { additions: number; deletions: number }>> {
+  const stats = new Map<string, { additions: number; deletions: number }>();
+
+  try {
+    const args = ['diff', '--numstat'];
+    if (staged) args.push('--cached');
+
+    const { stdout } = await execFileAsync('git', args, {
+      cwd,
+      timeout: GIT_TIMEOUT,
+    });
+
+    // Parse numstat output: additions\tdeletions\tfilepath
+    for (const line of stdout.trim().split('\n')) {
+      if (!line) continue;
+      const [add, del, filePath] = line.split('\t');
+      if (filePath) {
+        stats.set(filePath, {
+          additions: add === '-' ? 0 : parseInt(add, 10) || 0,
+          deletions: del === '-' ? 0 : parseInt(del, 10) || 0,
+        });
+      }
+    }
+  } catch {
+    // Ignore errors, stats are optional
+  }
+
+  return stats;
 }

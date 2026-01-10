@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, RefreshCw, GitBranch, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitSection } from './git-section';
 import { useProjectStore } from '@/stores/project-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
-import type { GitStatus } from '@/types';
+import type { GitStatus, GitFileStatus } from '@/types';
 
 export function GitPanel() {
   const { currentProject } = useProjectStore();
@@ -69,6 +69,12 @@ export function GitPanel() {
     [setDiffFile]
   );
 
+  // Combine unstaged and untracked into single "Changes" section
+  const changes: GitFileStatus[] = useMemo(() => {
+    if (!status) return [];
+    return [...(status.unstaged || []), ...(status.untracked || [])];
+  }, [status]);
+
   if (loading && !status) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -96,10 +102,7 @@ export function GitPanel() {
     );
   }
 
-  const totalChanges =
-    (status?.staged.length || 0) +
-    (status?.unstaged.length || 0) +
-    (status?.untracked.length || 0);
+  const totalChanges = (status?.staged.length || 0) + changes.length;
 
   return (
     <div className="flex flex-col h-full">
@@ -155,28 +158,24 @@ export function GitPanel() {
             </div>
           ) : (
             <>
-              <GitSection
-                title="Staged Changes"
-                files={status?.staged || []}
-                selectedFile={selectedFile}
-                onFileClick={handleFileClick}
-                staged={true}
-              />
+              {/* Changes section (unstaged + untracked) */}
               <GitSection
                 title="Changes"
-                files={status?.unstaged || []}
+                files={changes}
                 selectedFile={selectedFile}
                 onFileClick={handleFileClick}
                 staged={false}
               />
-              <GitSection
-                title="Untracked"
-                files={status?.untracked || []}
-                selectedFile={selectedFile}
-                onFileClick={handleFileClick}
-                staged={false}
-                defaultExpanded={false}
-              />
+              {/* Staged section (only show if has staged files) */}
+              {(status?.staged.length || 0) > 0 && (
+                <GitSection
+                  title="Staged"
+                  files={status?.staged || []}
+                  selectedFile={selectedFile}
+                  onFileClick={handleFileClick}
+                  staged={true}
+                />
+              )}
             </>
           )}
         </div>

@@ -135,6 +135,8 @@ export type GitFileStatusCode = 'M' | 'A' | 'D' | 'R' | 'U' | '?';
 export interface GitFileStatus {
   path: string;
   status: GitFileStatusCode;
+  additions?: number;
+  deletions?: number;
 }
 
 export interface GitStatus {

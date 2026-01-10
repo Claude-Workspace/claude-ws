@@ -13,6 +13,8 @@ interface GitSectionProps {
   selectedFile: string | null;
   onFileClick: (path: string, staged: boolean) => void;
   staged: boolean;
+  onStage?: (path: string) => void;
+  onDiscard?: (path: string) => void;
 }
 
 export function GitSection({
@@ -22,6 +24,8 @@ export function GitSection({
   selectedFile,
   onFileClick,
   staged,
+  onStage,
+  onDiscard,
 }: GitSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -48,13 +52,16 @@ export function GitSection({
       </button>
 
       {isExpanded && (
-        <div className="ml-2 mt-0.5">
+        <div className="mt-0.5">
           {files.map((file) => (
             <GitFileItem
               key={file.path}
               file={file}
               isSelected={selectedFile === file.path}
+              staged={staged}
               onClick={() => onFileClick(file.path, staged)}
+              onStage={onStage ? () => onStage(file.path) : undefined}
+              onDiscard={onDiscard ? () => onDiscard(file.path) : undefined}
             />
           ))}
         </div>
