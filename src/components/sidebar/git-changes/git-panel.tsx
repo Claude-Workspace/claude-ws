@@ -5,6 +5,7 @@ import { Loader2, RefreshCw, GitBranch, ArrowUp, ArrowDown, Check } from 'lucide
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitSection } from './git-section';
+import { GitGraph } from './git-graph';
 import { useProjectStore } from '@/stores/project-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import type { GitStatus, GitFileStatus } from '@/types';
@@ -293,7 +294,7 @@ export function GitPanel() {
       <ScrollArea className="flex-1">
         <div className="py-1">
           {totalChanges === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
+            <div className="flex flex-col items-center justify-center py-4 text-muted-foreground text-sm">
               <p>No changes</p>
               <p className="text-xs mt-1">Working tree clean</p>
             </div>
@@ -323,6 +324,9 @@ export function GitPanel() {
               />
             </>
           )}
+
+          {/* Commit Graph */}
+          <GitGraph />
         </div>
       </ScrollArea>
     </div>
