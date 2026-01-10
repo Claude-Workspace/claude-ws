@@ -14,6 +14,11 @@ interface GitFileItemProps {
   onDiscard?: () => void;
 }
 
+// Check if file is new (added or untracked)
+function isNewFile(status: string): boolean {
+  return status === 'A' || status === '?';
+}
+
 // VS Code style status colors
 const statusColors: Record<string, string> = {
   M: 'text-yellow-500', // Modified
@@ -46,6 +51,8 @@ export function GitFileItem({
   const parts = file.path.split('/');
   const fileName = parts.pop() || file.path;
   const parentDir = parts.length > 0 ? parts.join('/') : '';
+  const isNew = isNewFile(file.status);
+  const hasStats = !isNew && (file.additions !== undefined || file.deletions !== undefined);
 
   return (
     <div
@@ -69,6 +76,19 @@ export function GitFileItem({
           </span>
         )}
       </div>
+
+      {/* Stats: +X -Y for modified, "New" for new files */}
+      {isNew ? (
+        <span className="text-[10px] text-green-500 font-medium shrink-0 mr-1">
+          New
+        </span>
+      ) : hasStats ? (
+        <span className="text-[10px] shrink-0 mr-1">
+          <span className="text-green-500">+{file.additions || 0}</span>
+          {' '}
+          <span className="text-red-500">-{file.deletions || 0}</span>
+        </span>
+      ) : null}
 
       {/* Action buttons (visible on hover) */}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
