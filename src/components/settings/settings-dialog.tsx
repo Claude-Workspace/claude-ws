@@ -26,7 +26,7 @@ const THEME_OPTIONS = [
   { value: 'dark', label: 'Default Dark', icon: Moon },
   { value: 'theme-vscode-light', label: 'VS Code Light', icon: Palette },
   { value: 'theme-vscode-dark', label: 'VS Code Dark', icon: Palette },
-  { value: 'theme-dracula', label: 'Dracula', icon: Palette },
+  { value: 'dracula-dark', label: 'Dracula Dark', icon: Palette },
 ] as const;
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {

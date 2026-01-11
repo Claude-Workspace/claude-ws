@@ -11,12 +11,12 @@ import { useActiveProject } from '@/hooks/use-active-project';
 import type { FileEntry } from '@/types';
 
 interface FileTreeProps {
-  onFileSelect?: (path: string) => void;
+  onFileSelect?: (path: string, lineNumber?: number, column?: number, matchLength?: number) => void;
 }
 
 export function FileTree({ onFileSelect }: FileTreeProps) {
   const activeProject = useActiveProject();
-  const { expandedFolders, toggleFolder, selectedFile, setSelectedFile, setPreviewFile } =
+  const { expandedFolders, toggleFolder, selectedFile, setSelectedFile, setPreviewFile, setEditorPosition } =
     useSidebarStore();
 
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -58,12 +58,17 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   }, []);
 
   const handleFileClick = useCallback(
-    (path: string) => {
+    (path: string, lineNumber?: number, column?: number, matchLength?: number) => {
       setSelectedFile(path);
       setPreviewFile(path);
-      onFileSelect?.(path);
+      if (lineNumber !== undefined) {
+        setEditorPosition({ lineNumber, column, matchLength });
+      } else {
+        setEditorPosition(null);
+      }
+      onFileSelect?.(path, lineNumber, column, matchLength);
     },
-    [setSelectedFile, setPreviewFile, onFileSelect]
+    [setSelectedFile, setPreviewFile, setEditorPosition, onFileSelect]
   );
 
   const handleSearchChange = useCallback((results: SearchResults | null) => {

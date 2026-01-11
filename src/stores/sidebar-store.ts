@@ -10,6 +10,8 @@ interface SidebarState {
   selectedFile: string | null;
   previewFile: string | null;
   sidebarWidth: number;
+  // Editor position for search result navigation
+  editorPosition: { lineNumber?: number; column?: number; matchLength?: number } | null;
   // Git diff state
   diffFile: string | null;
   diffStaged: boolean;
@@ -26,6 +28,7 @@ interface SidebarActions {
   setPreviewFile: (path: string | null) => void;
   closePreview: () => void;
   setSidebarWidth: (width: number) => void;
+  setEditorPosition: (position: { lineNumber?: number; column?: number; matchLength?: number } | null) => void;
   // Git diff actions
   setDiffFile: (path: string | null, staged?: boolean) => void;
   closeDiff: () => void;
@@ -43,6 +46,7 @@ export const useSidebarStore = create<SidebarStore>()(
       selectedFile: null,
       previewFile: null,
       sidebarWidth: 280,
+      editorPosition: null,
       diffFile: null,
       diffStaged: false,
 
@@ -85,6 +89,8 @@ export const useSidebarStore = create<SidebarStore>()(
       closePreview: () => set({ previewFile: null }),
 
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
+
+      setEditorPosition: (editorPosition) => set({ editorPosition }),
 
       setDiffFile: (diffFile, staged = false) => set({ diffFile, diffStaged: staged }),
 

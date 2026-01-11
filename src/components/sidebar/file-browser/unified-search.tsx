@@ -37,6 +37,8 @@ export interface SearchResults {
   query: string;
 }
 
+type SearchMode = 'all' | 'files' | 'content';
+
 interface UnifiedSearchProps {
   onSearchChange: (results: SearchResults | null) => void;
   className?: string;
@@ -48,6 +50,7 @@ export function UnifiedSearch({ onSearchChange, className }: UnifiedSearchProps)
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode>('all');
 
   // Search effect
   useEffect(() => {
@@ -63,27 +66,31 @@ export function UnifiedSearch({ onSearchChange, className }: UnifiedSearchProps)
       onSearchChange({ fileResults: [], contentResults: [], loading: true, query });
 
       try {
-        // Parallel search: files and content
-        const [filesRes, contentRes] = await Promise.all([
-          fetch(`/api/search/files?q=${encodeURIComponent(query)}&basePath=${encodeURIComponent(activeProject.path)}&limit=50`, {
-            signal: controller.signal,
-          }),
-          fetch(`/api/search/content?q=${encodeURIComponent(query)}&basePath=${encodeURIComponent(activeProject.path)}&maxFiles=20&limit=10`, {
-            signal: controller.signal,
-          }),
-        ]);
-
         let fileResults: FileResult[] = [];
         let contentResults: ContentResult[] = [];
 
-        if (filesRes.ok) {
-          const data = await filesRes.json();
-          fileResults = data.results || [];
+        // Search files if mode is 'all' or 'files'
+        if (searchMode === 'all' || searchMode === 'files') {
+          const filesRes = await fetch(
+            `/api/search/files?q=${encodeURIComponent(query)}&basePath=${encodeURIComponent(activeProject.path)}&limit=50`,
+            { signal: controller.signal }
+          );
+          if (filesRes.ok) {
+            const data = await filesRes.json();
+            fileResults = data.results || [];
+          }
         }
 
-        if (contentRes.ok) {
-          const data = await contentRes.json();
-          contentResults = data.results || [];
+        // Search content if mode is 'all' or 'content'
+        if (searchMode === 'all' || searchMode === 'content') {
+          const contentRes = await fetch(
+            `/api/search/content?q=${encodeURIComponent(query)}&basePath=${encodeURIComponent(activeProject.path)}&maxFiles=20&limit=10`,
+            { signal: controller.signal }
+          );
+          if (contentRes.ok) {
+            const data = await contentRes.json();
+            contentResults = data.results || [];
+          }
         }
 
         onSearchChange({ fileResults, contentResults, loading: false, query });
@@ -102,7 +109,7 @@ export function UnifiedSearch({ onSearchChange, className }: UnifiedSearchProps)
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, activeProject?.path, onSearchChange]);
+  }, [query, activeProject?.path, onSearchChange, searchMode]);
 
   const handleClear = useCallback(() => {
     setQuery('');
@@ -111,26 +118,68 @@ export function UnifiedSearch({ onSearchChange, className }: UnifiedSearchProps)
   }, [onSearchChange]);
 
   return (
-    <div className={cn('relative', className)}>
-      <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-      <Input
-        ref={inputRef}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search files..."
-        className="pl-8 pr-8 h-8 text-sm"
-        data-slot="unified-search-input"
-      />
-      {query && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 -translate-y-1/2 size-6"
-          onClick={handleClear}
+    <div className={cn('space-y-2', className)}>
+      {/* Search input */}
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={searchMode === 'content' ? 'Search content...' : searchMode === 'files' ? 'Search files...' : 'Search files...'}
+          className="pl-8 pr-8 h-8 text-sm"
+          data-slot="unified-search-input"
+        />
+        {query && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 size-6"
+            onClick={handleClear}
+          >
+            <X className="size-3" />
+          </Button>
+        )}
+      </div>
+
+      {/* Search mode filter */}
+      <div className="flex items-center gap-1 px-1">
+        <button
+          onClick={() => setSearchMode('files')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md transition-colors',
+            searchMode === 'files'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent'
+          )}
         >
-          <X className="size-3" />
-        </Button>
-      )}
+          <FileText className="size-3.5" />
+          Files
+        </button>
+        <button
+          onClick={() => setSearchMode('content')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md transition-colors',
+            searchMode === 'content'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent'
+          )}
+        >
+          <FileCode className="size-3.5" />
+          Content
+        </button>
+        <button
+          onClick={() => setSearchMode('all')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md transition-colors',
+            searchMode === 'all'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent'
+          )}
+        >
+          All
+        </button>
+      </div>
     </div>
   );
 }
@@ -138,7 +187,7 @@ export function UnifiedSearch({ onSearchChange, className }: UnifiedSearchProps)
 // Inline search results view (replaces tree when searching)
 interface SearchResultsViewProps {
   results: SearchResults;
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, lineNumber?: number, column?: number, matchLength?: number) => void;
 }
 
 export function SearchResultsView({ results, onFileSelect }: SearchResultsViewProps) {
@@ -156,6 +205,12 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
     setSelectedFile(path);
     setPreviewFile(path);
     onFileSelect(path);
+  }, [setSelectedFile, setPreviewFile, onFileSelect]);
+
+  const handleLineClick = useCallback((path: string, lineNumber: number, column: number, matchLength: number) => {
+    setSelectedFile(path);
+    setPreviewFile(path);
+    onFileSelect(path, lineNumber, column, matchLength);
   }, [setSelectedFile, setPreviewFile, onFileSelect]);
 
   const toggleContentFile = useCallback((file: string) => {
@@ -258,7 +313,7 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
                       <button
                         key={idx}
                         className="w-full flex items-start gap-2 px-3 py-1 hover:bg-accent text-left font-mono text-xs"
-                        onClick={() => handleFileClick(result.file)}
+                        onClick={() => handleLineClick(result.file, match.lineNumber, match.column, match.matchLength)}
                       >
                         <span className="text-muted-foreground w-8 text-right shrink-0">
                           {match.lineNumber}
@@ -295,7 +350,7 @@ function HighlightedText({ text, matches }: { text: string; matches: number[] })
     <>
       {segments.map((seg, i) =>
         seg.isMatch ? (
-          <span key={i} className="text-primary font-bold">{seg.text}</span>
+          <span key={i} className="bg-blue-500/30 text-blue-600 dark:text-blue-400 font-semibold px-0.5 rounded">{seg.text}</span>
         ) : (
           <span key={i}>{seg.text}</span>
         )
@@ -313,7 +368,7 @@ function HighlightedLine({ line, column, matchLength }: { line: string; column: 
   return (
     <>
       <span className="text-muted-foreground">{before}</span>
-      <span className="bg-yellow-500/40 text-foreground font-semibold">{match}</span>
+      <span className="bg-blue-500/30 text-blue-600 dark:text-blue-400 font-semibold px-0.5 rounded">{match}</span>
       <span className="text-muted-foreground">{after}</span>
     </>
   );

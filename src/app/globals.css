@@ -234,7 +234,7 @@
  * Pink: #FF79C6 | Purple: #BD93F9 | Red: #FF5555 | Yellow: #F1FA8C
  * WCAG 2.1 Level AA compliant (4.5:1 contrast ratio)
  */
-.theme-dracula {
+.dracula-dark {
   /* Core backgrounds - #282A36 (bg), #44475A (selection/card) */
   --background: oklch(0.224 0.023 277);
   --foreground: oklch(0.975 0.005 110);

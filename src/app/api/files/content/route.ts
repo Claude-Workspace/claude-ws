@@ -2,53 +2,63 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// Max file size: 1MB
-const MAX_FILE_SIZE = 1024 * 1024;
+// Max file size: 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// Language mapping by extension
-const LANGUAGE_MAP: Record<string, string> = {
+// Language mapping by extension (must match CodeMirror language keys)
+const LANGUAGE_MAP: Record<string, string | null> = {
   // JavaScript/TypeScript
   '.js': 'javascript',
-  '.jsx': 'javascript',
+  '.jsx': 'jsx',
   '.ts': 'typescript',
-  '.tsx': 'typescript',
+  '.tsx': 'tsx',
   '.mjs': 'javascript',
   '.cjs': 'javascript',
   // Web
   '.html': 'html',
   '.htm': 'html',
   '.css': 'css',
-  '.scss': 'scss',
-  '.sass': 'sass',
-  '.less': 'less',
+  '.scss': 'css',
+  '.sass': 'css',
+  '.less': 'css',
   // Data
   '.json': 'json',
   '.yaml': 'yaml',
   '.yml': 'yaml',
   '.xml': 'xml',
-  '.toml': 'toml',
+  '.toml': null, // Not supported
   // Config
-  '.env': 'plaintext',
-  '.gitignore': 'plaintext',
-  '.dockerignore': 'plaintext',
+  '.env': null,
+  '.gitignore': null,
+  '.dockerignore': null,
   // Markdown
   '.md': 'markdown',
   '.mdx': 'markdown',
-  // Shell
-  '.sh': 'bash',
-  '.bash': 'bash',
-  '.zsh': 'bash',
+  // Shell (not supported in CodeMirror, will be plain text)
+  '.sh': null,
+  '.bash': null,
+  '.zsh': null,
   // Python
   '.py': 'python',
-  // Go
-  '.go': 'go',
+  // Go (not supported)
+  '.go': null,
   // Rust
   '.rs': 'rust',
   // SQL
   '.sql': 'sql',
+  // PHP
+  '.php': 'php',
+  // Java
+  '.java': 'java',
+  // C/C++
+  '.c': 'cpp',
+  '.cpp': 'cpp',
+  '.cc': 'cpp',
+  '.h': 'cpp',
+  '.hpp': 'cpp',
   // Others
-  '.txt': 'plaintext',
-  '.log': 'plaintext',
+  '.txt': null,
+  '.log': null,
 };
 
 // Binary file extensions (don't try to read as text)
@@ -158,24 +168,24 @@ function getMimeType(ext: string): string {
   return mimeTypes[ext] || 'application/octet-stream';
 }
 
-function detectLanguage(filePath: string): string {
+function detectLanguage(filePath: string): string | null {
   const fileName = path.basename(filePath);
 
   // Special file names
-  const specialFiles: Record<string, string> = {
-    'Dockerfile': 'dockerfile',
-    'Makefile': 'makefile',
+  const specialFiles: Record<string, string | null> = {
+    'Dockerfile': null,
+    'Makefile': null,
     '.eslintrc': 'json',
     '.prettierrc': 'json',
     'tsconfig.json': 'json',
     'package.json': 'json',
   };
 
-  if (specialFiles[fileName]) {
+  if (specialFiles[fileName] !== undefined) {
     return specialFiles[fileName];
   }
 
-  return 'plaintext';
+  return null;
 }
 
 // POST /api/files/content - Save file content
