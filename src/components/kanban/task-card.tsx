@@ -56,7 +56,7 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
       <div
         className={cn(
           'relative bg-card rounded-lg border border-border',
-          'p-3 transition-all duration-200',
+          'px-2.5 py-2.5 transition-all duration-200',
           'hover:border-border/80 hover:shadow-sm',
           isSelected && 'ring-2 ring-primary ring-offset-1 ring-offset-background border-primary',
           isDragging && 'cursor-grabbing shadow-lg'
@@ -67,41 +67,41 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
           {...attributes}
           {...listeners}
           className={cn(
-            'absolute left-1 top-1/2 -translate-y-1/2 cursor-grab touch-none p-1 rounded',
-            'text-muted-foreground/50 hover:text-muted-foreground',
+            'absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab touch-none p-0.5 rounded',
+            'text-muted-foreground/40 hover:text-muted-foreground',
             'opacity-0 group-hover:opacity-100 transition-opacity',
             'hover:bg-muted'
           )}
           aria-label="Drag handle"
         >
-          <GripVertical className="size-3.5" />
+          <GripVertical className="size-3" />
         </button>
 
-        <div className="pl-5">
-          {/* Header: Project badge */}
+        <div className="pl-3.5">
+          {/* Header: Project badge - smaller */}
           {showProjectBadge && projectName && (
-            <div className="mb-2">
-              <span className="inline-flex items-center text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            <div className="mb-1">
+              <span className="inline-flex items-center text-[9px] font-medium text-muted-foreground/70 uppercase tracking-wide">
                 {projectName}
               </span>
             </div>
           )}
 
-          {/* Title */}
-          <h3 className="font-semibold text-[13px] leading-snug text-card-foreground line-clamp-2">
+          {/* Title - larger */}
+          <h3 className="font-semibold text-sm leading-snug text-card-foreground line-clamp-2">
             {task.title}
           </h3>
 
           {/* Description */}
           {task.description && (
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
               {task.description}
             </p>
           )}
 
           {/* Footer: Metadata */}
           {attemptCount > 0 && (
-            <div className="mt-3 pt-2 border-t border-border flex items-center gap-2">
+            <div className="mt-2 pt-1.5 border-t border-border/50 flex items-center gap-2">
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <MessageSquare className="size-3" />
                 <span>{attemptCount}</span>
