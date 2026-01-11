@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { PromptInput } from './prompt-input';
 import { ConversationView } from './conversation-view';
+import { InteractiveCommandOverlay, QuestionPrompt } from './interactive-command';
 import { useTaskStore } from '@/stores/task-store';
 import { useAttemptStream } from '@/hooks/use-attempt-stream';
+import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { cn } from '@/lib/utils';
 import type { TaskStatus } from '@/types';
 
@@ -92,7 +94,17 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     [updateTaskStatus]
   );
 
-  const { messages, startAttempt, isRunning, isConnected, currentAttemptId, currentPrompt } = useAttemptStream({
+  const {
+    messages,
+    startAttempt,
+    isRunning,
+    isConnected,
+    currentAttemptId,
+    currentPrompt,
+    activeQuestion,
+    answerQuestion,
+    cancelQuestion,
+  } = useAttemptStream({
     taskId: selectedTask?.id,
     onComplete: handleTaskComplete,
   });
@@ -189,9 +201,30 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
 
       <Separator />
 
-      {/* Prompt Input */}
-      <div className="p-4">
-        <PromptInput onSubmit={handlePromptSubmit} disabled={isRunning} />
+      {/* Prompt Input with Interactive Command Overlay or Question Prompt */}
+      <div className="relative">
+        {activeQuestion ? (
+          <div className="border-t bg-muted/30">
+            <QuestionPrompt
+              questions={activeQuestion.questions}
+              onAnswer={(answers) => {
+                // For single-select, send the first answer
+                // For multi-select, join with commas
+                const firstAnswer = Object.values(answers)[0];
+                const answerStr = Array.isArray(firstAnswer)
+                  ? firstAnswer.join(', ')
+                  : firstAnswer;
+                answerQuestion(answerStr);
+              }}
+              onCancel={cancelQuestion}
+            />
+          </div>
+        ) : (
+          <div className="p-4">
+            <PromptInput onSubmit={handlePromptSubmit} disabled={isRunning} taskId={selectedTask.id} />
+            <InteractiveCommandOverlay />
+          </div>
+        )}
       </div>
     </div>
   );

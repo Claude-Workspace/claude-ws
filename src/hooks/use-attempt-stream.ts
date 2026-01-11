@@ -9,6 +9,25 @@ interface UseAttemptStreamOptions {
   onComplete?: (taskId: string) => void;
 }
 
+// Question types for AskUserQuestion
+interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+interface ActiveQuestion {
+  attemptId: string;
+  toolUseId: string;
+  questions: Question[];
+}
+
 interface UseAttemptStreamResult {
   messages: ClaudeOutput[];
   isConnected: boolean;
@@ -16,6 +35,9 @@ interface UseAttemptStreamResult {
   currentAttemptId: string | null;
   currentPrompt: string | null;
   isRunning: boolean;
+  activeQuestion: ActiveQuestion | null;
+  answerQuestion: (answer: string) => void;
+  cancelQuestion: () => void;
 }
 
 export function useAttemptStream(
@@ -30,6 +52,7 @@ export function useAttemptStream(
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState<ActiveQuestion | null>(null);
 
   // Keep callback ref updated
   onCompleteRef.current = options?.onComplete;
@@ -111,6 +134,19 @@ export function useAttemptStream(
       setIsRunning(false);
     });
 
+    // Listen for AskUserQuestion
+    socketInstance.on(
+      'question:ask',
+      (data: { attemptId: string; toolUseId: string; questions: Question[] }) => {
+        console.log('[useAttemptStream] Received question:ask', data);
+        setActiveQuestion({
+          attemptId: data.attemptId,
+          toolUseId: data.toolUseId,
+          questions: data.questions,
+        });
+      }
+    );
+
     return () => {
       socketInstance.close();
       socketRef.current = null;
@@ -173,6 +209,35 @@ export function useAttemptStream(
     [isConnected]
   );
 
+  // Answer a question from AskUserQuestion
+  const answerQuestion = useCallback(
+    (answer: string) => {
+      const socket = socketRef.current;
+      if (!socket || !activeQuestion) return;
+
+      console.log('[useAttemptStream] Sending answer:', answer);
+      socket.emit('question:answer', {
+        attemptId: activeQuestion.attemptId,
+        answer,
+      });
+      setActiveQuestion(null);
+    },
+    [activeQuestion]
+  );
+
+  // Cancel/dismiss a question (sends empty or escape)
+  const cancelQuestion = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket || !activeQuestion) return;
+
+    // Send escape key to cancel
+    socket.emit('question:answer', {
+      attemptId: activeQuestion.attemptId,
+      answer: '\x1b', // Escape character
+    });
+    setActiveQuestion(null);
+  }, [activeQuestion]);
+
   return {
     messages,
     isConnected,
@@ -180,5 +245,8 @@ export function useAttemptStream(
     currentAttemptId,
     currentPrompt,
     isRunning,
+    activeQuestion,
+    answerQuestion,
+    cancelQuestion,
   };
 }

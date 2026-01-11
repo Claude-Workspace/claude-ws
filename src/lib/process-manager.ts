@@ -68,9 +68,9 @@ class ProcessManager extends EventEmitter {
 
     console.log(`[ProcessManager] Claude command: ${claudeCmd.substring(0, 150)}...`);
 
-    // Use 'script' command with stdin from /dev/null to create a pseudo-terminal
-    // This trick allows script to work without a real TTY on stdin
-    const fullCmd = `script -q /dev/null ${claudeCmd} < /dev/null`;
+    // Use 'script' command to create a pseudo-terminal
+    // Keep stdin open for interactive responses (AskUserQuestion)
+    const fullCmd = `script -q /dev/null ${claudeCmd}`;
 
     const child = spawn('/bin/zsh', ['-c', fullCmd], {
       cwd: projectPath,
@@ -154,6 +154,18 @@ class ProcessManager extends EventEmitter {
       // Non-JSON output - emit as raw
       this.emit('raw', { attemptId: instance.attemptId, content: line });
     }
+  }
+
+  /**
+   * Send input to process stdin (for interactive responses like AskUserQuestion)
+   */
+  sendInput(attemptId: string, input: string): boolean {
+    const instance = this.processes.get(attemptId);
+    if (!instance || !instance.child.stdin) return false;
+
+    console.log(`[ProcessManager] Sending input to ${attemptId}: ${input.substring(0, 100)}...`);
+    instance.child.stdin.write(input + '\n');
+    return true;
   }
 
   /**

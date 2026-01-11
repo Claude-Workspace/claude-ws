@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, Command } from 'lucide-react';
 import { CommandSelector } from './command-selector';
+import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { cn } from '@/lib/utils';
 
 interface PromptInputProps {
@@ -12,6 +13,7 @@ interface PromptInputProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  taskId?: string;
 }
 
 export function PromptInput({
@@ -19,12 +21,14 @@ export function PromptInput({
   disabled = false,
   placeholder = 'Describe what you want Claude to do... (type / for commands)',
   className,
+  taskId,
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState('');
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { openCommand } = useInteractiveCommandStore();
 
   // Detect slash command input
   useEffect(() => {
@@ -99,7 +103,40 @@ export function PromptInput({
     }
   };
 
-  const handleCommandSelect = (command: string) => {
+  const handleCommandSelect = (command: string, isInteractive?: boolean) => {
+    // Handle interactive commands
+    if (isInteractive && taskId) {
+      setShowCommands(false);
+      setPrompt('');
+
+      // Map command name to interactive command type
+      switch (command) {
+        case 'rewind':
+          openCommand({ type: 'rewind', taskId });
+          break;
+        case 'model':
+          openCommand({ type: 'model', currentModel: 'claude-sonnet-4-20250514' });
+          break;
+        case 'config':
+          openCommand({ type: 'config' });
+          break;
+        case 'clear':
+          openCommand({ type: 'clear', taskId });
+          break;
+        case 'compact':
+          openCommand({ type: 'compact', taskId });
+          break;
+        default:
+          // Unknown interactive command, fall back to regular handling
+          const cmdText = `/${command} `;
+          setPrompt(cmdText);
+          setSelectedCommand(command);
+          textareaRef.current?.focus();
+      }
+      return;
+    }
+
+    // Regular command handling
     const cmdText = `/${command} `;
     setPrompt(cmdText);
     setSelectedCommand(command);

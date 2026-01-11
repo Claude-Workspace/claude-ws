@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FolderTree, GitBranch, X, GripVertical, FolderOpen } from 'lucide-react';
+import { FolderTree, GitBranch, X, GripVertical, FolderOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileTree } from './file-browser';
@@ -27,7 +27,8 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
     setActiveProjectId,
     getActiveProject,
     isAllProjectsMode,
-    getSelectedProjects
+    getSelectedProjects,
+    loading: projectsLoading
   } = useProjectStore();
   const [width, setWidth] = useState(sidebarWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -119,8 +120,13 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Show placeholder when multi-select without active project */}
-        {isMultiSelect && !activeProject ? (
+        {/* Show loading when projects are loading and we have a saved activeProjectId */}
+        {projectsLoading && activeProjectId && !activeProject ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : isMultiSelect && !activeProject ? (
+          /* Show placeholder when multi-select without active project */
           <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
             <FolderOpen className="size-8 text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground mb-3">

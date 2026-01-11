@@ -8,11 +8,13 @@ interface CommandInfo {
   name: string;
   description: string;
   argumentHint?: string;
+  isBuiltIn?: boolean;
+  isInteractive?: boolean;
 }
 
 interface CommandSelectorProps {
   isOpen: boolean;
-  onSelect: (command: string) => void;
+  onSelect: (command: string, isInteractive?: boolean) => void;
   onClose: () => void;
   filter?: string;
   className?: string;
@@ -72,7 +74,7 @@ export function CommandSelector({
         e.preventDefault();
         const selected = filteredCommands[selectedIndex];
         if (selected) {
-          onSelect(selected.name);
+          onSelect(selected.name, selected.isInteractive);
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -129,7 +131,7 @@ export function CommandSelector({
           filteredCommands.map((cmd, index) => (
             <button
               key={cmd.name}
-              onClick={() => onSelect(cmd.name)}
+              onClick={() => onSelect(cmd.name, cmd.isInteractive)}
               onMouseEnter={() => setSelectedIndex(index)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors',

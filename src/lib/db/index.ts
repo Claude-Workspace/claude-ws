@@ -69,6 +69,18 @@ export function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_logs_attempt ON attempt_logs(attempt_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS checkpoints (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+      session_id TEXT NOT NULL,
+      message_count INTEGER NOT NULL,
+      summary TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_checkpoints_task ON checkpoints(task_id, created_at);
   `);
 
   // Migration: Add session_id column if it doesn't exist (for existing databases)

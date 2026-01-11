@@ -132,6 +132,22 @@ app.prepare().then(() => {
       socket.leave(`attempt:${data.attemptId}`);
     });
 
+    // Handle AskUserQuestion response
+    socket.on(
+      'question:answer',
+      (data: { attemptId: string; answer: string }) => {
+        const { attemptId, answer } = data;
+        console.log(`[Server] Received answer for ${attemptId}: ${answer}`);
+
+        // Send the answer to Claude's stdin
+        const sent = processManager.sendInput(attemptId, answer);
+        if (!sent) {
+          console.error(`[Server] Failed to send answer to ${attemptId}`);
+          socket.emit('error', { message: 'Failed to send answer' });
+        }
+      }
+    );
+
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`);
     });
@@ -149,6 +165,20 @@ app.prepare().then(() => {
         .update(schema.attempts)
         .set({ sessionId: data.session_id })
         .where(eq(schema.attempts.id, attemptId));
+    }
+
+    // Detect AskUserQuestion tool_use and emit special event
+    if (data.type === 'assistant' && data.message?.content) {
+      for (const block of data.message.content) {
+        if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
+          console.log(`[Server] AskUserQuestion detected for ${attemptId}`);
+          io.to(`attempt:${attemptId}`).emit('question:ask', {
+            attemptId,
+            toolUseId: block.id,
+            questions: (block.input as { questions: unknown[] }).questions,
+          });
+        }
+      }
     }
 
     // Save to database
@@ -190,6 +220,38 @@ app.prepare().then(() => {
       .set({ status, completedAt: Date.now() })
       .where(eq(schema.attempts.id, attemptId));
 
+    // Create checkpoint on successful completion
+    if (code === 0) {
+      try {
+        const attempt = await db.query.attempts.findFirst({
+          where: eq(schema.attempts.id, attemptId),
+        });
+
+        if (attempt?.sessionId) {
+          // Count messages in this attempt
+          const logs = await db.query.attemptLogs.findMany({
+            where: eq(schema.attemptLogs.attemptId, attemptId),
+          });
+
+          // Extract summary from last assistant message
+          const summary = extractSummary(logs);
+
+          await db.insert(schema.checkpoints).values({
+            id: nanoid(),
+            taskId: attempt.taskId,
+            attemptId,
+            sessionId: attempt.sessionId,
+            messageCount: logs.filter((l) => l.type === 'json').length,
+            summary,
+          });
+
+          console.log(`[Server] Created checkpoint for attempt ${attemptId}`);
+        }
+      } catch (error) {
+        console.error(`[Server] Failed to create checkpoint for ${attemptId}:`, error);
+      }
+    }
+
     // Clean up in-memory session tracking
     attemptSessionIds.delete(attemptId);
 
@@ -199,6 +261,27 @@ app.prepare().then(() => {
       code,
     });
   });
+
+  // Extract summary from last assistant message
+  function extractSummary(logs: { type: string; content: string }[]): string {
+    for (let i = logs.length - 1; i >= 0; i--) {
+      if (logs[i].type === 'json') {
+        try {
+          const data = JSON.parse(logs[i].content);
+          if (data.type === 'assistant' && data.message?.content) {
+            const text = data.message.content
+              .filter((b: { type: string }) => b.type === 'text')
+              .map((b: { text: string }) => b.text)
+              .join(' ');
+            return text.substring(0, 100) + (text.length > 100 ? '...' : '');
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+    return '';
+  }
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);

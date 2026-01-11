@@ -3,10 +3,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, MessageSquare } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 
@@ -54,51 +53,63 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
       )}
       onClick={() => selectTask(task.id)}
     >
-      <Card
+      <div
         className={cn(
-          'p-3 transition-all hover:shadow-md',
-          isSelected && 'ring-2 ring-blue-500 ring-offset-2',
-          isDragging && 'cursor-grabbing'
+          'relative bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800',
+          'p-3 transition-all duration-200',
+          'hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-sm',
+          isSelected && 'ring-2 ring-primary ring-offset-1 border-primary',
+          isDragging && 'cursor-grabbing shadow-lg'
         )}
       >
-        <div className="flex items-start gap-2">
-          <button
-            {...attributes}
-            {...listeners}
-            className="cursor-grab touch-none p-1 -ml-1 text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Drag handle"
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+        {/* Drag handle - visible on hover */}
+        <button
+          {...attributes}
+          {...listeners}
+          className={cn(
+            'absolute left-1 top-1/2 -translate-y-1/2 cursor-grab touch-none p-1 rounded',
+            'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400',
+            'opacity-0 group-hover:opacity-100 transition-opacity',
+            'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+          )}
+          aria-label="Drag handle"
+        >
+          <GripVertical className="size-3.5" />
+        </button>
 
-          <div className="flex-1 min-w-0">
-            {/* Project badge */}
-            {showProjectBadge && projectName && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 mb-1 font-normal">
+        <div className="pl-5">
+          {/* Header: Project badge */}
+          {showProjectBadge && projectName && (
+            <div className="mb-2">
+              <span className="inline-flex items-center text-[10px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                 {projectName}
-              </Badge>
-            )}
+              </span>
+            </div>
+          )}
 
-            <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-              {task.title}
-            </h3>
+          {/* Title */}
+          <h3 className="font-semibold text-[13px] leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2">
+            {task.title}
+          </h3>
 
-            {task.description && (
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                {task.description}
-              </p>
-            )}
+          {/* Description */}
+          {task.description && (
+            <p className="mt-1.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400 line-clamp-2">
+              {task.description}
+            </p>
+          )}
 
-            {attemptCount > 0 && (
-              <div className="mt-2 flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  {attemptCount} {attemptCount === 1 ? 'attempt' : 'attempts'}
-                </Badge>
+          {/* Footer: Metadata */}
+          {attemptCount > 0 && (
+            <div className="mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+              <div className="flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+                <MessageSquare className="size-3" />
+                <span>{attemptCount}</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

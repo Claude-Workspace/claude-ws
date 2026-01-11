@@ -8,14 +8,15 @@ interface CommandInfo {
   description: string;
   argumentHint?: string;
   isBuiltIn?: boolean;
+  isInteractive?: boolean;
 }
 
 // Built-in Claude Code commands
 const BUILTIN_COMMANDS: CommandInfo[] = [
   { name: 'bug', description: 'Report bugs (sends conversation to Anthropic)', isBuiltIn: true },
-  { name: 'clear', description: 'Clear conversation history', isBuiltIn: true },
-  { name: 'compact', description: 'Compact conversation to save context', isBuiltIn: true },
-  { name: 'config', description: 'View/modify configuration', isBuiltIn: true },
+  { name: 'clear', description: 'Clear conversation history', isBuiltIn: true, isInteractive: true },
+  { name: 'compact', description: 'Compact conversation to save context', isBuiltIn: true, isInteractive: true },
+  { name: 'config', description: 'View/modify configuration', isBuiltIn: true, isInteractive: true },
   { name: 'cost', description: 'Show token usage and cost', isBuiltIn: true },
   { name: 'doctor', description: 'Check Claude Code installation health', isBuiltIn: true },
   { name: 'help', description: 'Show help and available commands', isBuiltIn: true },
@@ -24,11 +25,11 @@ const BUILTIN_COMMANDS: CommandInfo[] = [
   { name: 'logout', description: 'Sign out from Anthropic account', isBuiltIn: true },
   { name: 'mcp', description: 'View MCP server status', isBuiltIn: true },
   { name: 'memory', description: 'Edit CLAUDE.md memory files', isBuiltIn: true },
-  { name: 'model', description: 'Switch AI model', isBuiltIn: true },
+  { name: 'model', description: 'Switch AI model', isBuiltIn: true, isInteractive: true },
   { name: 'permissions', description: 'View/update permissions', isBuiltIn: true },
   { name: 'pr-comments', description: 'View PR comments for current branch', isBuiltIn: true },
   { name: 'review', description: 'Request code review', isBuiltIn: true },
-  { name: 'rewind', description: 'Rewind conversation to previous state', isBuiltIn: true },
+  { name: 'rewind', description: 'Rewind conversation to previous state', isBuiltIn: true, isInteractive: true },
   { name: 'status', description: 'View account and system status', isBuiltIn: true },
   { name: 'terminal-setup', description: 'Install shell integration (Shift+Enter)', isBuiltIn: true },
   { name: 'vim', description: 'Enter vim mode for multi-line input', isBuiltIn: true },

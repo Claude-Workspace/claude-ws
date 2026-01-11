@@ -86,6 +86,29 @@ export const attemptLogs = sqliteTable(
   ]
 );
 
+// Checkpoints table - conversation state snapshots for rewind
+export const checkpoints = sqliteTable(
+  'checkpoints',
+  {
+    id: text('id').primaryKey(),
+    taskId: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    attemptId: text('attempt_id')
+      .notNull()
+      .references(() => attempts.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(), // Claude session ID for --resume
+    messageCount: integer('message_count').notNull(),
+    summary: text('summary'), // Auto-generated summary from last assistant message
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_checkpoints_task').on(table.taskId, table.createdAt),
+  ]
+);
+
 // Type exports for queries
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -95,3 +118,5 @@ export type Attempt = typeof attempts.$inferSelect;
 export type NewAttempt = typeof attempts.$inferInsert;
 export type AttemptLog = typeof attemptLogs.$inferSelect;
 export type NewAttemptLog = typeof attemptLogs.$inferInsert;
+export type Checkpoint = typeof checkpoints.$inferSelect;
+export type NewCheckpoint = typeof checkpoints.$inferInsert;

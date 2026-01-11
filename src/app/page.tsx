@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { SocketProvider } from '@/components/providers/socket-provider';
+import { SearchProvider } from '@/components/search/search-provider';
 import { Header } from '@/components/header';
 import { Board } from '@/components/kanban/board';
 import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
@@ -45,13 +46,7 @@ function KanbanApp() {
         e.preventDefault();
         setCreateTaskOpen(true);
       }
-      // Cmd/Ctrl + K: Search (TODO: implement search dialog)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        // Focus search input
-        const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
-        searchInput?.focus();
-      }
+      // Note: Cmd+K and Cmd+P are handled by SearchProvider for Quick Open
       // Cmd/Ctrl + B: Toggle sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
@@ -131,7 +126,9 @@ function KanbanApp() {
 export default function Home() {
   return (
     <SocketProvider>
-      <KanbanApp />
+      <SearchProvider>
+        <KanbanApp />
+      </SearchProvider>
     </SocketProvider>
   );
 }

@@ -126,6 +126,7 @@ export interface FileEntry {
   path: string;
   type: 'file' | 'directory';
   size?: number;
+  gitStatus?: GitFileStatusCode;
   children?: FileEntry[];
 }
 
@@ -152,4 +153,19 @@ export interface GitDiff {
   diff: string;
   additions: number;
   deletions: number;
+}
+
+// Checkpoint type for conversation rewind
+export interface Checkpoint {
+  id: string;
+  taskId: string;
+  attemptId: string;
+  sessionId: string;
+  messageCount: number;
+  summary: string | null;
+  createdAt: number;
+  attempt?: {
+    displayPrompt: string | null;
+    prompt: string;
+  };
 }
