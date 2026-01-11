@@ -177,3 +177,76 @@ function detectLanguage(filePath: string): string {
 
   return 'plaintext';
 }
+
+// POST /api/files/content - Save file content
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { basePath, path: filePath, content } = body;
+
+    // Validate required fields
+    if (!filePath || !basePath || typeof content !== 'string') {
+      return NextResponse.json(
+        { error: 'basePath, path, and content are required' },
+        { status: 400 }
+      );
+    }
+
+    // Construct full path and validate within basePath
+    const fullPath = path.resolve(basePath, filePath);
+    const normalizedBase = path.resolve(basePath);
+
+    // Security: prevent directory traversal
+    if (!fullPath.startsWith(normalizedBase)) {
+      return NextResponse.json(
+        { error: 'Invalid path: directory traversal detected' },
+        { status: 403 }
+      );
+    }
+
+    // Check file exists (no creating new files via this endpoint)
+    if (!fs.existsSync(fullPath)) {
+      return NextResponse.json(
+        { error: 'File not found' },
+        { status: 404 }
+      );
+    }
+
+    const stats = fs.statSync(fullPath);
+
+    // Check it's a file
+    if (!stats.isFile()) {
+      return NextResponse.json(
+        { error: 'Path is not a file' },
+        { status: 400 }
+      );
+    }
+
+    const ext = path.extname(fullPath).toLowerCase();
+
+    // Prevent writing to binary files
+    if (BINARY_EXTENSIONS.includes(ext)) {
+      return NextResponse.json(
+        { error: 'Cannot write to binary files' },
+        { status: 400 }
+      );
+    }
+
+    // Write file content
+    fs.writeFileSync(fullPath, content, 'utf-8');
+
+    // Get new file stats
+    const newStats = fs.statSync(fullPath);
+
+    return NextResponse.json({
+      success: true,
+      size: newStats.size,
+    });
+  } catch (error) {
+    console.error('Error writing file:', error);
+    return NextResponse.json(
+      { error: 'Failed to write file' },
+      { status: 500 }
+    );
+  }
+}

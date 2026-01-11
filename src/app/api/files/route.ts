@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import type { FileEntry } from '@/types';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import type { FileEntry, GitFileStatusCode } from '@/types';
+
+const execFileAsync = promisify(execFile);
 
 // Directories to exclude from file tree
 const EXCLUDED_DIRS = ['node_modules', '.git', '.next', 'dist', 'build', '.turbo'];
@@ -32,8 +36,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Path is not a directory' }, { status: 400 });
     }
 
+    // Get git status for files
+    const gitStatus = await getGitStatusMap(resolvedPath);
+
     // Build file tree recursively
-    const entries = buildFileTree(resolvedPath, resolvedPath, depth, showHidden);
+    const entries = buildFileTree(resolvedPath, resolvedPath, depth, showHidden, gitStatus);
 
     return NextResponse.json(
       { entries, basePath: resolvedPath },
@@ -53,6 +60,7 @@ function buildFileTree(
   basePath: string,
   maxDepth: number,
   showHidden: boolean,
+  gitStatus: GitStatusResult,
   currentDepth: number = 0
 ): FileEntry[] {
   if (currentDepth >= maxDepth) return [];
@@ -75,7 +83,7 @@ function buildFileTree(
       const relativePath = path.relative(basePath, fullPath);
 
       if (entry.isDirectory()) {
-        const children = buildFileTree(fullPath, basePath, maxDepth, showHidden, currentDepth + 1);
+        const children = buildFileTree(fullPath, basePath, maxDepth, showHidden, gitStatus, currentDepth + 1);
         result.push({
           name: entry.name,
           path: relativePath,
@@ -83,12 +91,22 @@ function buildFileTree(
           children: children.length > 0 ? children : undefined,
         });
       } else {
-        const stats = fs.statSync(fullPath);
+        // Check file status directly or if inside untracked directory
+        let fileGitStatus = gitStatus.fileStatus.get(relativePath);
+        if (!fileGitStatus) {
+          // Check if file is inside an untracked directory
+          const isInUntrackedDir = gitStatus.untrackedDirs.some(
+            dir => relativePath.startsWith(dir + '/')
+          );
+          if (isInUntrackedDir) {
+            fileGitStatus = 'U';
+          }
+        }
         result.push({
           name: entry.name,
           path: relativePath,
           type: 'file',
-          size: stats.size,
+          gitStatus: fileGitStatus,
         });
       }
     }
@@ -104,4 +122,59 @@ function buildFileTree(
     console.error(`Error reading directory ${dirPath}:`, error);
     return [];
   }
+}
+
+interface GitStatusResult {
+  fileStatus: Map<string, GitFileStatusCode>;
+  untrackedDirs: string[];
+}
+
+async function getGitStatusMap(cwd: string): Promise<GitStatusResult> {
+  const fileStatus = new Map<string, GitFileStatusCode>();
+  const untrackedDirs: string[] = [];
+
+  try {
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain'], {
+      cwd,
+      timeout: 5000,
+    });
+
+    for (const line of stdout.trim().split('\n')) {
+      if (!line || line.length < 3) continue;
+
+      const indexStatus = line[0];
+      const worktreeStatus = line[1];
+      let filePath = line.slice(3).trim();
+
+      // Handle renamed files
+      if (filePath.includes(' -> ')) {
+        filePath = filePath.split(' -> ')[1];
+      }
+
+      // Untracked files/directories
+      if (indexStatus === '?' && worktreeStatus === '?') {
+        // If ends with /, it's an untracked directory
+        if (filePath.endsWith('/')) {
+          untrackedDirs.push(filePath.slice(0, -1));
+        } else {
+          fileStatus.set(filePath, 'U');
+        }
+        continue;
+      }
+
+      // Modified, added, deleted, etc.
+      const status = indexStatus !== ' ' ? indexStatus : worktreeStatus;
+      if (status === 'M' || status === 'A' || status === 'D' || status === 'R') {
+        fileStatus.set(filePath, status as GitFileStatusCode);
+      } else if (status === 'U') {
+        fileStatus.set(filePath, 'U');
+      } else {
+        fileStatus.set(filePath, 'M');
+      }
+    }
+  } catch {
+    // Not a git repo or git command failed - return empty
+  }
+
+  return { fileStatus, untrackedDirs };
 }
