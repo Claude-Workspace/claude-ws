@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileTreeItem } from './file-tree-item';
-import { FileSearch } from './file-search';
+import { UnifiedSearch, SearchResultsView, type SearchResults } from './unified-search';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 import type { FileEntry } from '@/types';
@@ -22,8 +22,8 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
 
   // Fetch file tree
   useEffect(() => {
@@ -57,38 +57,6 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  // Filter entries based on search
-  const filteredEntries = useMemo(() => {
-    if (!searchQuery.trim()) return entries;
-
-    const query = searchQuery.toLowerCase();
-
-    const filterTree = (items: FileEntry[]): FileEntry[] => {
-      const result: FileEntry[] = [];
-
-      for (const item of items) {
-        const nameMatch = item.name.toLowerCase().includes(query);
-        const pathMatch = item.path.toLowerCase().includes(query);
-
-        if (item.type === 'directory' && item.children) {
-          const filteredChildren = filterTree(item.children);
-          if (filteredChildren.length > 0 || nameMatch || pathMatch) {
-            result.push({
-              ...item,
-              children: filteredChildren.length > 0 ? filteredChildren : item.children,
-            });
-          }
-        } else if (nameMatch || pathMatch) {
-          result.push(item);
-        }
-      }
-
-      return result;
-    };
-
-    return filterTree(entries);
-  }, [entries, searchQuery]);
-
   const handleFileClick = useCallback(
     (path: string) => {
       setSelectedFile(path);
@@ -98,8 +66,8 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
     [setSelectedFile, setPreviewFile, onFileSelect]
   );
 
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+  const handleSearchChange = useCallback((results: SearchResults | null) => {
+    setSearchResults(results);
   }, []);
 
   // Render tree recursively
@@ -126,7 +94,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
     });
   };
 
-  if (loading) {
+  if (loading && !searchResults) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -150,10 +118,13 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
     );
   }
 
+  const isSearching = searchResults !== null;
+
   return (
     <div className="flex flex-col h-full">
+      {/* Search input */}
       <div className="p-2 border-b flex gap-2">
-        <FileSearch onSearch={handleSearch} className="flex-1" />
+        <UnifiedSearch onSearchChange={handleSearchChange} className="flex-1" />
         <Button
           variant="ghost"
           size="icon-sm"
@@ -164,8 +135,14 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
           <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
+
+      {/* Content: Search results OR File tree */}
       <ScrollArea className="flex-1">
-        <div className="py-1">{renderTree(filteredEntries)}</div>
+        {isSearching ? (
+          <SearchResultsView results={searchResults} onFileSelect={handleFileClick} />
+        ) : (
+          <div className="py-1">{renderTree(entries)}</div>
+        )}
       </ScrollArea>
     </div>
   );

@@ -87,18 +87,19 @@ export function FileTreeItem({
       {/* File/folder name */}
       <span className="truncate">{entry.name}</span>
 
-      {/* File size for files */}
-      {!isDirectory && entry.size !== undefined && (
-        <span className="ml-auto text-xs text-muted-foreground shrink-0">
-          {formatFileSize(entry.size)}
+      {/* Git status indicator */}
+      {!isDirectory && entry.gitStatus && (
+        <span className={cn(
+          'ml-auto text-xs font-medium shrink-0',
+          entry.gitStatus === 'M' && 'text-yellow-500',
+          entry.gitStatus === 'A' && 'text-green-500',
+          entry.gitStatus === 'D' && 'text-red-500',
+          entry.gitStatus === 'U' && 'text-green-500',
+          entry.gitStatus === 'R' && 'text-blue-500'
+        )}>
+          {entry.gitStatus}
         </span>
       )}
     </div>
   );
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }

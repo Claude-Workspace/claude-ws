@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Loader2, AlertCircle, File, Copy, Check, GripVertical } from 'lucide-react';
+import { X, Loader2, AlertCircle, File, Copy, Check, GripVertical, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CodeBlock } from '@/components/claude/code-block';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 import { cn } from '@/lib/utils';
@@ -32,6 +31,33 @@ export function FilePreviewPanel() {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+
+  // Editor state
+  const [originalContent, setOriginalContent] = useState<string>('');
+  const [editedContent, setEditedContent] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const isDirty = originalContent !== editedContent;
+  const lineCount = editedContent.split('\n').length;
+  const [currentLine, setCurrentLine] = useState<number>(1);
+
+  // Track cursor position to highlight current line
+  const updateCurrentLine = useCallback(() => {
+    if (!textareaRef.current) return;
+    const cursorPos = textareaRef.current.selectionStart;
+    const textBeforeCursor = editedContent.substring(0, cursorPos);
+    const lineNumber = textBeforeCursor.split('\n').length;
+    setCurrentLine(lineNumber);
+  }, [editedContent]);
+
+  // Sync scroll between line numbers and textarea
+  const handleScroll = useCallback(() => {
+    if (textareaRef.current && lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, []);
 
   // Handle resize
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -65,6 +91,9 @@ export function FilePreviewPanel() {
   useEffect(() => {
     if (!previewFile || !activeProject?.path) {
       setContent(null);
+      setOriginalContent('');
+      setEditedContent('');
+      setSaveStatus('idle');
       return;
     }
 
@@ -81,6 +110,10 @@ export function FilePreviewPanel() {
         }
         const data = await res.json();
         setContent(data);
+        // Set editor content
+        setOriginalContent(data.content || '');
+        setEditedContent(data.content || '');
+        setSaveStatus('idle');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -90,6 +123,54 @@ export function FilePreviewPanel() {
 
     fetchContent();
   }, [previewFile, activeProject?.path]);
+
+  // Save handler
+  const handleSave = useCallback(async () => {
+    if (!isDirty || !previewFile || !activeProject?.path) return;
+
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/files/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          basePath: activeProject.path,
+          path: previewFile,
+          content: editedContent,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save');
+      }
+
+      // Update original to match edited (no longer dirty)
+      setOriginalContent(editedContent);
+      setSaveStatus('saved');
+
+      // Reset to idle after brief feedback
+      setTimeout(() => setSaveStatus('idle'), 1500);
+    } catch (err) {
+      console.error('Save error:', err);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  }, [isDirty, previewFile, activeProject?.path, editedContent]);
+
+  // Keyboard shortcut: Cmd+S / Ctrl+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (isDirty && saveStatus !== 'saving') {
+          handleSave();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDirty, saveStatus, handleSave]);
 
   const handleCopy = async () => {
     if (content?.content) {
@@ -116,12 +197,43 @@ export function FilePreviewPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
         <div className="flex-1 min-w-0 pr-4">
-          <h2 className="text-base font-semibold truncate">{fileName}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold truncate">{fileName}</h2>
+            {isDirty && (
+              <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">
+                Modified
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {previewFile}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Save status indicator */}
+          {saveStatus === 'saving' && (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          )}
+          {saveStatus === 'saved' && (
+            <Check className="size-4 text-green-500" />
+          )}
+          {saveStatus === 'error' && (
+            <AlertCircle className="size-4 text-destructive" />
+          )}
+          {/* Save button */}
+          {!content?.isBinary && content?.content !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              disabled={!isDirty || saveStatus === 'saving'}
+              title="Save (⌘S)"
+              className="text-xs gap-1"
+            >
+              <Save className="size-3" />
+              Save
+            </Button>
+          )}
           {content && (
             <span className="text-xs text-muted-foreground">
               {formatFileSize(content.size)}
@@ -171,16 +283,58 @@ export function FilePreviewPanel() {
                 <span className="text-sm">{content.mimeType}</span>
                 <span className="text-xs mt-1">{formatFileSize(content.size)}</span>
               </div>
-            ) : content.content ? (
-              <div className="p-4">
-                <CodeBlock
-                  code={content.content}
-                  language={content.language || undefined}
-                />
-              </div>
             ) : (
-              <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-                Empty file
+              <div className={cn(
+                'flex h-full min-h-[400px] rounded-md transition-all duration-200',
+                'border border-transparent',
+                'focus-within:border-primary/40 focus-within:bg-primary/[0.02]',
+                'focus-within:shadow-[inset_0_0_0_1px_rgba(var(--primary-rgb),0.1)]'
+              )}>
+                {/* Line numbers gutter */}
+                <div
+                  ref={lineNumbersRef}
+                  className={cn(
+                    'shrink-0 pt-4 pb-4 pr-3 pl-2 text-right select-none overflow-hidden',
+                    'font-mono text-[13px] leading-[21px] text-muted-foreground/50',
+                    'bg-muted/30 border-r border-border/50 rounded-l-md'
+                  )}
+                  style={{ width: `${Math.max(3, String(lineCount).length) * 0.6 + 1.2}rem` }}
+                >
+                  {Array.from({ length: lineCount }, (_, i) => (
+                    <div
+                      key={i + 1}
+                      className={cn(
+                        'h-[21px] px-1 -mx-1',
+                        currentLine === i + 1 && 'bg-primary/10 text-foreground rounded-sm'
+                      )}
+                    >
+                      {i + 1}
+                    </div>
+                  ))}
+                </div>
+                {/* Editor textarea */}
+                <textarea
+                  ref={textareaRef}
+                  value={editedContent}
+                  onChange={(e) => {
+                    setEditedContent(e.target.value);
+                    updateCurrentLine();
+                  }}
+                  onScroll={handleScroll}
+                  onClick={updateCurrentLine}
+                  onKeyUp={updateCurrentLine}
+                  onSelect={updateCurrentLine}
+                  className={cn(
+                    'flex-1 pt-4 pb-4 pl-3 pr-4 resize-none rounded-r-md',
+                    'font-mono text-[13px] leading-[21px]',
+                    'bg-transparent border-none outline-none',
+                    'focus:ring-0 focus:outline-none',
+                    'placeholder:text-muted-foreground',
+                    'caret-primary'
+                  )}
+                  placeholder="Empty file"
+                  spellCheck={false}
+                />
               </div>
             )}
           </>
