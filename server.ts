@@ -7,6 +7,8 @@ import { db, schema } from './src/lib/db';
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { AttemptStatus, ClaudeOutput } from './src/types';
+import { processAttachments } from './src/lib/file-processor';
+import { buildPromptWithFiles } from './src/lib/prompt-builder';
 
 // Track session IDs for attempts (in-memory for current running attempts)
 const attemptSessionIds = new Map<string, string>();
@@ -38,8 +40,8 @@ app.prepare().then(() => {
     // Start new attempt
     socket.on(
       'attempt:start',
-      async (data: { taskId: string; prompt: string; displayPrompt?: string }) => {
-        const { taskId, prompt, displayPrompt } = data;
+      async (data: { taskId: string; prompt: string; displayPrompt?: string; fileIds?: string[] }) => {
+        const { taskId, prompt, displayPrompt, fileIds = [] } = data;
 
         try {
           // Get task and project info
@@ -78,6 +80,15 @@ app.prepare().then(() => {
             status: 'running',
           });
 
+          // Process file attachments if any
+          let filePaths: string[] = [];
+          if (fileIds.length > 0) {
+            console.log(`[Server] Processing ${fileIds.length} file attachments for attempt ${attemptId}`);
+            const processedFiles = await processAttachments(attemptId, fileIds);
+            filePaths = processedFiles.map(f => f.absolutePath);
+            console.log(`[Server] Processed ${processedFiles.length} files`);
+          }
+
           // Update task status to in_progress if it was todo
           if (task.status === 'todo') {
             await db
@@ -89,9 +100,9 @@ app.prepare().then(() => {
           // Join attempt room
           socket.join(`attempt:${attemptId}`);
 
-          // Spawn Claude Code process with session resumption if available
-          processManager.spawn(attemptId, project.path, prompt, previousSessionId);
-          console.log(`[Server] Spawned attempt ${attemptId}${previousSessionId ? ` (resuming session ${previousSessionId})` : ''}`);
+          // Spawn Claude Code process with session resumption and file paths
+          processManager.spawn(attemptId, project.path, prompt, previousSessionId, filePaths.length > 0 ? filePaths : undefined);
+          console.log(`[Server] Spawned attempt ${attemptId}${previousSessionId ? ` (resuming session ${previousSessionId})` : ''}${filePaths.length > 0 ? ` with ${filePaths.length} files` : ''}`);
 
           socket.emit('attempt:started', { attemptId, taskId });
         } catch (error) {
@@ -255,6 +266,7 @@ app.prepare().then(() => {
     // Clean up in-memory session tracking
     attemptSessionIds.delete(attemptId);
 
+    console.log(`[Server] Emitting attempt:finished for ${attemptId} with status ${status}`);
     io.to(`attempt:${attemptId}`).emit('attempt:finished', {
       attemptId,
       status,
