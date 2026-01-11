@@ -50,7 +50,39 @@ class ProcessManager extends EventEmitter {
       console.log(`[ProcessManager] Resuming session: ${sessionId}`);
     }
 
-    const claudePath = process.env.CLAUDE_PATH || '/opt/homebrew/bin/claude';
+    // Auto-detect Claude path or use CLAUDE_PATH env var
+    let claudePath = process.env.CLAUDE_PATH;
+
+    if (!claudePath) {
+      // Try common paths in order of likelihood
+      const commonPaths = [
+        '/home/roxane/.local/bin/claude',  // Ubuntu/Linux
+        '/usr/local/bin/claude',           // Linux system-wide
+        '/opt/homebrew/bin/claude',        // macOS
+        '/opt/homebrew/bin/claude',        // macOS (alternative)
+      ];
+
+      const { existsSync } = require('fs');
+      claudePath = commonPaths.find((p) => existsSync(p));
+    }
+
+    if (!claudePath) {
+      // No Claude found - emit error with instructions
+      const errorMsg = [
+        'Claude CLI not found. Please set CLAUDE_PATH in your .env file:',
+        '',
+        '# Linux/Ubuntu:',
+        'CLAUDE_PATH=/home/$(whoami)/.local/bin/claude',
+        '',
+        '# macOS (Homebrew):',
+        'CLAUDE_PATH=/opt/homebrew/bin/claude',
+        '',
+        '# Or the full path to your claude binary',
+      ].join('\n');
+      this.emit('stderr', { attemptId, content: errorMsg });
+      this.emit('exit', { attemptId, code: 1 });
+      return;
+    }
 
     // Get formatting instructions to append to prompt (safe - doesn't override Claude's core system prompt)
     const formatInstructions = getSystemPrompt(projectPath);

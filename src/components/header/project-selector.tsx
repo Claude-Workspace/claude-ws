@@ -16,12 +16,71 @@ interface ProjectSelectorProps {
   onAddProject?: () => void;
 }
 
-export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
+// Content component for reuse in mobile dropdown
+export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
   const {
     projects,
     selectedProjectIds,
     toggleProjectSelection,
     selectAllProjects,
+    isAllProjectsMode,
+  } = useProjectStore();
+
+  const allMode = isAllProjectsMode();
+
+  return (
+    <>
+      <DropdownMenuLabel>Projects</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+
+      {/* All Projects toggle */}
+      <DropdownMenuCheckboxItem
+        checked={allMode}
+        onCheckedChange={() => selectAllProjects()}
+      >
+        All Projects
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuSeparator />
+
+      {/* Project list - max 5 visible, scroll for more */}
+      <div className="max-h-[180px] overflow-y-auto">
+        {projects.length === 0 ? (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+            No projects yet
+          </div>
+        ) : (
+          projects.map((project) => (
+            <DropdownMenuCheckboxItem
+              key={project.id}
+              checked={allMode || selectedProjectIds.includes(project.id)}
+              onCheckedChange={() => toggleProjectSelection(project.id)}
+            >
+              <span className="truncate">{project.name}</span>
+            </DropdownMenuCheckboxItem>
+          ))
+        )}
+      </div>
+
+      <DropdownMenuSeparator />
+
+      {/* New Project button - opens modal */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start gap-2 h-8"
+        onClick={onAddProject}
+      >
+        <Plus className="h-4 w-4" />
+        New Project
+      </Button>
+    </>
+  );
+}
+
+export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
+  const {
+    projects,
+    selectedProjectIds,
     isAllProjectsMode,
   } = useProjectStore();
 
@@ -47,49 +106,7 @@ export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Projects</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-
-        {/* All Projects toggle */}
-        <DropdownMenuCheckboxItem
-          checked={allMode}
-          onCheckedChange={() => selectAllProjects()}
-        >
-          All Projects
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-
-        {/* Project list - max 5 visible, scroll for more */}
-        <div className="max-h-[180px] overflow-y-auto">
-          {projects.length === 0 ? (
-            <div className="px-2 py-1.5 text-sm text-muted-foreground">
-              No projects yet
-            </div>
-          ) : (
-            projects.map((project) => (
-              <DropdownMenuCheckboxItem
-                key={project.id}
-                checked={allMode || selectedProjectIds.includes(project.id)}
-                onCheckedChange={() => toggleProjectSelection(project.id)}
-              >
-                <span className="truncate">{project.name}</span>
-              </DropdownMenuCheckboxItem>
-            ))
-          )}
-        </div>
-
-        <DropdownMenuSeparator />
-
-        {/* New Project button - opens modal */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 h-8"
-          onClick={onAddProject}
-        >
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        <ProjectSelectorContent onAddProject={onAddProject} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -9,6 +9,54 @@ interface ReorderItem {
   position: number;
 }
 
+const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
+
+// PUT /api/tasks/reorder - Reorder single task
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { taskId, status, position } = body as { taskId: string; status: TaskStatus; position: number };
+
+    if (!taskId || !status || position === undefined) {
+      return NextResponse.json(
+        { error: 'taskId, status, and position are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status value: ${status}` },
+        { status: 400 }
+      );
+    }
+
+    const result = await db
+      .update(schema.tasks)
+      .set({
+        status,
+        position,
+        updatedAt: Date.now(),
+      })
+      .where(eq(schema.tasks.id, taskId));
+
+    if (result.changes === 0) {
+      return NextResponse.json(
+        { error: 'Task not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to reorder task:', error);
+    return NextResponse.json(
+      { error: 'Failed to reorder task' },
+      { status: 500 }
+    );
+  }
+}
+
 // POST /api/tasks/reorder - Reorder tasks (batch update)
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +71,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate all items
-    const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
     for (const task of tasks) {
       if (!task.id || !task.status || task.position === undefined) {
         return NextResponse.json(

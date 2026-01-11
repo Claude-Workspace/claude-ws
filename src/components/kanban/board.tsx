@@ -8,6 +8,7 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -19,9 +20,10 @@ import { useTaskStore } from '@/stores/task-store';
 
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
+  onCreateTask?: () => void;
 }
 
-export function Board({ attempts = [] }: BoardProps) {
+export function Board({ attempts = [], onCreateTask }: BoardProps) {
   const { tasks, reorderTasks } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
@@ -29,6 +31,12 @@ export function Board({ attempts = [] }: BoardProps) {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // 250ms long press to drag on touch devices
+        tolerance: 8,
       },
     })
   );
@@ -166,6 +174,7 @@ export function Board({ attempts = [] }: BoardProps) {
             title={column.title}
             tasks={tasksByStatus.get(column.id) || []}
             attemptCounts={attemptCounts}
+            onCreateTask={onCreateTask}
           />
         ))}
       </div>

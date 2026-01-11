@@ -16,10 +16,11 @@ import { useAttachmentStore } from '@/stores/attachment-store';
 import { cn } from '@/lib/utils';
 import type { TaskStatus, PendingFile } from '@/types';
 
-const MIN_WIDTH = 400;
+const MIN_WIDTH = 320;
 const MAX_WIDTH = 800;
 const DEFAULT_WIDTH = 560;
 const STORAGE_KEY = 'task-detail-width';
+const MOBILE_BREAKPOINT = 768;
 
 interface TaskDetailPanelProps {
   className?: string;
@@ -40,9 +41,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Load saved width
+  // Load saved width and detect mobile
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -51,6 +53,14 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         setWidth(parsed);
       }
     }
+
+    // Initial mobile detection
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+
+    // Listen for resize
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Save width on change
@@ -139,12 +149,14 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       ref={panelRef}
       className={cn(
         'h-full bg-background border-l flex flex-col shrink-0',
+        isMobile && 'fixed inset-0 z-50 w-full border-l-0',
         isResizing && 'select-none',
         className
       )}
-      style={{ width: `${width}px` }}
+      style={{ width: isMobile ? undefined : `${width}px` }}
     >
-      {/* Resize handle - left edge */}
+      {/* Resize handle - left edge, hidden on mobile */}
+      {!isMobile && (
       <div
         className={cn(
           'absolute left-0 top-0 h-full w-1.5 cursor-col-resize z-10',
@@ -155,10 +167,11 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       >
         <GripVertical className="size-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
+      )}
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b">
+      <div className="flex items-start justify-between p-3 sm:p-4 border-b gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
             {isConnected ? (
               <span className="flex items-center gap-1 text-xs text-green-600">
@@ -172,14 +185,14 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               </span>
             )}
           </div>
-          <h2 className="text-lg font-semibold line-clamp-2">{selectedTask.title}</h2>
+          <h2 className="text-base sm:text-lg font-semibold line-clamp-2">{selectedTask.title}</h2>
           {selectedTask.description && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
               {selectedTask.description}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -228,7 +241,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
             />
           </div>
         ) : (
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             <PromptInput onSubmit={handlePromptSubmit} onCancel={cancelAttempt} disabled={isRunning} taskId={selectedTask.id} />
             <InteractiveCommandOverlay />
           </div>

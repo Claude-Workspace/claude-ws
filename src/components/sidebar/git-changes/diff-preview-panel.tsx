@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils';
 const MIN_WIDTH = 300;
 const MAX_WIDTH = 900;
 const DEFAULT_WIDTH = 560;
+const MOBILE_BREAKPOINT = 768;
 
 export function DiffPreviewPanel() {
   const { diffFile, diffStaged, closeDiff } = useSidebarStore();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Handle resize
@@ -45,8 +47,40 @@ export function DiffPreviewPanel() {
     };
   }, [isResizing]);
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   if (!diffFile) return null;
 
+  // Mobile: fullscreen popup with overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Overlay backdrop */}
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={closeDiff}
+        />
+        {/* Fullscreen panel */}
+        <div
+          ref={panelRef}
+          className={cn(
+            'fixed inset-0 z-50 bg-background flex flex-col',
+            'animate-in slide-in-from-bottom duration-200'
+          )}
+        >
+          <DiffViewer filePath={diffFile} staged={diffStaged} onClose={closeDiff} />
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: side panel
   return (
     <div
       ref={panelRef}
@@ -59,7 +93,7 @@ export function DiffPreviewPanel() {
     >
       <DiffViewer filePath={diffFile} staged={diffStaged} onClose={closeDiff} />
 
-      {/* Resize handle */}
+      {/* Resize handle - hidden on mobile */}
       <div
         className={cn(
           'absolute right-0 top-0 h-full w-1.5 cursor-col-resize',

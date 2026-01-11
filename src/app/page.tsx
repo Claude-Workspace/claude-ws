@@ -10,6 +10,7 @@ import { TaskDetailPanel } from '@/components/task/task-detail-panel';
 import { SettingsDialog } from '@/components/settings/settings-dialog';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FilePreviewPanel, DiffPreviewPanel } from '@/components/sidebar';
+import { RightSidebar } from '@/components/right-sidebar';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
@@ -95,7 +96,7 @@ function KanbanApp() {
         {!previewFile && !diffFile && (
           <main className="flex-1 overflow-auto min-w-0">
             {projects.length > 0 ? (
-              <Board />
+              <Board onCreateTask={() => setCreateTaskOpen(true)} />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
@@ -120,6 +121,12 @@ function KanbanApp() {
       <CreateTaskDialog open={createTaskOpen} onOpenChange={setCreateTaskOpen} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SetupDialog open={setupOpen || autoShowSetup} onOpenChange={setSetupOpen} />
+
+      {/* Right Sidebar - actions panel */}
+      <RightSidebar
+        onCreateTask={() => setCreateTaskOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     </div>
   );
 }

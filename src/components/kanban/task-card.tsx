@@ -48,29 +48,40 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group cursor-pointer touch-none',
+        'group cursor-pointer touch-none select-none',
         isDragging && 'opacity-50'
       )}
-      onClick={() => selectTask(task.id)}
     >
       <div
+        {...attributes}
+        {...listeners}
         className={cn(
           'relative bg-card rounded-lg border border-border',
           'px-2.5 py-2.5 transition-all duration-200',
           'hover:border-border/80 hover:shadow-sm',
+          'cursor-grab active:cursor-grabbing',
           isSelected && 'ring-2 ring-primary ring-offset-1 ring-offset-background border-primary',
-          isDragging && 'cursor-grabbing shadow-lg'
+          isDragging && 'shadow-lg'
         )}
+        // Prevent text selection during drag, allow tap to open
+        onTouchStart={(e) => {
+          // Don't prevent default here - let dnd-kit handle the long press
+          // Only prevent default if we're actually dragging
+        }}
+        onClick={(e) => {
+          // Only open detail panel if this wasn't a drag operation
+          if (!isDragging) {
+            selectTask(task.id);
+          }
+        }}
       >
-        {/* Drag handle - visible on hover */}
+        {/* Drag handle - visible on hover (desktop) */}
         <button
-          {...attributes}
-          {...listeners}
           className={cn(
             'absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab touch-none p-0.5 rounded',
             'text-muted-foreground/40 hover:text-muted-foreground',
             'opacity-0 group-hover:opacity-100 transition-opacity',
-            'hover:bg-muted'
+            'hover:bg-muted pointer-events-none sm:pointer-events-auto'
           )}
           aria-label="Drag handle"
         >

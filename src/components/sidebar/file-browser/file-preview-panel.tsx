@@ -19,6 +19,7 @@ interface FileContent {
 const MIN_WIDTH = 300;
 const MAX_WIDTH = 900;
 const DEFAULT_WIDTH = 560;
+const MOBILE_BREAKPOINT = 768;
 
 export function FilePreviewPanel() {
   const activeProject = useActiveProject();
@@ -30,6 +31,7 @@ export function FilePreviewPanel() {
   const [copied, setCopied] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
@@ -172,6 +174,14 @@ export function FilePreviewPanel() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isDirty, saveStatus, handleSave]);
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const handleCopy = async () => {
     if (content?.content) {
       await navigator.clipboard.writeText(content.content);
@@ -184,6 +194,155 @@ export function FilePreviewPanel() {
 
   const fileName = previewFile.split('/').pop() || previewFile;
 
+  // Mobile: fullscreen popup with overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Overlay backdrop */}
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={closePreview}
+        />
+        {/* Fullscreen panel */}
+        <div
+          ref={panelRef}
+          className={cn(
+            'fixed inset-0 z-50 bg-background flex flex-col',
+            'animate-in slide-in-from-bottom duration-200'
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+            <div className="flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold truncate">{fileName}</h2>
+                {isDirty && (
+                  <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 py-0.5 rounded">
+                    Modified
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground truncate">
+                {previewFile}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Save status */}
+              {saveStatus === 'saving' && (
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              )}
+              {saveStatus === 'saved' && (
+                <Check className="size-4 text-green-500" />
+              )}
+              {saveStatus === 'error' && (
+                <AlertCircle className="size-4 text-destructive" />
+              )}
+              {/* Save button */}
+              {!content?.isBinary && content?.content !== null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!isDirty || saveStatus === 'saving'}
+                  title="Save"
+                  className="text-xs gap-1 px-2"
+                >
+                  <Save className="size-3" />
+                  <span className="hidden sm:inline">Save</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="icon-sm" onClick={closePreview}>
+                <X className="size-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Content */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-20 text-destructive">
+              <AlertCircle className="size-10 mb-3" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {content && !loading && !error && (
+            <>
+              {content.isBinary ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <File className="size-16 mb-3" />
+                  <span className="text-base">Binary file</span>
+                  <span className="text-sm">{content.mimeType}</span>
+                  <span className="text-xs mt-1">{formatFileSize(content.size)}</span>
+                </div>
+              ) : (
+                <div className={cn(
+                  'flex h-full min-h-[400px] mx-2 my-2 rounded-md transition-all duration-200',
+                  'border border-transparent',
+                  'focus-within:border-primary/40 focus-within:bg-primary/[0.02]',
+                  'focus-within:shadow-[inset_0_0_0_1px_rgba(var(--primary-rgb),0.1)]'
+                )}>
+                  {/* Line numbers gutter */}
+                  <div
+                    ref={lineNumbersRef}
+                    className={cn(
+                      'shrink-0 pt-3 pb-3 pr-2 pl-1 text-right select-none overflow-hidden',
+                      'font-mono text-xs leading-[18px] text-muted-foreground/50',
+                      'bg-muted/30 border-r border-border/50 rounded-l-md'
+                    )}
+                    style={{ width: `${Math.max(3, String(lineCount).length) * 0.5 + 1}rem` }}
+                  >
+                    {Array.from({ length: lineCount }, (_, i) => (
+                      <div
+                        key={i + 1}
+                        className={cn(
+                          'h-[18px] px-1 -mx-1',
+                          currentLine === i + 1 && 'bg-primary/10 text-foreground rounded-sm'
+                        )}
+                      >
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Editor textarea */}
+                  <textarea
+                    ref={textareaRef}
+                    value={editedContent}
+                    onChange={(e) => {
+                      setEditedContent(e.target.value);
+                      updateCurrentLine();
+                    }}
+                    onScroll={handleScroll}
+                    onClick={updateCurrentLine}
+                    onKeyUp={updateCurrentLine}
+                    onSelect={updateCurrentLine}
+                    className={cn(
+                      'flex-1 pt-3 pb-3 pl-2 pr-3 resize-none rounded-r-md',
+                      'font-mono text-xs leading-[18px]',
+                      'bg-transparent border-none outline-none',
+                      'focus:ring-0 focus:outline-none',
+                      'placeholder:text-muted-foreground',
+                      'caret-primary',
+                      'whitespace-pre overflow-x-auto'
+                    )}
+                    placeholder="Empty file"
+                    spellCheck={false}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: side panel
   return (
     <div
       ref={panelRef}
