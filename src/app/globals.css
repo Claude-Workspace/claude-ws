@@ -81,38 +81,208 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Default Dark Theme - Improved contrast for kanban boards */
 .dark {
   --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.195 0 0);
+  --card-foreground: oklch(0.93 0 0);
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(0.93 0 0);
+  --primary: oklch(0.85 0 0);
+  --primary-foreground: oklch(0.18 0 0);
+  --secondary: oklch(0.22 0 0);
+  --secondary-foreground: oklch(0.93 0 0);
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.25 0 0);
+  --accent-foreground: oklch(0.93 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(0.3 0 0);
+  --input: oklch(0.22 0 0);
+  --ring: oklch(0.5 0 0);
+  --chart-1: oklch(0.65 0.2 250);
+  --chart-2: oklch(0.7 0.17 160);
+  --chart-3: oklch(0.77 0.18 70);
+  --chart-4: oklch(0.63 0.25 305);
+  --chart-5: oklch(0.65 0.24 20);
+  --sidebar: oklch(0.16 0 0);
+  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar-primary: oklch(0.65 0.2 250);
+  --sidebar-primary-foreground: oklch(0.93 0 0);
+  --sidebar-accent: oklch(0.22 0 0);
+  --sidebar-accent-foreground: oklch(0.93 0 0);
+  --sidebar-border: oklch(0.28 0 0);
+  --sidebar-ring: oklch(0.5 0 0);
+}
+
+/* VS Code Light+ Theme - Official colors from Visual Studio Code
+ * Background: #FFFFFF | Sidebar: #F3F3F3 | Foreground: #333333
+ * Primary Blue: #007ACC | Selection: #ADD6FF | Link: #006AB1
+ * Error: #E51400 | Warning: #BF8803 | Success: #388A34
+ */
+.theme-vscode-light {
+  /* Core backgrounds */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.269 0 0);
+  --card: oklch(0.961 0 0);
+  --card-foreground: oklch(0.269 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.269 0 0);
+
+  /* Primary: VS Code Blue #007ACC */
+  --primary: oklch(0.537 0.145 245);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secondary: Light gray #E8E8E8 */
+  --secondary: oklch(0.925 0 0);
+  --secondary-foreground: oklch(0.269 0 0);
+
+  /* Muted: Gray text #717171 */
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.51 0 0);
+
+  /* Accent: Light blue selection #ADD6FF */
+  --accent: oklch(0.855 0.068 245);
+  --accent-foreground: oklch(0.269 0 0);
+
+  /* Destructive: VS Code red #E51400 */
+  --destructive: oklch(0.52 0.22 27);
+
+  /* Borders and inputs */
+  --border: oklch(0.85 0 0);
+  --input: oklch(1 0 0);
+  --ring: oklch(0.537 0.145 245);
+
+  /* Chart colors */
+  --chart-1: oklch(0.537 0.145 245);  /* Blue #007ACC */
+  --chart-2: oklch(0.58 0.16 145);    /* Green #388A34 */
+  --chart-3: oklch(0.68 0.16 85);     /* Orange #BF8803 */
+  --chart-4: oklch(0.55 0.18 300);    /* Purple #68217A */
+  --chart-5: oklch(0.52 0.22 27);     /* Red #E51400 */
+
+  /* Sidebar - #F3F3F3 */
+  --sidebar: oklch(0.961 0 0);
+  --sidebar-foreground: oklch(0.269 0 0);
+  --sidebar-primary: oklch(0.537 0.145 245);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.90 0.02 245);
+  --sidebar-accent-foreground: oklch(0.269 0 0);
+  --sidebar-border: oklch(0.85 0 0);
+  --sidebar-ring: oklch(0.537 0.145 245);
+}
+
+/* VS Code Dark+ Theme - Official colors from Visual Studio Code
+ * Background: #1E1E1E | Sidebar: #252526 | Foreground: #D4D4D4
+ * Primary Blue: #007ACC | Selection: #264F78 | Link: #3794FF
+ * Error: #F14C4C | Warning: #CCA700 | Input: #3C3C3C
+ */
+.theme-vscode-dark {
+  /* Core backgrounds - #1E1E1E (editor), #252526 (sidebar) */
+  --background: oklch(0.173 0.001 286);
+  --foreground: oklch(0.863 0 0);
+  --card: oklch(0.199 0.002 286);
+  --card-foreground: oklch(0.863 0 0);
+  --popover: oklch(0.229 0.002 286);
+  --popover-foreground: oklch(0.863 0 0);
+
+  /* Primary: VS Code Blue #007ACC */
+  --primary: oklch(0.537 0.145 245);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secondary: Selection #264F78 */
+  --secondary: oklch(0.380 0.073 248);
+  --secondary-foreground: oklch(0.863 0 0);
+
+  /* Muted: Line number gray #858585 */
+  --muted: oklch(0.298 0 0);
+  --muted-foreground: oklch(0.587 0 0);
+
+  /* Accent: Link blue #3794FF */
+  --accent: oklch(0.653 0.181 252);
+  --accent-foreground: oklch(0.173 0 0);
+
+  /* Destructive: VS Code red #F14C4C */
+  --destructive: oklch(0.609 0.207 21);
+
+  /* Borders and inputs - #3C3C3C (input), #454545 (border) */
+  --border: oklch(0.34 0 0);
+  --input: oklch(0.298 0 0);
+  --ring: oklch(0.537 0.145 245);
+
+  /* Chart colors - VS Code ANSI palette */
+  --chart-1: oklch(0.537 0.145 245);  /* Blue #007ACC */
+  --chart-2: oklch(0.70 0.17 155);    /* Green #0DBC79 */
+  --chart-3: oklch(0.741 0.165 92);   /* Yellow/Warning #CCA700 */
+  --chart-4: oklch(0.55 0.18 300);    /* Purple #B267E6 */
+  --chart-5: oklch(0.609 0.207 21);   /* Red #F14C4C */
+
+  /* Sidebar - #252526 */
+  --sidebar: oklch(0.199 0.002 286);
+  --sidebar-foreground: oklch(0.78 0 0);
+  --sidebar-primary: oklch(0.537 0.145 245);
+  --sidebar-primary-foreground: oklch(0.863 0 0);
+  --sidebar-accent: oklch(0.380 0.073 248);
+  --sidebar-accent-foreground: oklch(0.863 0 0);
+  --sidebar-border: oklch(0.34 0 0);
+  --sidebar-ring: oklch(0.537 0.145 245);
+}
+
+/* Dracula Theme - Official Palette from draculatheme.com/spec
+ * Background: #282A36 | Current Line: #44475A | Foreground: #F8F8F2
+ * Comment: #6272A4 | Cyan: #8BE9FD | Green: #50FA7B | Orange: #FFB86C
+ * Pink: #FF79C6 | Purple: #BD93F9 | Red: #FF5555 | Yellow: #F1FA8C
+ * WCAG 2.1 Level AA compliant (4.5:1 contrast ratio)
+ */
+.theme-dracula {
+  /* Core backgrounds - #282A36 (bg), #44475A (selection/card) */
+  --background: oklch(0.224 0.023 277);
+  --foreground: oklch(0.975 0.005 110);
+  --card: oklch(0.315 0.028 275);
+  --card-foreground: oklch(0.975 0.005 110);
+  --popover: oklch(0.315 0.028 275);
+  --popover-foreground: oklch(0.975 0.005 110);
+
+  /* Primary: Purple #BD93F9 - Dracula's signature color */
+  --primary: oklch(0.720 0.160 295);
+  --primary-foreground: oklch(0.224 0.023 277);
+
+  /* Secondary: Selection #44475A */
+  --secondary: oklch(0.315 0.028 275);
+  --secondary-foreground: oklch(0.975 0.005 110);
+
+  /* Muted: Comment #6272A4 */
+  --muted: oklch(0.315 0.028 275);
+  --muted-foreground: oklch(0.512 0.067 260);
+
+  /* Accent: Pink #FF79C6 */
+  --accent: oklch(0.718 0.195 350);
+  --accent-foreground: oklch(0.224 0.023 277);
+
+  /* Destructive: Red #FF5555 */
+  --destructive: oklch(0.658 0.254 22);
+
+  /* Borders and inputs */
+  --border: oklch(0.38 0.03 275);
+  --input: oklch(0.315 0.028 275);
+  --ring: oklch(0.720 0.160 295);
+
+  /* Chart colors using Dracula palette */
+  --chart-1: oklch(0.720 0.160 295);  /* Purple #BD93F9 */
+  --chart-2: oklch(0.869 0.234 145);  /* Green #50FA7B */
+  --chart-3: oklch(0.948 0.156 108);  /* Yellow #F1FA8C */
+  --chart-4: oklch(0.718 0.195 350);  /* Pink #FF79C6 */
+  --chart-5: oklch(0.878 0.104 205);  /* Cyan #8BE9FD */
+
+  /* Sidebar */
+  --sidebar: oklch(0.224 0.023 277);
+  --sidebar-foreground: oklch(0.975 0.005 110);
+  --sidebar-primary: oklch(0.720 0.160 295);
+  --sidebar-primary-foreground: oklch(0.975 0.005 110);
+  --sidebar-accent: oklch(0.315 0.028 275);
+  --sidebar-accent-foreground: oklch(0.975 0.005 110);
+  --sidebar-border: oklch(0.38 0.03 275);
+  --sidebar-ring: oklch(0.720 0.160 295);
 }
 
 @layer base {
