@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { FolderOpen, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { FolderOpen, Trash2, Sun, Moon, Palette, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,11 +20,27 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Theme options with display names and icons
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Default Light', icon: Sun },
+  { value: 'dark', label: 'Default Dark', icon: Moon },
+  { value: 'theme-vscode-light', label: 'VS Code Light', icon: Palette },
+  { value: 'theme-vscode-dark', label: 'VS Code Dark', icon: Palette },
+  { value: 'theme-dracula', label: 'Dracula', icon: Palette },
+] as const;
+
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { currentProject, projects, updateProject, deleteProject, setCurrentProject } =
     useProjectStore();
   const [editingName, setEditingName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering theme UI after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSaveName = async () => {
     if (!currentProject || !editingName.trim()) return;
@@ -58,6 +75,38 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Appearance */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Appearance</h3>
+            {mounted ? (
+              <div className="space-y-1">
+                {THEME_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = theme === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => setTheme(option.value)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-primary/10 text-primary'
+                          : 'hover:bg-muted text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="flex-1">{option.label}</span>
+                      {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-32 animate-pulse bg-muted rounded-md" />
+            )}
+          </div>
+
+          <Separator />
+
           {/* Current Project */}
           {currentProject && (
             <div className="space-y-4">

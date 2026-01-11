@@ -27,10 +27,10 @@ export function Column({ status, title, tasks, attemptCounts = new Map() }: Colu
   return (
     <div className="flex flex-col h-full min-w-[280px] max-w-[320px]">
       <div className="flex items-center justify-between px-3 py-2 mb-3">
-        <h2 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+        <h2 className="font-semibold text-sm text-foreground/80">
           {title}
         </h2>
-        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
           {tasks.length}
         </span>
       </div>
@@ -38,8 +38,8 @@ export function Column({ status, title, tasks, attemptCounts = new Map() }: Colu
       <div
         ref={setNodeRef}
         className={cn(
-          'flex-1 rounded-lg bg-gray-50 dark:bg-gray-900 p-2 transition-colors',
-          isOver && 'bg-blue-50 dark:bg-blue-950'
+          'flex-1 rounded-lg bg-muted/50 p-2 transition-colors border border-border/50',
+          isOver && 'bg-accent/50 border-accent'
         )}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
@@ -55,7 +55,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map() }: Colu
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400 dark:text-gray-600">
+          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
             No tasks
           </div>
         )}
