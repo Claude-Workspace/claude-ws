@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CodeEditorWithDefinitions } from '@/components/editor/code-editor-with-definitions';
+import { CodeEditorWithInlineEdit } from '@/components/editor/code-editor-with-inline-edit';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 
@@ -488,7 +488,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 <span className="text-xs mt-1">{formatFileSize(content.size)}</span>
               </div>
             ) : (
-              <CodeEditorWithDefinitions
+              <CodeEditorWithInlineEdit
                 value={editedContent}
                 onChange={handleContentChange}
                 language={content.language}
@@ -498,6 +498,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 filePath={filePath}
                 basePath={activeProject?.path}
                 enableDefinitions={true}
+                enableInlineEdit={true}
               />
             )}
           </>

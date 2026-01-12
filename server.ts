@@ -10,6 +10,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { agentManager } from './src/lib/agent-manager';
 import { sessionManager } from './src/lib/session-manager';
 import { checkpointManager } from './src/lib/checkpoint-manager';
+import { inlineEditManager } from './src/lib/inline-edit-manager';
 import { db, schema } from './src/lib/db';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -250,9 +251,78 @@ app.prepare().then(() => {
       }
     );
 
+    // ========================================
+    // Inline Edit Socket Handlers
+    // ========================================
+
+    // Subscribe to inline edit session (with acknowledgment)
+    socket.on('inline-edit:subscribe', (data: { sessionId: string }, ack?: (ok: boolean) => void) => {
+      console.log(`[Server] Socket ${socket.id} subscribing to inline-edit:${data.sessionId}`);
+      socket.join(`inline-edit:${data.sessionId}`);
+      // Send acknowledgment that subscription is complete
+      if (ack) ack(true);
+    });
+
+    // Start inline edit session (moved from API route to avoid module context issues)
+    socket.on('inline-edit:start', async (data: {
+      sessionId: string;
+      basePath: string;
+      filePath: string;
+      language: string;
+      selectedCode: string;
+      instruction: string;
+    }, ack?: (result: { success: boolean; error?: string }) => void) => {
+      console.log(`[Server] Starting inline edit session ${data.sessionId}`);
+      try {
+        await inlineEditManager.startEdit({
+          sessionId: data.sessionId,
+          basePath: data.basePath,
+          filePath: data.filePath,
+          language: data.language || 'text',
+          selectedCode: data.selectedCode,
+          instruction: data.instruction,
+        });
+        if (ack) ack({ success: true });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to start edit';
+        console.error(`[Server] Inline edit start error:`, errorMsg);
+        if (ack) ack({ success: false, error: errorMsg });
+      }
+    });
+
+    // Cancel inline edit session
+    socket.on('inline-edit:cancel', (data: { sessionId: string }) => {
+      console.log(`[Server] Cancelling inline edit session ${data.sessionId}`);
+      inlineEditManager.cancelEdit(data.sessionId);
+    });
+
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`);
     });
+  });
+
+  // ========================================
+  // Inline Edit Manager Event Handlers
+  // ========================================
+  console.log('[Server] Setting up inlineEditManager event handlers, instance ID:', (inlineEditManager as unknown as { _id?: string })._id);
+
+  // Forward inline edit deltas to subscribers
+  inlineEditManager.on('delta', ({ sessionId, chunk }) => {
+    io.to(`inline-edit:${sessionId}`).emit('inline-edit:delta', { sessionId, chunk });
+  });
+
+  // Forward inline edit completion to subscribers
+  inlineEditManager.on('complete', ({ sessionId, code, diff }) => {
+    const room = `inline-edit:${sessionId}`;
+    const sockets = io.sockets.adapter.rooms.get(room);
+    console.log(`[Server] Inline edit ${sessionId} completed, ${code.length} chars, room ${room} has ${sockets?.size || 0} sockets`);
+    io.to(room).emit('inline-edit:complete', { sessionId, code, diff });
+  });
+
+  // Forward inline edit errors to subscribers
+  inlineEditManager.on('error', ({ sessionId, error }) => {
+    console.error(`[Server] Inline edit ${sessionId} error:`, error);
+    io.to(`inline-edit:${sessionId}`).emit('inline-edit:error', { sessionId, error });
   });
 
   // Forward AgentManager events to WebSocket clients
