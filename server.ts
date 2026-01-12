@@ -1,4 +1,8 @@
 import 'dotenv/config';
+
+// Enable SDK file checkpointing globally
+process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
+
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
@@ -106,8 +110,8 @@ app.prepare().then(() => {
           });
 
           // Log session mode
-          const sessionMode = sessionOptions.forkSession
-            ? `forking from session ${sessionOptions.forkSession}`
+          const sessionMode = sessionOptions.resumeSessionAt
+            ? `resuming at message ${sessionOptions.resumeSessionAt}`
             : sessionOptions.resume
               ? `resuming session ${sessionOptions.resume}`
               : 'new session';
@@ -252,14 +256,20 @@ app.prepare().then(() => {
 
   // Forward AgentManager events to WebSocket clients
   agentManager.on('json', async ({ attemptId, data }) => {
-    // Save to database
-    await db.insert(schema.attemptLogs).values({
-      attemptId,
-      type: 'json',
-      content: JSON.stringify(data),
-    });
+    // Skip saving streaming deltas - they're intermediate state
+    // Complete assistant messages will have full text/thinking
+    const isStreamingDelta = data.type === 'content_block_delta';
 
-    // Forward to subscribers
+    if (!isStreamingDelta) {
+      // Save to database (only complete messages)
+      await db.insert(schema.attemptLogs).values({
+        attemptId,
+        type: 'json',
+        content: JSON.stringify(data),
+      });
+    }
+
+    // Always forward to subscribers (for real-time streaming)
     io.to(`attempt:${attemptId}`).emit('output:json', { attemptId, data });
   });
 
@@ -299,11 +309,11 @@ app.prepare().then(() => {
     // Create checkpoint on successful completion
     if (code === 0 && attempt) {
       try {
-        // Clear fork session if this was a forked attempt (after rewind)
-        // This prevents re-forking on subsequent attempts
-        if (await sessionManager.hasPendingFork(attempt.taskId)) {
-          await sessionManager.clearForkSession(attempt.taskId);
-          console.log(`[Server] Cleared fork session for task ${attempt.taskId}`);
+        // Clear rewind state if this was a rewound attempt
+        // This prevents re-rewinding on subsequent attempts
+        if (await sessionManager.hasPendingRewind(attempt.taskId)) {
+          await sessionManager.clearRewindState(attempt.taskId);
+          console.log(`[Server] Cleared rewind state for task ${attempt.taskId}`);
         }
 
         const sessionId = await sessionManager.getSessionId(attemptId);
@@ -333,11 +343,11 @@ app.prepare().then(() => {
       // Clear checkpoint tracking on failure
       checkpointManager.clearAttemptCheckpoint(attemptId);
 
-      // Clear fork session on failure too - stale sessions cause API errors
-      // This allows next attempt to start fresh instead of repeating fork failure
-      if (await sessionManager.hasPendingFork(attempt.taskId)) {
-        await sessionManager.clearForkSession(attempt.taskId);
-        console.log(`[Server] Cleared stale fork session for task ${attempt.taskId} after failure`);
+      // Clear rewind state on failure too - stale sessions cause API errors
+      // This allows next attempt to start fresh instead of repeating failure
+      if (await sessionManager.hasPendingRewind(attempt.taskId)) {
+        await sessionManager.clearRewindState(attempt.taskId);
+        console.log(`[Server] Cleared stale rewind state for task ${attempt.taskId} after failure`);
       }
     }
 

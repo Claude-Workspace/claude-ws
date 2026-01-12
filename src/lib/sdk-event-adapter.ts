@@ -50,6 +50,26 @@ export interface SDKResultMessage {
   num_turns?: number;
 }
 
+// Streaming event types from Anthropic API (wrapped by SDK)
+export interface SDKStreamEvent {
+  type: 'stream_event';
+  event: {
+    type: string;
+    index?: number;
+    delta?: {
+      type: 'text_delta' | 'thinking_delta' | 'input_json_delta';
+      text?: string;
+      thinking?: string;
+      partial_json?: string; // for tools - we ignore this
+    };
+    content_block?: {
+      type: string;
+      id?: string;
+      name?: string;
+    };
+  };
+}
+
 export interface SDKContentBlock {
   type: 'text' | 'thinking' | 'tool_use' | 'tool_result';
   text?: string;
@@ -67,6 +87,7 @@ export type SDKMessage =
   | SDKAssistantMessage
   | SDKUserMessage
   | SDKResultMessage
+  | SDKStreamEvent
   | { type: string; [key: string]: unknown }; // Fallback for other types
 
 /**
@@ -193,9 +214,34 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
       break;
     }
 
+    case 'stream_event': {
+      const stream = message as SDKStreamEvent;
+      const event = stream.event;
+
+      // Only handle text/thinking deltas - tool streaming works fine already
+      if (event.type === 'content_block_delta' && event.delta) {
+        if (event.delta.type === 'text_delta' && event.delta.text) {
+          result.output = {
+            type: 'content_block_delta',
+            index: event.index,
+            delta: { type: 'text_delta', text: event.delta.text },
+          };
+        } else if (event.delta.type === 'thinking_delta' && event.delta.thinking) {
+          result.output = {
+            type: 'content_block_delta',
+            index: event.index,
+            delta: { type: 'thinking_delta', thinking: event.delta.thinking },
+          };
+        }
+        // Ignore input_json_delta (tool streaming) - already handled well
+      }
+      break;
+    }
+
     default: {
-      // Pass through unknown message types as-is
-      result.output = { ...message, type: message.type as ClaudeOutputType };
+      // Pass through unknown message types with just the type
+      // Don't spread to avoid type conflicts from incompatible fields
+      result.output = { type: message.type as ClaudeOutputType };
       break;
     }
   }

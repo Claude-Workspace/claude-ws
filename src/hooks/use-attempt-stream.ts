@@ -101,7 +101,7 @@ export function useAttemptStream(
       if (data.status === 'completed') markTaskCompleted(data.taskId);
     });
 
-    // Simplified message handling - SDK guarantees complete messages
+    // Message handling - SDK streams both deltas and complete messages
     socketInstance.on('output:json', (data: { attemptId: string; data: ClaudeOutput }) => {
       const { attemptId, data: output } = data;
 
@@ -111,6 +111,72 @@ export function useAttemptStream(
       }
 
       setMessages((prev) => {
+        // Handle streaming text/thinking deltas
+        if (output.type === 'content_block_delta' && (output as any).delta) {
+          const delta = (output as any).delta;
+
+          // Only handle text and thinking deltas
+          if (delta.type !== 'text_delta' && delta.type !== 'thinking_delta') {
+            return prev; // Ignore other deltas (tool streaming works fine)
+          }
+
+          // Find or create assistant message for this attempt
+          const existingIndex = prev.findLastIndex(
+            (m) => m.type === 'assistant' && (m as any)._attemptId === attemptId
+          );
+
+          let assistantMsg: any;
+          let content: any[];
+
+          if (existingIndex >= 0) {
+            assistantMsg = { ...prev[existingIndex] };
+            content = [...(assistantMsg.message?.content || [])];
+          } else {
+            assistantMsg = {
+              type: 'assistant',
+              message: { role: 'assistant', content: [] },
+              _attemptId: attemptId,
+              _msgId: Math.random().toString(36),
+            };
+            content = [];
+          }
+
+          // Accumulate text delta
+          if (delta.type === 'text_delta' && delta.text) {
+            const textBlockIndex = content.findIndex((b: any) => b.type === 'text');
+            if (textBlockIndex >= 0) {
+              content[textBlockIndex] = {
+                ...content[textBlockIndex],
+                text: (content[textBlockIndex].text || '') + delta.text,
+              };
+            } else {
+              content.push({ type: 'text', text: delta.text });
+            }
+          }
+
+          // Accumulate thinking delta
+          if (delta.type === 'thinking_delta' && delta.thinking) {
+            const thinkingBlockIndex = content.findIndex((b: any) => b.type === 'thinking');
+            if (thinkingBlockIndex >= 0) {
+              content[thinkingBlockIndex] = {
+                ...content[thinkingBlockIndex],
+                thinking: (content[thinkingBlockIndex].thinking || '') + delta.thinking,
+              };
+            } else {
+              content.push({ type: 'thinking', thinking: delta.thinking });
+            }
+          }
+
+          assistantMsg.message = { ...assistantMsg.message, content };
+
+          if (existingIndex >= 0) {
+            const updated = [...prev];
+            updated[existingIndex] = assistantMsg;
+            return updated;
+          }
+          return [...prev, assistantMsg];
+        }
+
         // Generate unique ID for this message
         const msgId = Math.random().toString(36);
         const taggedOutput = { ...output, _attemptId: attemptId, _msgId: msgId } as ClaudeOutput & { _attemptId: string; _msgId: string };

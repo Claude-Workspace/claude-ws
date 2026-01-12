@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -13,6 +13,7 @@ import 'highlight.js/styles/github-dark.css';
 interface MessageBlockProps {
   content: string;
   isThinking?: boolean;
+  isStreaming?: boolean;
   className?: string;
 }
 

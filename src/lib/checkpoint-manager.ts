@@ -127,15 +127,11 @@ export class CheckpointManager {
   getCheckpointingOptions(): {
     enableFileCheckpointing: boolean;
     extraArgs: Record<string, null>;
-    env: Record<string, string>;
   } {
+    // Note: CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING is set globally in server.ts
     return {
       enableFileCheckpointing: true,
       extraArgs: { 'replay-user-messages': null }, // Required to get UUIDs
-      env: {
-        ...process.env,
-        CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
-      } as Record<string, string>,
     };
   }
 }

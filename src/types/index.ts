@@ -56,6 +56,7 @@ export type ClaudeOutputType =
   | 'tool_use'
   | 'tool_result'
   | 'stream_event'
+  | 'content_block_delta'
   | 'result';
 
 export interface ClaudeContentBlock {
@@ -84,6 +85,13 @@ export interface ClaudeOutput {
   result?: string;
   is_error?: boolean;
   event?: ClaudeStreamEvent;
+  // For content_block_delta streaming
+  index?: number;
+  delta?: {
+    type: 'text_delta' | 'thinking_delta';
+    text?: string;
+    thinking?: string;
+  };
 }
 
 export interface ClaudeStreamEvent {

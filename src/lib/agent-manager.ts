@@ -33,7 +33,7 @@ export interface AgentStartOptions {
   prompt: string;
   sessionOptions?: {
     resume?: string;
-    forkSession?: string;
+    resumeSessionAt?: string;  // Message UUID to resume conversation at
   };
   filePaths?: string[];
 }
@@ -65,8 +65,8 @@ class AgentManager extends EventEmitter {
     console.log(`[AgentManager] Starting agent for attempt ${attemptId}`);
     console.log(`[AgentManager] Project path: ${projectPath}`);
     console.log(`[AgentManager] Prompt: ${prompt.substring(0, 100)}...`);
-    if (sessionOptions?.forkSession) {
-      console.log(`[AgentManager] Forking from session: ${sessionOptions.forkSession}`);
+    if (sessionOptions?.resumeSessionAt) {
+      console.log(`[AgentManager] Resuming at message: ${sessionOptions.resumeSessionAt}`);
     } else if (sessionOptions?.resume) {
       console.log(`[AgentManager] Resuming session: ${sessionOptions.resume}`);
     }
@@ -108,22 +108,19 @@ class AgentManager extends EventEmitter {
     instance: AgentInstance,
     projectPath: string,
     prompt: string,
-    sessionOptions?: { resume?: string; forkSession?: string },
+    sessionOptions?: { resume?: string; resumeSessionAt?: string },
     checkpointOptions?: ReturnType<typeof checkpointManager.getCheckpointingOptions>
   ): Promise<void> {
     const { attemptId, controller } = instance;
 
     try {
       // Configure SDK query options
-      // forkSession: true with resume creates a new branch from the session, rewinding conversation context
+      // resumeSessionAt: resume conversation at specific message UUID (for rewind)
       const queryOptions = {
         cwd: projectPath,
         permissionMode: 'bypassPermissions' as const,
-        ...(sessionOptions?.forkSession
-          ? { resume: sessionOptions.forkSession, forkSession: true }
-          : sessionOptions?.resume
-            ? { resume: sessionOptions.resume }
-            : {}),
+        ...(sessionOptions?.resume ? { resume: sessionOptions.resume } : {}),
+        ...(sessionOptions?.resumeSessionAt ? { resumeSessionAt: sessionOptions.resumeSessionAt } : {}),
         ...checkpointOptions,
         abortController: controller,
       };

@@ -8,11 +8,11 @@
  */
 
 import { db, schema } from './db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export interface SessionOptions {
   resume?: string;
-  forkSession?: string;
+  resumeSessionAt?: string;  // Message UUID to resume conversation at
 }
 
 export class SessionManager {
@@ -29,13 +29,17 @@ export class SessionManager {
 
   /**
    * Get the last session ID for a task (for resume)
+   * Only returns sessions from SUCCESSFUL attempts - failed attempts may have corrupted sessions
    */
   async getLastSessionId(taskId: string): Promise<string | null> {
-    const lastAttempt = await db.query.attempts.findFirst({
-      where: eq(schema.attempts.taskId, taskId),
+    const lastSuccessfulAttempt = await db.query.attempts.findFirst({
+      where: and(
+        eq(schema.attempts.taskId, taskId),
+        eq(schema.attempts.status, 'completed')
+      ),
       orderBy: [desc(schema.attempts.createdAt)],
     });
-    return lastAttempt?.sessionId ?? null;
+    return lastSuccessfulAttempt?.sessionId ?? null;
   }
 
   /**
@@ -50,45 +54,64 @@ export class SessionManager {
 
   /**
    * Get SDK session options for a task
-   * Returns { forkSession } if task was rewound, otherwise { resume }
-   * Fork creates a new branch from the checkpoint, effectively rewinding conversation
+   * Returns { resume, resumeSessionAt } if task was rewound to resume at specific point
+   * Otherwise returns { resume } for normal continuation
    */
   async getSessionOptions(taskId: string): Promise<SessionOptions> {
-    // Check if task has a fork session (after rewind)
+    // Check if task has rewind state (after rewind)
     const task = await db.query.tasks.findFirst({
       where: eq(schema.tasks.id, taskId),
     });
 
-    if (task?.forkedFromSessionId) {
-      console.log(`[SessionManager] Using fork session for task ${taskId}: ${task.forkedFromSessionId}`);
-      return { forkSession: task.forkedFromSessionId };
+    if (task?.rewindSessionId && task?.rewindMessageUuid) {
+      console.log(`[SessionManager] Resuming at message ${task.rewindMessageUuid} for task ${taskId}`);
+      return {
+        resume: task.rewindSessionId,
+        resumeSessionAt: task.rewindMessageUuid,
+      };
     }
 
-    // Otherwise use normal resume
+    // Otherwise use normal resume from last successful attempt
     const sessionId = await this.getLastSessionId(taskId);
     return sessionId ? { resume: sessionId } : {};
   }
 
   /**
-   * Clear fork session after it's been used
-   * Called after successful fork to prevent re-forking
+   * Clear rewind state after it's been used
+   * Called after successful resume to prevent re-rewinding
    */
-  async clearForkSession(taskId: string): Promise<void> {
+  async clearRewindState(taskId: string): Promise<void> {
     await db
       .update(schema.tasks)
-      .set({ forkedFromSessionId: null, updatedAt: Date.now() })
+      .set({ rewindSessionId: null, rewindMessageUuid: null, updatedAt: Date.now() })
       .where(eq(schema.tasks.id, taskId));
-    console.log(`[SessionManager] Cleared fork session for task ${taskId}`);
+    console.log(`[SessionManager] Cleared rewind state for task ${taskId}`);
   }
 
   /**
-   * Check if task has pending fork
+   * Check if task has pending rewind
    */
-  async hasPendingFork(taskId: string): Promise<boolean> {
+  async hasPendingRewind(taskId: string): Promise<boolean> {
     const task = await db.query.tasks.findFirst({
       where: eq(schema.tasks.id, taskId),
     });
-    return !!task?.forkedFromSessionId;
+    return !!(task?.rewindSessionId && task?.rewindMessageUuid);
+  }
+
+  /**
+   * Set rewind state for a task
+   * Called when user rewinds to a checkpoint
+   */
+  async setRewindState(taskId: string, sessionId: string, messageUuid: string): Promise<void> {
+    await db
+      .update(schema.tasks)
+      .set({
+        rewindSessionId: sessionId,
+        rewindMessageUuid: messageUuid,
+        updatedAt: Date.now(),
+      })
+      .where(eq(schema.tasks.id, taskId));
+    console.log(`[SessionManager] Set rewind state for task ${taskId}: session=${sessionId}, message=${messageUuid}`);
   }
 }
 

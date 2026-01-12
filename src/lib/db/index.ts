@@ -123,11 +123,22 @@ export function initDb() {
     // Column already exists, ignore error
   }
 
-  // Migration: Add forked_from_session_id column to tasks for rewind fork support
+  // Migration: Add rewind columns to tasks for conversation context rewind
   try {
-    sqlite.exec(`ALTER TABLE tasks ADD COLUMN forked_from_session_id TEXT`);
+    sqlite.exec(`ALTER TABLE tasks ADD COLUMN rewind_session_id TEXT`);
   } catch {
     // Column already exists, ignore error
+  }
+  try {
+    sqlite.exec(`ALTER TABLE tasks ADD COLUMN rewind_message_uuid TEXT`);
+  } catch {
+    // Column already exists, ignore error
+  }
+  // Cleanup old column if exists (renamed from forked_from_session_id)
+  try {
+    sqlite.exec(`ALTER TABLE tasks DROP COLUMN forked_from_session_id`);
+  } catch {
+    // Column doesn't exist or SQLite doesn't support DROP COLUMN, ignore
   }
 }
 

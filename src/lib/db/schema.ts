@@ -27,8 +27,11 @@ export const tasks = sqliteTable(
       .default('todo'),
     position: integer('position').notNull(),
     chatInit: integer('chat_init', { mode: 'boolean' }).notNull().default(false),
-    // Session ID to fork from after rewind (cleared after first use)
-    forkedFromSessionId: text('forked_from_session_id'),
+    // Rewind state - cleared after first use
+    // Session ID to resume from after rewind
+    rewindSessionId: text('rewind_session_id'),
+    // Message UUID to resume at (for conversation context rewind)
+    rewindMessageUuid: text('rewind_message_uuid'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .$defaultFn(() => Date.now()),

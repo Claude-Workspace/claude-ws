@@ -3,6 +3,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { db, schema } from '@/lib/db';
 import { eq, and, gt } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
+import { sessionManager } from '@/lib/session-manager';
 
 // POST /api/checkpoints/rewind
 // Body: { checkpointId: string, rewindFiles?: boolean }
@@ -95,22 +96,25 @@ export async function POST(request: Request) {
       )
     );
 
-    // Set forkedFromSessionId on task so next attempt forks instead of resumes
+    // Set rewind state on task so next attempt resumes at this checkpoint's message
     // This ensures conversation context is rewound to checkpoint point
-    await db
-      .update(schema.tasks)
-      .set({ forkedFromSessionId: checkpoint.sessionId, updatedAt: Date.now() })
-      .where(eq(schema.tasks.id, checkpoint.taskId));
-
-    console.log(`[Rewind] Set fork session ${checkpoint.sessionId} for task ${checkpoint.taskId}`);
+    // gitCommitHash stores the user message UUID for conversation rewind
+    if (checkpoint.gitCommitHash) {
+      await sessionManager.setRewindState(
+        checkpoint.taskId,
+        checkpoint.sessionId,
+        checkpoint.gitCommitHash
+      );
+    }
 
     return NextResponse.json({
       success: true,
       sessionId: checkpoint.sessionId,
+      messageUuid: checkpoint.gitCommitHash,
       taskId: checkpoint.taskId,
       attemptId: checkpoint.attemptId,
       sdkRewind: sdkRewindResult,
-      forked: true, // Indicate conversation will be forked
+      conversationRewound: !!checkpoint.gitCommitHash,
     });
   } catch (error) {
     console.error('Failed to rewind checkpoint:', error);

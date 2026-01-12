@@ -60,6 +60,24 @@ function buildToolResultsMap(messages: ClaudeOutput[]): Map<string, { result: st
   return map;
 }
 
+// Check if messages have visible content (text, thinking, or tool_use)
+// Used to keep "Thinking..." spinner until actual content appears
+function hasVisibleContent(messages: ClaudeOutput[]): boolean {
+  return messages.some(msg => {
+    // Assistant message with content blocks
+    if (msg.type === 'assistant' && msg.message?.content?.length) {
+      return msg.message.content.some(block =>
+        (block.type === 'text' && block.text) ||
+        (block.type === 'thinking' && block.thinking) ||
+        block.type === 'tool_use'
+      );
+    }
+    // Top-level tool_use message
+    if (msg.type === 'tool_use') return true;
+    return false;
+  });
+}
+
 // Find if this is the last tool_use in the message stream (still executing)
 function isToolExecuting(
   toolId: string,
@@ -345,8 +363,8 @@ export function ConversationView({
             </>
           )}
 
-        {/* Initial loading state - only show when waiting for first response */}
-        {isRunning && currentMessages.length === 0 &&
+        {/* Initial loading state - show until actual visible content appears */}
+        {isRunning && !hasVisibleContent(currentMessages) &&
           !historicalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'assistant') && (
             <div className="flex items-center gap-2 text-muted-foreground text-sm py-1">
               <RunningDots className="text-primary" />
