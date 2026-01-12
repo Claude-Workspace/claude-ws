@@ -13,6 +13,7 @@ import { SidebarPanel, FilePreviewPanel, DiffPreviewPanel } from '@/components/s
 import { RightSidebar } from '@/components/right-sidebar';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
+import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
 function KanbanApp() {
@@ -21,7 +22,7 @@ function KanbanApp() {
   const [setupOpen, setSetupOpen] = useState(false);
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
-  const { selectedTask, fetchTasks } = useTaskStore();
+  const { selectedTask, fetchTasks, setSelectedTask, setPendingAutoStartTask } = useTaskStore();
   const { toggleSidebar, previewFile, diffFile } = useSidebarStore();
 
   // Auto-show setup when no projects
@@ -40,11 +41,24 @@ function KanbanApp() {
     }
   }, [selectedProjectIds, projectLoading, fetchTasks]);
 
+  // Handle task created event - select task if startNow is true
+  const handleTaskCreated = (task: Task, startNow: boolean) => {
+    if (startNow) {
+      setSelectedTask(task);
+      setPendingAutoStartTask(task.id);
+    }
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd/Ctrl + N: New task
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        setCreateTaskOpen(true);
+      }
+      // Cmd/Ctrl + Space: New task
+      if ((e.metaKey || e.ctrlKey) && e.code === 'Space') {
         e.preventDefault();
         setCreateTaskOpen(true);
       }
@@ -118,7 +132,11 @@ function KanbanApp() {
       </div>
 
       {/* Dialogs */}
-      <CreateTaskDialog open={createTaskOpen} onOpenChange={setCreateTaskOpen} />
+      <CreateTaskDialog
+        open={createTaskOpen}
+        onOpenChange={setCreateTaskOpen}
+        onTaskCreated={handleTaskCreated}
+      />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SetupDialog open={setupOpen || autoShowSetup} onOpenChange={setSetupOpen} />
 

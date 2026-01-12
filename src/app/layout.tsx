@@ -42,7 +42,7 @@ export default function RootLayout({
         <SocketProvider>
           <ThemeProvider>
             {children}
-            <Toaster position="top-right" richColors />
+            <Toaster position="top-right" richColors closeButton />
           </ThemeProvider>
         </SocketProvider>
       </body>

@@ -37,8 +37,20 @@ function buildToolResultsMap(messages: ClaudeOutput[]): Map<string, { result: st
       // Try multiple paths for tool_use_id
       const toolUseId = (msg.tool_data?.tool_use_id as string) || (msg.tool_data?.id as string);
       if (toolUseId) {
+        // Handle result being either a string or an object like {type, text}
+        let resultStr = '';
+        if (typeof msg.result === 'string') {
+          resultStr = msg.result;
+        } else if (msg.result && typeof msg.result === 'object') {
+          const resultObj = msg.result as { type?: string; text?: string };
+          if (resultObj.text) {
+            resultStr = resultObj.text;
+          } else {
+            resultStr = JSON.stringify(msg.result);
+          }
+        }
         map.set(toolUseId, {
-          result: msg.result || '',
+          result: resultStr,
           isError: msg.is_error || false,
         });
       }

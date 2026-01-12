@@ -6,6 +6,7 @@ interface TaskStore {
   selectedTaskId: string | null;
   selectedTask: Task | null;
   isCreatingTask: boolean;
+  pendingAutoStartTask: string | null;
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -17,10 +18,12 @@ interface TaskStore {
   setSelectedTask: (task: Task | null) => void;
   setCreatingTask: (isCreating: boolean) => void;
   setTaskChatInit: (taskId: string, chatInit: boolean) => Promise<void>;
+  setPendingAutoStartTask: (taskId: string | null) => void;
+  moveTaskToInProgress: (taskId: string) => Promise<void>;
 
   // API calls
   fetchTasks: (projectIds: string[]) => Promise<void>;
-  createTask: (projectId: string, title: string, description: string | null) => Promise<void>;
+  createTask: (projectId: string, title: string, description: string | null) => Promise<Task>;
   reorderTasks: (taskId: string, newStatus: TaskStatus, newPosition: number) => Promise<void>;
   updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
 }
@@ -30,6 +33,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   selectedTaskId: null,
   selectedTask: null,
   isCreatingTask: false,
+  pendingAutoStartTask: null,
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -81,6 +85,36 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   setCreatingTask: (isCreating) => set({ isCreatingTask: isCreating }),
 
+  setPendingAutoStartTask: (taskId) => set({ pendingAutoStartTask: taskId }),
+
+  moveTaskToInProgress: async (taskId: string) => {
+    const state = get();
+    const task = state.tasks.find((t) => t.id === taskId);
+
+    // Only move if not already in_progress
+    if (!task || task.status === 'in_progress') return;
+
+    // Optimistic update
+    get().updateTask(taskId, { status: 'in_progress' as TaskStatus });
+
+    // Update selectedTask if it's the same task
+    if (state.selectedTask?.id === taskId) {
+      set({ selectedTask: { ...state.selectedTask, status: 'in_progress' as TaskStatus } });
+    }
+
+    try {
+      await get().updateTaskStatus(taskId, 'in_progress');
+    } catch (error) {
+      // Revert on failure
+      get().updateTask(taskId, { status: task.status });
+      const selected = get().selectedTask;
+      if (selected?.id === taskId) {
+        set({ selectedTask: { ...selected, status: task.status } });
+      }
+      console.error('Error moving task to in_progress:', error);
+    }
+  },
+
   fetchTasks: async (projectIds: string[]) => {
     try {
       // Build query string based on projectIds
@@ -114,6 +148,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
 
       get().setCreatingTask(false);
+      return task;
     } catch (error) {
       console.error('Error creating task:', error);
       throw error;

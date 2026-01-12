@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { PromptInput } from './prompt-input';
+import { PromptInput, PromptInputRef } from './prompt-input';
 import { ConversationView } from './conversation-view';
 import { InteractiveCommandOverlay, QuestionPrompt } from './interactive-command';
 import { useTaskStore } from '@/stores/task-store';
@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; variant: 'default' | 's
 const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
 
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
-  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit } = useTaskStore();
+  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
   const { getPendingFiles } = useAttachmentStore();
   const [conversationKey, setConversationKey] = useState(0);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -47,6 +47,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [hasSentFirstMessage, setHasSentFirstMessage] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const promptInputRef = useRef<PromptInputRef>(null);
+  const hasAutoStartedRef = useRef(false);
 
   // Load saved width and detect mobile
   useEffect(() => {
@@ -139,6 +141,38 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     onComplete: handleTaskComplete,
   });
 
+  // Auto-start task when pendingAutoStartTask matches the selected task
+  useEffect(() => {
+    if (
+      pendingAutoStartTask &&
+      selectedTask?.id === pendingAutoStartTask &&
+      !hasAutoStartedRef.current &&
+      !isRunning &&
+      isConnected &&
+      selectedTask.description
+    ) {
+      hasAutoStartedRef.current = true;
+      // Move task to In Progress when auto-starting
+      if (selectedTask.status !== 'in_progress') {
+        moveTaskToInProgress(selectedTask.id);
+      }
+      // Set chatInit to true on auto-start
+      if (!selectedTask.chatInit) {
+        setTaskChatInit(selectedTask.id, true);
+        setHasSentFirstMessage(true);
+      }
+      // Small delay to ensure component and socket are ready
+      setTimeout(() => {
+        startAttempt(selectedTask.id, selectedTask.description!);
+        setPendingAutoStartTask(null);
+      }, 50);
+    }
+    // Reset the flag when task changes
+    if (selectedTask?.id !== pendingAutoStartTask) {
+      hasAutoStartedRef.current = false;
+    }
+  }, [pendingAutoStartTask, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress]);
+
   if (!selectedTask) {
     return null;
   }
@@ -150,6 +184,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   };
 
   const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
+    // Move task to In Progress when sending a message
+    if (selectedTask?.status !== 'in_progress') {
+      moveTaskToInProgress(selectedTask.id);
+    }
     // Set chatInit to true on first message send
     if (!selectedTask.chatInit && !hasSentFirstMessage) {
       setTaskChatInit(selectedTask.id, true);
@@ -191,9 +229,9 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       </div>
       )}
       {/* Header */}
-      <div className="flex items-start justify-between p-3 sm:p-4 border-b gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
+      <div className="px-3 sm:px-4 py-2 border-b">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2">
             <div className="relative">
               <button
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
@@ -238,26 +276,21 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               </span>
             )}
           </div>
-          <h2 className="text-base sm:text-lg font-semibold line-clamp-2">{selectedTask.title}</h2>
-          {selectedTask.description && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-              {selectedTask.description}
-            </p>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleRefreshConversation}
+              title="Refresh conversation"
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={handleClose}>
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleRefreshConversation}
-            title="Refresh conversation"
-          >
-            <RotateCcw className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleClose}>
-            <X className="size-4" />
-          </Button>
-        </div>
+        <h2 className="text-base sm:text-lg font-semibold line-clamp-2">{selectedTask.title}</h2>
       </div>
 
       {/* Conversation View */}
@@ -282,6 +315,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
             <QuestionPrompt
               questions={activeQuestion.questions}
               onAnswer={(answers) => {
+                // Move task to In Progress when answering a question
+                if (selectedTask?.status !== 'in_progress') {
+                  moveTaskToInProgress(selectedTask.id);
+                }
                 // For single-select, send the first answer
                 // For multi-select, join with commas
                 const firstAnswer = Object.values(answers)[0];
@@ -296,6 +333,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         ) : (
           <div className="p-3 sm:p-4">
             <PromptInput
+              key={`${selectedTask.id}-${hasSentFirstMessage ? 'sent' : 'initial'}`}
+              ref={promptInputRef}
               onSubmit={handlePromptSubmit}
               onCancel={cancelAttempt}
               disabled={isRunning}

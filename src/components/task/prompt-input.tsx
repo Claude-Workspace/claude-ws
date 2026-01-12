@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useRef, useEffect } from 'react';
+import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, Command, ImagePlus, Square } from 'lucide-react';
@@ -11,6 +11,10 @@ import { AttachmentBar } from './attachment-bar';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
 import { cn } from '@/lib/utils';
+
+export interface PromptInputRef {
+  submit: () => void;
+}
 
 interface PromptInputProps {
   onSubmit: (prompt: string, displayPrompt?: string, fileIds?: string[]) => void;
@@ -25,7 +29,7 @@ interface PromptInputProps {
   initialValue?: string;
 }
 
-export function PromptInput({
+export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   onSubmit,
   onCancel,
   disabled = false,
@@ -36,7 +40,7 @@ export function PromptInput({
   disableSubmitShortcut = false,
   onChange,
   initialValue,
-}: PromptInputProps) {
+}, ref) => {
   const [prompt, setPrompt] = useState(initialValue || '');
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
@@ -208,6 +212,14 @@ export function PromptInput({
     fileInputRef.current?.click();
   };
 
+  // Expose submit function to parent via ref
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      if (!prompt.trim() || disabled) return;
+      handleSubmit({ preventDefault: () => {} } as FormEvent);
+    },
+  }));
+
   return (
     <FileDropZone
       onFilesSelected={handleFilesSelected}
@@ -339,4 +351,6 @@ export function PromptInput({
       />
     </FileDropZone>
   );
-}
+});
+
+PromptInput.displayName = 'PromptInput';

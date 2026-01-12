@@ -57,7 +57,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
               size="icon"
               className="h-6 w-6"
               onClick={onCreateTask}
-              title="New task"
+              title="New Task (Ctrl/⌘ + Space)"
             >
               <Plus className="h-3 w-3" />
             </Button>

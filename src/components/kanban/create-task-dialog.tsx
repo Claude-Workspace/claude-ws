@@ -14,12 +14,15 @@ import { PromptInput } from '@/components/task/prompt-input';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 
+import { Task } from '@/types';
+
 interface CreateTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTaskCreated?: (task: Task, startNow: boolean) => void;
 }
 
-export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTaskDialogProps) {
   const { createTask } = useTaskStore();
   const {
     projects,
@@ -50,7 +53,7 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
     }
   }, [open, activeProjectId, selectedProjectIds, projects]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (startNow = false) => {
     if (!chatPrompt.trim()) {
       setError('Message is required');
       return;
@@ -67,7 +70,10 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
     try {
       // Use title if provided, otherwise use message as title
       const taskTitle = title.trim() || chatPrompt.trim();
-      await createTask(selectedProjectId, taskTitle, chatPrompt.trim());
+      const task = await createTask(selectedProjectId, taskTitle, chatPrompt.trim());
+
+      // Notify parent that task was created
+      onTaskCreated?.(task, startNow);
 
       // Reset form
       setTitle('');
@@ -96,9 +102,16 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>
@@ -133,6 +146,7 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
               Message <span className="text-red-500">*</span>
             </label>
             <PromptInput
+              key={open ? 'create-task-input' : 'closed'}
               onSubmit={handlePromptSubmit}
               onChange={setChatPrompt}
               placeholder="Describe what you want Claude to do... (type / for commands)"
@@ -170,7 +184,20 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
             >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !chatPrompt.trim()}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => handleSubmit(true)}
+              disabled={isSubmitting || !chatPrompt.trim()}
+            >
+              {isSubmitting ? 'Starting...' : 'Start now'}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSubmit(false)}
+              disabled={isSubmitting || !chatPrompt.trim()}
+              className="bg-primary hover:bg-primary/90"
+            >
               {isSubmitting ? 'Creating...' : 'Create Task'}
             </Button>
           </div>
