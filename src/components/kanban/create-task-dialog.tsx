@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { PromptInput } from '@/components/task/prompt-input';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { Task } from '@/types';
 
@@ -103,7 +104,10 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(true);
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSubmit(false);
     }
@@ -116,6 +120,10 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>
             Add a new task to your Kanban board. Fill in the details below.
+            <br />
+            <span className="text-xs text-muted-foreground">
+              Press ⌘/Ctrl + Enter to create task or ⌘/Ctrl + Shift + Enter to start now
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -184,22 +192,36 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => handleSubmit(true)}
-              disabled={isSubmitting || !chatPrompt.trim()}
-            >
-              {isSubmitting ? 'Starting...' : 'Start now'}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => handleSubmit(false)}
-              disabled={isSubmitting || !chatPrompt.trim()}
-              className="bg-primary hover:bg-primary/90"
-            >
-              {isSubmitting ? 'Creating...' : 'Create Task'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => handleSubmit(true)}
+                  disabled={isSubmitting || !chatPrompt.trim()}
+                >
+                  {isSubmitting ? 'Starting...' : 'Start Now'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>⌘/Ctrl + Shift + Enter</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={() => handleSubmit(false)}
+                  disabled={isSubmitting || !chatPrompt.trim()}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Task'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>⌘/Ctrl + Enter</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </DialogContent>

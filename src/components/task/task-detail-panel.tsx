@@ -49,6 +49,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
   const hasAutoStartedRef = useRef(false);
+  const lastCompletedTaskRef = useRef<string | null>(null);
 
   // Load saved width and detect mobile
   useEffect(() => {
@@ -117,6 +118,12 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   // Handle task completion - move to review and show notification
   const handleTaskComplete = useCallback(
     async (taskId: string) => {
+      // Prevent duplicate completion for the same task
+      if (lastCompletedTaskRef.current === taskId) {
+        return;
+      }
+      lastCompletedTaskRef.current = taskId;
+
       await updateTaskStatus(taskId, 'in_review');
       toast.success('Task completed!', {
         description: 'Moved to In Review',
@@ -193,6 +200,9 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       setTaskChatInit(selectedTask.id, true);
       setHasSentFirstMessage(true);
     }
+
+    // Reset completion tracking when starting a new attempt
+    lastCompletedTaskRef.current = null;
 
     // Capture pending files before they get cleared
     const pendingFiles = getPendingFiles(selectedTask.id);

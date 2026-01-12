@@ -83,7 +83,11 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
               <div
                 key={project.id}
                 className="flex items-center gap-1 px-2 py-1.5 hover:bg-muted cursor-pointer"
-                onClick={() => toggleProjectSelection(project.id)}
+                onClick={() => {
+                  // Clicking the row (not checkbox) switches to single project mode
+                  selectAllProjects(); // First clear selection
+                  toggleProjectSelection(project.id); // Then select only this project
+                }}
               >
                 <div className="flex-1 flex items-center gap-2 min-w-0">
                   <input
@@ -93,7 +97,7 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
                     className="shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <span className="truncate text-sm">{project.name}</span>
+                  <span className="truncate text-sm select-none">{project.name}</span>
                 </div>
                 <Button
                   variant="ghost"
