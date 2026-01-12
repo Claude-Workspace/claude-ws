@@ -14,8 +14,8 @@ interface Model {
 
 // Available Claude models
 const AVAILABLE_MODELS: Model[] = [
-  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', description: 'Latest Sonnet model', isDefault: true },
-  { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', description: 'Most capable model' },
+  { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', description: 'Most capable model', isDefault: true },
+  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', description: 'Latest Sonnet model' },
   { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Previous Sonnet model' },
   { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Fast and efficient' },
 ];

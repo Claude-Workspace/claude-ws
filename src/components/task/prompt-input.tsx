@@ -262,7 +262,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              'min-h-24 resize-none pr-10 w-full break-words',
+              'min-h-24 max-h-48 resize-none pr-10 w-full break-words overflow-y-auto',
               selectedCommand && 'border-primary'
             )}
           />

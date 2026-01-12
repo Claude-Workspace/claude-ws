@@ -118,6 +118,7 @@ class AgentManager extends EventEmitter {
       // resumeSessionAt: resume conversation at specific message UUID (for rewind)
       const queryOptions = {
         cwd: projectPath,
+        model: 'opus', // Default to Claude Opus 4.5
         permissionMode: 'bypassPermissions' as const,
         ...(sessionOptions?.resume ? { resume: sessionOptions.resume } : {}),
         ...(sessionOptions?.resumeSessionAt ? { resumeSessionAt: sessionOptions.resumeSessionAt } : {}),
