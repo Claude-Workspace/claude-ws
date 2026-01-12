@@ -16,7 +16,7 @@ interface FileTreeProps {
 
 export function FileTree({ onFileSelect }: FileTreeProps) {
   const activeProject = useActiveProject();
-  const { expandedFolders, toggleFolder, selectedFile, setSelectedFile, setPreviewFile, setEditorPosition } =
+  const { expandedFolders, toggleFolder, selectedFile, setSelectedFile, openTab, setEditorPosition } =
     useSidebarStore();
 
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -60,7 +60,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   const handleFileClick = useCallback(
     (path: string, lineNumber?: number, column?: number, matchLength?: number) => {
       setSelectedFile(path);
-      setPreviewFile(path);
+      openTab(path); // Open in tab system (will switch to existing tab if already open)
       if (lineNumber !== undefined) {
         setEditorPosition({ lineNumber, column, matchLength });
       } else {
@@ -68,7 +68,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
       }
       onFileSelect?.(path, lineNumber, column, matchLength);
     },
-    [setSelectedFile, setPreviewFile, setEditorPosition, onFileSelect]
+    [setSelectedFile, openTab, setEditorPosition, onFileSelect]
   );
 
   const handleSearchChange = useCallback((results: SearchResults | null) => {
