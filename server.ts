@@ -329,9 +329,16 @@ app.prepare().then(() => {
       } catch (error) {
         console.error(`[Server] Failed to create checkpoint for ${attemptId}:`, error);
       }
-    } else {
+    } else if (attempt) {
       // Clear checkpoint tracking on failure
       checkpointManager.clearAttemptCheckpoint(attemptId);
+
+      // Clear fork session on failure too - stale sessions cause API errors
+      // This allows next attempt to start fresh instead of repeating fork failure
+      if (await sessionManager.hasPendingFork(attempt.taskId)) {
+        await sessionManager.clearForkSession(attempt.taskId);
+        console.log(`[Server] Cleared stale fork session for task ${attempt.taskId} after failure`);
+      }
     }
 
     console.log(`[Server] Emitting attempt:finished for ${attemptId} with status ${status}`);
