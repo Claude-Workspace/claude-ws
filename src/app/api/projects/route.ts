@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import { desc } from 'drizzle-orm';
+import { mkdir } from 'fs/promises';
 
 // GET /api/projects - List all projects
 export async function GET() {
@@ -32,6 +33,20 @@ export async function POST(request: NextRequest) {
         { error: 'Name and path are required' },
         { status: 400 }
       );
+    }
+
+    // Create the project folder
+    try {
+      await mkdir(path, { recursive: true });
+    } catch (mkdirError: any) {
+      // If folder already exists, that's okay (might be opening existing project)
+      if (mkdirError?.code !== 'EEXIST') {
+        console.error('Failed to create project folder:', mkdirError);
+        return NextResponse.json(
+          { error: 'Failed to create project folder: ' + mkdirError.message },
+          { status: 500 }
+        );
+      }
     }
 
     const newProject = {

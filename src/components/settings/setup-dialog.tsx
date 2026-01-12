@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FolderOpen, AlertCircle, Plus, FolderOpen as FolderOpenIcon } from 'lucide-react';
+import { FolderOpen, AlertCircle, Plus, FolderOpen as FolderOpenIcon, Folder } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { FolderBrowserDialog } from './folder-browser-dialog';
 
 type Mode = 'create' | 'open';
+type BrowserMode = 'root' | 'project';
 
 interface SetupDialogProps {
   open: boolean;
@@ -27,9 +28,11 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
   const [mode, setMode] = useState<Mode>('open');
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
+  const [rootPath, setRootPath] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [folderBrowserOpen, setFolderBrowserOpen] = useState(false);
+  const [browserMode, setBrowserMode] = useState<BrowserMode>('project');
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -37,16 +40,24 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
       setMode('open');
       setName('');
       setPath('');
+      setRootPath('');
       setError('');
     }
   }, [open]);
 
+  // Compute full project path for create mode
+  const fullProjectPath = name && rootPath ? `${rootPath}/${name}` : '';
+
   const handleFolderSelect = (selectedPath: string) => {
-    setPath(selectedPath);
-    // Auto-derive name from folder path in "open" mode
-    if (mode === 'open' && !name) {
-      const folderName = selectedPath.split('/').filter(Boolean).pop() || '';
-      setName(folderName);
+    if (browserMode === 'root') {
+      setRootPath(selectedPath);
+    } else {
+      setPath(selectedPath);
+      // Auto-derive name from folder path in "open" mode
+      if (mode === 'open' && !name) {
+        const folderName = selectedPath.split('/').filter(Boolean).pop() || '';
+        setName(folderName);
+      }
     }
   };
 
@@ -59,24 +70,37 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
       return;
     }
 
-    if (!path.trim()) {
-      setError('Project path is required');
-      return;
+    let finalPath = path;
+
+    // For create mode, build path from root + name
+    if (mode === 'create') {
+      if (!rootPath.trim()) {
+        setError('Root folder is required');
+        return;
+      }
+      finalPath = `${rootPath.trim()}/${name.trim()}`;
+    } else {
+      // Open mode - path is required
+      if (!path.trim()) {
+        setError('Project path is required');
+        return;
+      }
     }
 
     // Validate path format
-    if (!path.startsWith('/') && !path.match(/^[A-Za-z]:\\/)) {
+    if (!finalPath.startsWith('/') && !finalPath.match(/^[A-Za-z]:\\/)) {
       setError('Please enter an absolute path');
       return;
     }
 
     setLoading(true);
     try {
-      const project = await createProject({ name: name.trim(), path: path.trim() });
+      const project = await createProject({ name: name.trim(), path: finalPath.trim() });
       if (project) {
         setCurrentProject(project);
         setName('');
         setPath('');
+        setRootPath('');
         onOpenChange(false);
       }
     } catch (err) {
@@ -100,12 +124,18 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="open">
+          <TabsList className="grid w-full grid-cols-2 bg-muted p-1.5">
+            <TabsTrigger
+              value="open"
+              className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
+            >
               <FolderOpenIcon className="h-4 w-4" />
               Open Existing
             </TabsTrigger>
-            <TabsTrigger value="create">
+            <TabsTrigger
+              value="create"
+              className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
+            >
               <Plus className="h-4 w-4" />
               Create New
             </TabsTrigger>
@@ -121,7 +151,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                 <div className="flex gap-2">
                   <div
                     className="relative flex-1 cursor-pointer"
-                    onClick={() => !loading && setFolderBrowserOpen(true)}
+                    onClick={() => !loading && (setBrowserMode('project'), setFolderBrowserOpen(true))}
                   >
                     <FolderOpen className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -137,7 +167,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setFolderBrowserOpen(true)}
+                    onClick={() => (setBrowserMode('project'), setFolderBrowserOpen(true))}
                     disabled={loading}
                   >
                     Browse
@@ -186,27 +216,30 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="My Awesome Project"
+                  placeholder="my-kanban"
                   disabled={loading}
                 />
+                <p className="text-xs text-muted-foreground">
+                  This will be the project folder name
+                </p>
               </div>
 
-              {/* Project Path */}
+              {/* Root Folder */}
               <div className="space-y-2">
-                <label htmlFor="path-create" className="text-sm font-medium">
-                  Project Path
+                <label htmlFor="root-path" className="text-sm font-medium">
+                  Root Folder
                 </label>
                 <div className="flex gap-2">
                   <div
                     className="relative flex-1 cursor-pointer"
-                    onClick={() => !loading && setFolderBrowserOpen(true)}
+                    onClick={() => !loading && (setBrowserMode('root'), setFolderBrowserOpen(true))}
                   >
-                    <FolderOpen className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Folder className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="path-create"
-                      value={path}
-                      onChange={(e) => setPath(e.target.value)}
-                      placeholder="/Users/you/projects/my-project"
+                      id="root-path"
+                      value={rootPath}
+                      onChange={(e) => setRootPath(e.target.value)}
+                      placeholder="/home/user/projects"
                       className="pl-8 cursor-pointer"
                       disabled={loading}
                       readOnly
@@ -215,16 +248,28 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setFolderBrowserOpen(true)}
+                    onClick={() => (setBrowserMode('root'), setFolderBrowserOpen(true))}
                     disabled={loading}
                   >
                     Browse
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Click to browse and select your project folder
+                  Select the parent folder where project will be created
                 </p>
               </div>
+
+              {/* Full Path Preview */}
+              {fullProjectPath && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">
+                    Project will be created at:
+                  </label>
+                  <div className="p-3 bg-muted rounded-md text-sm font-mono break-all">
+                    {fullProjectPath}
+                  </div>
+                </div>
+              )}
 
               {/* Error */}
               {error && (
@@ -244,7 +289,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading || !name || !rootPath}>
                   {loading ? 'Creating...' : 'Create Project'}
                 </Button>
               </div>
