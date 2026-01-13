@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Task, TaskStatus } from '@/types';
+import { useInteractiveCommandStore } from './interactive-command-store';
 
 interface TaskStore {
   tasks: Task[];
@@ -77,6 +78,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   selectTask: (id) => {
+    // Close interactive command when switching to a different task
+    const currentTaskId = get().selectedTaskId;
+    if (id !== currentTaskId) {
+      useInteractiveCommandStore.getState().closeCommand();
+    }
+
     const task = id ? get().tasks.find((t) => t.id === id) || null : null;
     set({ selectedTaskId: id, selectedTask: task });
   },

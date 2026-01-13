@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Project } from '@/types';
+import { useTaskStore } from './task-store';
+import { useInteractiveCommandStore } from './interactive-command-store';
 
 interface ProjectState {
   projects: Project[];
@@ -83,15 +85,27 @@ export const useProjectStore = create<ProjectStore>()(
             activeProjectId: newActiveId
           });
         }
+
+        // Close chat window and interactive commands when project selection changes
+        useTaskStore.getState().selectTask(null);
+        useInteractiveCommandStore.getState().closeCommand();
       },
 
       setSelectedProjectIds: (ids) => {
         const activeId = ids.length === 1 ? ids[0] : null;
         set({ selectedProjectIds: ids, activeProjectId: activeId });
+
+        // Close chat window and interactive commands when project selection changes
+        useTaskStore.getState().selectTask(null);
+        useInteractiveCommandStore.getState().closeCommand();
       },
 
       selectAllProjects: () => {
         set({ selectedProjectIds: [], activeProjectId: null });
+
+        // Close chat window and interactive commands when showing all projects
+        useTaskStore.getState().selectTask(null);
+        useInteractiveCommandStore.getState().closeCommand();
       },
 
       setActiveProjectId: (id) => {

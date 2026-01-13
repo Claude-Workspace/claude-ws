@@ -180,6 +180,16 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     }
   }, [pendingAutoStartTask, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress]);
 
+  // Reset state when selectedTask changes
+  useEffect(() => {
+    setConversationKey(prev => prev + 1);
+    setShowStatusDropdown(false);
+    setHasSentFirstMessage(false);
+    setCurrentAttemptFiles([]);
+    lastCompletedTaskRef.current = null;
+    hasAutoStartedRef.current = false;
+  }, [selectedTask?.id]);
+
   if (!selectedTask) {
     return null;
   }
