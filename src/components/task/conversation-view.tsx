@@ -280,6 +280,29 @@ export function ConversationView({
   // Check if file is an image
   const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
+  // Format timestamp for display
+  const formatTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  };
+
   // User prompt - simple muted box with file thumbnails
   const renderUserTurn = (turn: ConversationTurn) => (
     <div key={`user-${turn.attemptId}`} className="bg-muted/40 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3">
@@ -318,6 +341,9 @@ export function ConversationView({
           ))}
         </div>
       )}
+      <div className="flex justify-end">
+        <span className="text-xs text-muted-foreground">{formatTimestamp(turn.timestamp)}</span>
+      </div>
     </div>
   );
 
@@ -405,6 +431,9 @@ export function ConversationView({
                       })}
                     </div>
                   )}
+                  <div className="flex justify-end">
+                    <span className="text-xs text-muted-foreground">{formatTimestamp(Date.now())}</span>
+                  </div>
                 </div>
               )}
               {/* Streaming response */}
