@@ -11,6 +11,7 @@ import { SettingsDialog } from '@/components/settings/settings-dialog';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffPreviewPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
+import { ApiKeyProvider, ApiKeyDialog, useApiKeyCheck } from '@/components/auth/api-key-dialog';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { Task } from '@/types';
@@ -20,6 +21,9 @@ function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [apiKeyRefresh, setApiKeyRefresh] = useState(0);
+
+  const { needsApiKey } = useApiKeyCheck(apiKeyRefresh);
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
   const { selectedTask, fetchTasks, setSelectedTask, setPendingAutoStartTask } = useTaskStore();
@@ -217,6 +221,19 @@ function KanbanApp() {
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SetupDialog open={setupOpen || autoShowSetup} onOpenChange={setSetupOpen} />
+      <ApiKeyDialog
+        open={needsApiKey}
+        onOpenChange={(open) => {
+          // Allow closing only if not needed
+          if (!open && !needsApiKey) return;
+        }}
+        onSuccess={() => {
+          // Trigger refresh to re-check API key status
+          setApiKeyRefresh(prev => prev + 1);
+          // Refetch projects after API key is set
+          fetchProjects();
+        }}
+      />
 
       {/* Right Sidebar - actions panel */}
       <RightSidebar
@@ -229,10 +246,12 @@ function KanbanApp() {
 
 export default function Home() {
   return (
-    <SocketProvider>
-      <SearchProvider>
-        <KanbanApp />
-      </SearchProvider>
-    </SocketProvider>
+    <ApiKeyProvider>
+      <SocketProvider>
+        <SearchProvider>
+          <KanbanApp />
+        </SearchProvider>
+      </SocketProvider>
+    </ApiKeyProvider>
   );
 }
