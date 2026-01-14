@@ -183,24 +183,17 @@ class ShellManager extends EventEmitter {
     console.log(`[ShellManager] Stopping shell ${shellId} (PID ${instance.pid}) with ${signal}`);
 
     try {
-      // For restored shells, process is null - use process.kill(pid) directly
-      if (instance.process) {
-        instance.process.kill(signal);
-      } else {
-        // Kill by PID for restored shells
-        process.kill(instance.pid, signal);
-      }
+      // Kill entire process group using negative PID
+      // detached: true makes the shell a process group leader
+      // Killing -pid sends signal to all processes in that group
+      process.kill(-instance.pid, signal);
 
       // Force kill after 5 seconds if still running
       setTimeout(() => {
         if (instance.exitCode === null) {
           console.log(`[ShellManager] Force killing shell ${shellId}`);
           try {
-            if (instance.process) {
-              instance.process.kill('SIGKILL');
-            } else {
-              process.kill(instance.pid, 'SIGKILL');
-            }
+            process.kill(-instance.pid, 'SIGKILL');
           } catch {
             // Process might already be dead
           }
