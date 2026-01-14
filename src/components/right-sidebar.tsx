@@ -4,7 +4,6 @@ import { Plus, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
-import { ShellPanel } from '@/components/sidebar/shells/shell-panel';
 
 interface RightSidebarProps {
   projectId?: string;
@@ -70,9 +69,6 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
           <Settings className="h-4 w-4" />
           Settings
         </Button>
-
-        {/* Shell Panel - shows running/stopped shells */}
-        {projectId && <ShellPanel projectId={projectId} className="mt-auto" />}
       </div>
     </>
   );

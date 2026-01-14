@@ -34,8 +34,8 @@ function ShellItem({ shell, isSelected, onSelect, onStop }: ShellItemProps) {
           shell.isRunning
             ? 'fill-green-500 text-green-500'
             : shell.exitCode === 0
-            ? 'fill-gray-400 text-gray-400'
-            : 'fill-red-500 text-red-500'
+              ? 'fill-gray-400 text-gray-400'
+              : 'fill-red-500 text-red-500'
         )}
       />
       <div className="flex-1 min-w-0">
@@ -85,7 +85,8 @@ export function ShellToggleBar({ projectId, isExpanded, onToggle }: ShellToggleB
     .sort((a, b) => b.startedAt - a.startedAt); // Newest first
   const runningCount = shellList.filter((s) => s.isRunning).length;
 
-  if (shellList.length === 0) {
+  // Only show when there are running tasks
+  if (runningCount === 0) {
     return null;
   }
 
@@ -102,15 +103,8 @@ export function ShellToggleBar({ projectId, isExpanded, onToggle }: ShellToggleB
       )}
       <Terminal className="h-3 w-3" />
       <span>
-        {runningCount > 0 ? (
-          <>
-            <span className="text-green-500 font-medium">{runningCount}</span> running
-          </>
-        ) : (
-          `${shellList.length} shell${shellList.length !== 1 ? 's' : ''}`
-        )}
+        <span className="text-green-500 font-medium">{runningCount}</span> running background task{runningCount !== 1 ? 's' : ''}
       </span>
-      <span className="text-muted-foreground/60">(↓ to manage)</span>
     </button>
   );
 }
