@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { projects, agentFactoryComponents } from '@/lib/db/schema';
+import { projects, agentFactoryPlugins } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, readFileSync, rmSync } from 'fs';
@@ -171,8 +171,8 @@ export async function POST(
     // Fetch component details
     const component = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, componentId))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, componentId))
       .get();
 
     if (!component) {

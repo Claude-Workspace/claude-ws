@@ -135,8 +135,8 @@ export const checkpoints = sqliteTable(
   ]
 );
 
-// Agent Factory Components table - skills, commands, agents registry
-export const agentFactoryComponents = sqliteTable('agent_factory_components', {
+// Agent Factory Plugins table - skills, commands, agents registry
+export const agentFactoryPlugins = sqliteTable('agent_factory_plugins', {
   id: text('id').primaryKey(),
   type: text('type', { enum: ['skill', 'command', 'agent', 'agent_set'] }).notNull(),
   name: text('name').notNull(),
@@ -153,60 +153,60 @@ export const agentFactoryComponents = sqliteTable('agent_factory_components', {
     .$defaultFn(() => Date.now()),
 });
 
-// Project Components table - many-to-many relationship between projects and components
-export const projectComponents = sqliteTable(
-  'project_components',
+// Project Plugins table - many-to-many relationship between projects and plugins
+export const projectPlugins = sqliteTable(
+  'project_plugins',
   {
     id: text('id').primaryKey(),
     projectId: text('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    componentId: text('component_id')
+    pluginId: text('plugin_id')
       .notNull()
-      .references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
+      .references(() => agentFactoryPlugins.id, { onDelete: 'cascade' }),
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .$defaultFn(() => Date.now()),
   },
   (table) => [
-    index('idx_project_components').on(table.projectId, table.componentId),
+    index('idx_project_plugins').on(table.projectId, table.pluginId),
   ]
 );
 
-// Component Dependencies table - track package and component dependencies
-export const componentDependencies = sqliteTable(
-  'component_dependencies',
+// Plugin Dependencies table - track package and plugin dependencies
+export const pluginDependencies = sqliteTable(
+  'plugin_dependencies',
   {
     id: text('id').primaryKey(),
-    componentId: text('component_id')
+    pluginId: text('plugin_id')
       .notNull()
-      .references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
+      .references(() => agentFactoryPlugins.id, { onDelete: 'cascade' }),
     dependencyType: text('dependency_type', { enum: ['python', 'npm', 'system', 'skill', 'agent'] }).notNull(),
-    spec: text('spec').notNull(), // e.g. "package>=1.0.0" or component name
-    componentDependencyId: text('component_dependency_id').references(() => agentFactoryComponents.id, { onDelete: 'set null' }), // For skill/agent deps
+    spec: text('spec').notNull(), // e.g. "package>=1.0.0" or plugin name
+    pluginDependencyId: text('plugin_dependency_id').references(() => agentFactoryPlugins.id, { onDelete: 'set null' }), // For skill/agent deps
     installed: integer('installed', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .$defaultFn(() => Date.now()),
   },
   (table) => [
-    index('idx_component_deps').on(table.componentId),
-    index('idx_component_depends_on').on(table.componentDependencyId),
+    index('idx_plugin_deps').on(table.pluginId),
+    index('idx_plugin_depends_on').on(table.pluginDependencyId),
   ]
 );
 
-// Component Dependency Cache table - cache resolved dependency trees and install scripts
-export const componentDependencyCache = sqliteTable(
-  'component_dependency_cache',
+// Plugin Dependency Cache table - cache resolved dependency trees and install scripts
+export const pluginDependencyCache = sqliteTable(
+  'plugin_dependency_cache',
   {
     id: text('id').primaryKey(),
-    componentId: text('component_id').references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
-    sourcePath: text('source_path'), // For discovered components
+    pluginId: text('plugin_id').references(() => agentFactoryPlugins.id, { onDelete: 'cascade' }),
+    sourcePath: text('source_path'), // For discovered plugins
     sourceHash: text('source_hash'), // For cache invalidation
     type: text('type', { enum: ['skill', 'command', 'agent'] }).notNull(),
     libraryDeps: text('library_deps'), // JSON array of library dependencies
-    componentDeps: text('component_deps'), // JSON array of component dependencies
+    pluginDeps: text('plugin_deps'), // JSON array of plugin dependencies
     installScriptNpm: text('install_script_npm'),
     installScriptPnpm: text('install_script_pnpm'),
     installScriptYarn: text('install_script_yarn'),
@@ -223,7 +223,7 @@ export const componentDependencyCache = sqliteTable(
       .$defaultFn(() => Date.now()),
   },
   (table) => [
-    index('idx_cache_component').on(table.componentId),
+    index('idx_cache_plugin').on(table.pluginId),
     index('idx_cache_source').on(table.sourcePath),
   ]
 );
@@ -269,13 +269,13 @@ export type Checkpoint = typeof checkpoints.$inferSelect;
 export type NewCheckpoint = typeof checkpoints.$inferInsert;
 export type AttemptFile = typeof attemptFiles.$inferSelect;
 export type NewAttemptFile = typeof attemptFiles.$inferInsert;
-export type AgentFactoryComponent = typeof agentFactoryComponents.$inferSelect;
-export type NewAgentFactoryComponent = typeof agentFactoryComponents.$inferInsert;
-export type ProjectComponent = typeof projectComponents.$inferSelect;
-export type NewProjectComponent = typeof projectComponents.$inferInsert;
-export type ComponentDependency = typeof componentDependencies.$inferSelect;
-export type NewComponentDependency = typeof componentDependencies.$inferInsert;
-export type ComponentDependencyCache = typeof componentDependencyCache.$inferSelect;
-export type NewComponentDependencyCache = typeof componentDependencyCache.$inferInsert;
+export type AgentFactoryPlugin = typeof agentFactoryPlugins.$inferSelect;
+export type NewAgentFactoryPlugin = typeof agentFactoryPlugins.$inferInsert;
+export type ProjectPlugin = typeof projectPlugins.$inferSelect;
+export type NewProjectPlugin = typeof projectPlugins.$inferInsert;
+export type PluginDependency = typeof pluginDependencies.$inferSelect;
+export type NewPluginDependency = typeof pluginDependencies.$inferInsert;
+export type PluginDependencyCache = typeof pluginDependencyCache.$inferSelect;
+export type NewPluginDependencyCache = typeof pluginDependencyCache.$inferInsert;
 export type Shell = typeof shells.$inferSelect;
 export type NewShell = typeof shells.$inferInsert;

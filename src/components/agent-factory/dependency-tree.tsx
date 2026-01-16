@@ -97,11 +97,11 @@ function TreeNode({ node }: { node: DependencyTreeNode }) {
   );
 }
 
-export function countComponents(nodes: DependencyTreeNode[]): number {
+export function countPlugins(nodes: DependencyTreeNode[]): number {
   let count = nodes.length;
   for (const node of nodes) {
     if (node.children) {
-      count += countComponents(node.children);
+      count += countPlugins(node.children);
     }
   }
   return count;

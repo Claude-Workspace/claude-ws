@@ -1,146 +1,146 @@
 import { create } from 'zustand';
-import type { Component, CreateComponentDTO, UpdateComponentDTO, DiscoveredComponent } from '@/types/agent-factory';
+import type { Plugin, CreatePluginDTO, UpdatePluginDTO, DiscoveredPlugin } from '@/types/agent-factory';
 
 interface AgentFactoryState {
-  components: Component[];
+  plugins: Plugin[];
   loading: boolean;
   error: string | null;
-  discovered: DiscoveredComponent[];
+  discovered: DiscoveredPlugin[];
   discovering: boolean;
 }
 
 interface AgentFactoryActions {
-  // Component CRUD
-  fetchComponents: (type?: 'skill' | 'command' | 'agent') => Promise<void>;
-  createComponent: (data: CreateComponentDTO) => Promise<Component>;
-  updateComponent: (id: string, data: UpdateComponentDTO) => Promise<void>;
-  deleteComponent: (id: string) => Promise<void>;
+  // Plugin CRUD
+  fetchPlugins: (type?: 'skill' | 'command' | 'agent') => Promise<void>;
+  createPlugin: (data: CreatePluginDTO) => Promise<Plugin>;
+  updatePlugin: (id: string, data: UpdatePluginDTO) => Promise<void>;
+  deletePlugin: (id: string) => Promise<void>;
 
   // Discovery
-  discoverComponents: () => Promise<DiscoveredComponent[]>;
-  importComponent: (discovered: DiscoveredComponent) => Promise<Component>;
+  discoverPlugins: () => Promise<DiscoveredPlugin[]>;
+  importPlugin: (discovered: DiscoveredPlugin) => Promise<Plugin>;
 }
 
 type AgentFactoryStore = AgentFactoryState & AgentFactoryActions;
 
 export const useAgentFactoryStore = create<AgentFactoryStore>()((set, get) => ({
   // Initial state
-  components: [],
+  plugins: [],
   loading: true,
   error: null,
   discovered: [],
   discovering: false,
 
-  // Fetch all components or filter by type
-  fetchComponents: async (type) => {
+  // Fetch all plugins or filter by type
+  fetchPlugins: async (type) => {
     set({ loading: true, error: null });
     try {
-      const url = type ? `/api/agent-factory/components?type=${type}` : '/api/agent-factory/components';
+      const url = type ? `/api/agent-factory/plugins?type=${type}` : '/api/agent-factory/plugins';
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch components');
+      if (!res.ok) throw new Error('Failed to fetch plugins');
       const data = await res.json();
-      set({ components: data.components, loading: false });
+      set({ plugins: data.plugins, loading: false });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to fetch components',
+        error: error instanceof Error ? error.message : 'Failed to fetch plugins',
         loading: false,
       });
     }
   },
 
-  // Create new component
-  createComponent: async (data) => {
+  // Create new plugin
+  createPlugin: async (data) => {
     set({ error: null });
     try {
-      const res = await fetch('/api/agent-factory/components', {
+      const res = await fetch('/api/agent-factory/plugins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to create component');
+        throw new Error(err.error || 'Failed to create plugin');
       }
       const result = await res.json();
-      const newComponents = [...get().components, result.component];
-      set({ components: newComponents });
-      return result.component;
+      const newPlugins = [...get().plugins, result.plugin];
+      set({ plugins: newPlugins });
+      return result.plugin;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to create component';
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create plugin';
       set({ error: errorMsg });
       throw new Error(errorMsg);
     }
   },
 
-  // Update component
-  updateComponent: async (id, data) => {
+  // Update plugin
+  updatePlugin: async (id, data) => {
     set({ error: null });
     try {
-      const res = await fetch(`/api/agent-factory/components/${id}`, {
+      const res = await fetch(`/api/agent-factory/plugins/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to update component');
+        throw new Error(err.error || 'Failed to update plugin');
       }
       const result = await res.json();
-      const updatedComponents = get().components.map((c) =>
-        c.id === id ? result.component : c
+      const updatedPlugins = get().plugins.map((p) =>
+        p.id === id ? result.plugin : p
       );
-      set({ components: updatedComponents });
+      set({ plugins: updatedPlugins });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to update component',
+        error: error instanceof Error ? error.message : 'Failed to update plugin',
       });
       throw error;
     }
   },
 
-  // Delete component
-  deleteComponent: async (id) => {
+  // Delete plugin
+  deletePlugin: async (id) => {
     set({ error: null });
     try {
-      const res = await fetch(`/api/agent-factory/components/${id}`, {
+      const res = await fetch(`/api/agent-factory/plugins/${id}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to delete component');
+        throw new Error(err.error || 'Failed to delete plugin');
       }
-      const updatedComponents = get().components.filter((c) => c.id !== id);
-      set({ components: updatedComponents });
+      const updatedPlugins = get().plugins.filter((p) => p.id !== id);
+      set({ plugins: updatedPlugins });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to delete component',
+        error: error instanceof Error ? error.message : 'Failed to delete plugin',
       });
       throw error;
     }
   },
 
-  // Discover components from filesystem
-  discoverComponents: async () => {
+  // Discover plugins from filesystem
+  discoverPlugins: async () => {
     set({ discovering: true, error: null });
     try {
       const res = await fetch('/api/agent-factory/discover', {
         method: 'POST',
       });
-      if (!res.ok) throw new Error('Failed to discover components');
+      if (!res.ok) throw new Error('Failed to discover plugins');
       const data = await res.json();
       set({ discovered: data.discovered, discovering: false });
       return data.discovered;
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to discover components',
+        error: error instanceof Error ? error.message : 'Failed to discover plugins',
         discovering: false,
       });
       return [];
     }
   },
 
-  // Import discovered component
-  importComponent: async (discovered) => {
+  // Import discovered plugin
+  importPlugin: async (discovered) => {
     set({ error: null });
     try {
       const res = await fetch('/api/agent-factory/import', {
@@ -150,14 +150,14 @@ export const useAgentFactoryStore = create<AgentFactoryStore>()((set, get) => ({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to import component');
+        throw new Error(err.error || 'Failed to import plugin');
       }
       const result = await res.json();
-      const newComponents = [...get().components, result.component];
-      set({ components: newComponents });
-      return result.component;
+      const newPlugins = [...get().plugins, result.plugin];
+      set({ plugins: newPlugins });
+      return result.plugin;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to import component';
+      const errorMsg = error instanceof Error ? error.message : 'Failed to import plugin';
       set({ error: errorMsg });
       throw error;
     }

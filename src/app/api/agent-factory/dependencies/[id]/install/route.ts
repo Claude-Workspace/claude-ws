@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { componentDependencies } from '@/lib/db/schema';
+import { pluginDependencies } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 
@@ -19,8 +19,8 @@ export async function POST(
     // Get dependency
     const dependency = await db
       .select()
-      .from(componentDependencies)
-      .where(eq(componentDependencies.id, id))
+      .from(pluginDependencies)
+      .where(eq(pluginDependencies.id, id))
       .get();
 
     if (!dependency) {
@@ -29,12 +29,12 @@ export async function POST(
 
     // For skill/agent dependencies, just mark as installed if component exists
     if (dependency.dependencyType === 'skill' || dependency.dependencyType === 'agent') {
-      if (dependency.componentDependencyId) {
+      if (dependency.pluginDependencyId) {
         // Component dependency exists, mark as installed
         await db
-          .update(componentDependencies)
+          .update(pluginDependencies)
           .set({ installed: true })
-          .where(eq(componentDependencies.id, id));
+          .where(eq(pluginDependencies.id, id));
       }
       return NextResponse.json({ success: true, message: 'Component dependency referenced' });
     }
@@ -52,9 +52,9 @@ export async function POST(
 
     // Mark as installed (in real implementation, this would happen after successful install)
     await db
-      .update(componentDependencies)
+      .update(pluginDependencies)
       .set({ installed: true })
-      .where(eq(componentDependencies.id, id));
+      .where(eq(pluginDependencies.id, id));
 
     return NextResponse.json({
       success: true,

@@ -6,7 +6,7 @@ import { dependencyExtractor } from '@/lib/dependency-extractor';
 import { claudeDependencyAnalyzer } from '@/lib/claude-dependency-analyzer';
 import { installScriptGenerator } from '@/lib/install-script-generator';
 import type { DependencyTreeNode } from '@/components/agent-factory/dependency-tree';
-import { countComponents } from '@/components/agent-factory/dependency-tree';
+import { countPlugins } from '@/components/agent-factory/dependency-tree';
 
 interface DependenciesRequest {
   sourcePath: string;
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       const analyzed = await claudeDependencyAnalyzer.analyze(sourcePath, type);
       extracted = {
         libraries: analyzed.libraries,
-        components: analyzed.components,
+        plugins: analyzed.plugins,
       };
     } else {
       // Use regex-based extraction
@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
     // Generate install scripts
     const installScripts = installScriptGenerator.generateAll(extracted.libraries);
 
-    // For non-recursive resolution (discovered components), create flat tree
-    const dependencyTree: DependencyTreeNode[] = extracted.components.map(comp => ({
+    // For non-recursive resolution (discovered plugins), create flat tree
+    const dependencyTree: DependencyTreeNode[] = (extracted.plugins || []).map(comp => ({
       type: comp.type,
       name: comp.name,
       depth: 1,
@@ -62,12 +62,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       libraries: extracted.libraries,
-      components: extracted.components,
+      plugins: extracted.plugins || [],
       installScripts,
       dependencyTree,
       depth: 1,
       hasCycles: false,
-      totalComponents: extracted.components.length,
+      totalPlugins: (extracted.plugins || []).length,
       resolvedAt: Date.now(),
       analysisMethod: useClaude ? 'claude-sdk' : 'regex',
     });

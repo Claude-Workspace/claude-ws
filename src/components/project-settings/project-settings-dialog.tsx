@@ -169,7 +169,7 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
             {selectedProject?.name || 'Project Settings'}
           </DialogTitle>
           <DialogDescription>
-            Configure components and agent sets for this project
+            Configure plugins and agent sets for this project
           </DialogDescription>
         </DialogHeader>
 
@@ -230,9 +230,9 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
                 </div>
               )}
 
-              {/* Components section */}
+              {/* Plugins section */}
               <div className="space-y-2">
-                <Label>Components</Label>
+                <Label>Plugins</Label>
                 <ComponentSelector
                   type="component"
                   selectedIds={selectedComponents}

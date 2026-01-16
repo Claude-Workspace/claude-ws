@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync } from 'fs';
@@ -10,7 +10,7 @@ import { dirname } from 'path';
 const rmAsync = promisify(require('fs').rm);
 const statAsync = promisify(require('fs').stat);
 
-// GET /api/agent-factory/components/:id - Get single component
+// GET /api/agent-factory/plugins/:id - Get single plugin
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (!verifyApiKey(request)) {
@@ -19,24 +19,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params;
 
-    const component = await db
+    const plugin = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
-    if (!component) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+    if (!plugin) {
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ component });
+    return NextResponse.json({ plugin });
   } catch (error) {
-    console.error('Error fetching component:', error);
-    return NextResponse.json({ error: 'Failed to fetch component' }, { status: 500 });
+    console.error('Error fetching plugin:', error);
+    return NextResponse.json({ error: 'Failed to fetch plugin' }, { status: 500 });
   }
 }
 
-// PUT /api/agent-factory/components/:id - Update component
+// PUT /api/agent-factory/plugins/:id - Update plugin
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (!verifyApiKey(request)) {
@@ -47,15 +47,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json();
     const { name, description, sourcePath, metadata } = body;
 
-    // Check if component exists
+    // Check if plugin exists
     const existing = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
     // Build update object
@@ -69,24 +69,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (metadata !== undefined) updateData.metadata = metadata ? JSON.stringify(metadata) : null;
 
     await db
-      .update(agentFactoryComponents)
+      .update(agentFactoryPlugins)
       .set(updateData)
-      .where(eq(agentFactoryComponents.id, id));
+      .where(eq(agentFactoryPlugins.id, id));
 
     const updated = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
-    return NextResponse.json({ component: updated });
+    return NextResponse.json({ plugin: updated });
   } catch (error) {
-    console.error('Error updating component:', error);
-    return NextResponse.json({ error: 'Failed to update component' }, { status: 500 });
+    console.error('Error updating plugin:', error);
+    return NextResponse.json({ error: 'Failed to update plugin' }, { status: 500 });
   }
 }
 
-// DELETE /api/agent-factory/components/:id - Delete component
+// DELETE /api/agent-factory/plugins/:id - Delete plugin
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (!verifyApiKey(request)) {
@@ -95,19 +95,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const { id } = await params;
 
-    // Check if component exists
+    // Check if plugin exists
     const existing = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    // Delete files from disk for local and imported components in agent-factory
-    // Skip external components as they're managed elsewhere
+    // Delete files from disk for local and imported plugins in agent-factory
+    // Skip external plugins as they're managed elsewhere
     let shouldDeleteFiles = false;
     let deletePath: string | null = null;
 
@@ -135,19 +135,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         } else {
           // Commands/Agents: delete the single file
           await rmAsync(deletePath, { force: true });
-          console.log(`Deleted component file: ${deletePath}`);
+          console.log(`Deleted plugin file: ${deletePath}`);
         }
       } catch (error) {
-        console.error(`Failed to delete component files:`, error);
+        console.error(`Failed to delete plugin files:`, error);
         // Continue with database deletion even if file deletion fails
       }
     }
 
-    await db.delete(agentFactoryComponents).where(eq(agentFactoryComponents.id, id));
+    await db.delete(agentFactoryPlugins).where(eq(agentFactoryPlugins.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting component:', error);
-    return NextResponse.json({ error: 'Failed to delete component' }, { status: 500 });
+    console.error('Error deleting plugin:', error);
+    return NextResponse.json({ error: 'Failed to delete plugin' }, { status: 500 });
   }
 }

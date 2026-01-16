@@ -3,7 +3,7 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { dependencyExtractor } from '@/lib/dependency-extractor';
 import { dependencyCache } from '@/lib/dependency-cache';
@@ -16,18 +16,18 @@ interface DependenciesRequest {
   useClaude?: boolean; // Use Claude SDK for intelligent analysis
 }
 
-// Helper to get the base path for a component
-function getComponentBasePath(component: any): string | null {
-  if (component.type === 'agent_set') {
-    return component.agentSetPath;
+// Helper to get the base path for a plugin
+function getPluginBasePath(plugin: any): string | null {
+  if (plugin.type === 'agent_set') {
+    return plugin.agentSetPath;
   }
-  return component.sourcePath;
+  return plugin.sourcePath;
 }
 
-// Helper to extract dependencies from an agent set (aggregates from all components)
+// Helper to extract dependencies from an agent set (aggregates from all plugins)
 async function extractAgentSetDependencies(agentSetPath: string) {
   const libraries: any[] = [];
-  const components: any[] = [];
+  const plugins: any[] = [];
   const subdirs = ['skills', 'commands', 'agents'];
 
   for (const subdir of subdirs) {
@@ -61,7 +61,7 @@ async function extractAgentSetDependencies(agentSetPath: string) {
         try {
           const extracted = await dependencyExtractor.extract(sourcePath, type);
           libraries.push(...extracted.libraries);
-          components.push(...extracted.components);
+          plugins.push(...extracted.plugins);
         } catch {
           // Skip files that fail to extract
         }
@@ -69,10 +69,10 @@ async function extractAgentSetDependencies(agentSetPath: string) {
     }
   }
 
-  return { libraries, components };
+  return { libraries, plugins };
 }
 
-// GET /api/agent-factory/components/:id/dependencies - Get component dependencies
+// GET /api/agent-factory/plugins/:id/dependencies - Get plugin dependencies
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -84,29 +84,29 @@ export async function GET(
 
     const { id } = await params;
 
-    const [component] = await db
+    const [plugin] = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .limit(1);
 
-    if (!component) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+    if (!plugin) {
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    const componentBasePath = getComponentBasePath(component);
-    if (!componentBasePath || !existsSync(componentBasePath)) {
-      return NextResponse.json({ error: 'Component source not found' }, { status: 404 });
+    const pluginBasePath = getPluginBasePath(plugin);
+    if (!pluginBasePath || !existsSync(pluginBasePath)) {
+      return NextResponse.json({ error: 'Plugin source not found' }, { status: 404 });
     }
 
     // Check cache first
     const forceReResolve = request.nextUrl.searchParams.get('force') === 'true';
     if (!forceReResolve) {
-      const cached = await dependencyCache.getByComponentId(id);
+      const cached = await dependencyCache.getByPluginId(id);
       if (cached) {
         return NextResponse.json({
           libraries: cached.libraryDeps,
-          components: cached.componentDeps,
+          plugins: cached.pluginDeps,
           installScripts: {
             npm: cached.installScriptNpm,
             pnpm: cached.installScriptPnpm,
@@ -117,14 +117,14 @@ export async function GET(
             go: cached.installScriptGo,
             dockerfile: cached.dockerfile,
           },
-          dependencyTree: cached.componentDeps.map((c: any) => ({
+          dependencyTree: cached.pluginDeps.map((c: any) => ({
             type: c.type,
             name: c.name,
             depth: 1,
           })),
           depth: cached.depth,
           hasCycles: cached.hasCycles,
-          totalComponents: cached.componentDeps?.length || 0,
+          totalPlugins: cached.pluginDeps?.length || 0,
           resolvedAt: cached.resolvedAt,
         });
       }
@@ -132,17 +132,17 @@ export async function GET(
 
     // Extract dependencies
     let extracted;
-    if (component.type === 'agent_set') {
-      extracted = await extractAgentSetDependencies(componentBasePath);
+    if (plugin.type === 'agent_set') {
+      extracted = await extractAgentSetDependencies(pluginBasePath);
     } else {
-      extracted = await dependencyExtractor.extract(componentBasePath, component.type);
+      extracted = await dependencyExtractor.extract(pluginBasePath, plugin.type);
     }
 
     // Generate install scripts
     const installScripts = installScriptGenerator.generateAll(extracted.libraries);
 
     // Create dependency tree
-    const dependencyTree: DependencyTreeNode[] = extracted.components.map(comp => ({
+    const dependencyTree: DependencyTreeNode[] = extracted.plugins.map(comp => ({
       type: comp.type,
       name: comp.name,
       depth: 1,
@@ -150,11 +150,11 @@ export async function GET(
 
     // Cache the results
     await dependencyCache.set({
-      componentId: id,
-      sourcePath: componentBasePath,
-      type: component.type,
+      pluginId: id,
+      sourcePath: pluginBasePath,
+      type: plugin.type,
       libraryDeps: extracted.libraries,
-      componentDeps: extracted.components,
+      pluginDeps: extracted.plugins,
       installScriptNpm: installScripts.npm,
       installScriptPnpm: installScripts.pnpm,
       installScriptYarn: installScripts.yarn,
@@ -170,12 +170,12 @@ export async function GET(
 
     return NextResponse.json({
       libraries: extracted.libraries,
-      components: extracted.components,
+      plugins: extracted.plugins,
       installScripts,
       dependencyTree,
       depth: 1,
       hasCycles: false,
-      totalComponents: extracted.components.length,
+      totalPlugins: extracted.plugins.length,
       resolvedAt: Date.now(),
     });
   } catch (error) {
@@ -184,7 +184,7 @@ export async function GET(
   }
 }
 
-// POST /api/agent-factory/components/:id/dependencies - Re-resolve dependencies
+// POST /api/agent-factory/plugins/:id/dependencies - Re-resolve dependencies
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -198,47 +198,47 @@ export async function POST(
     const body = await request.json().catch(() => ({})) as DependenciesRequest;
     const useClaude = body.useClaude === true;
 
-    // Invalidate cache for this component
-    await dependencyCache.invalidateByComponentId(id);
+    // Invalidate cache for this plugin
+    await dependencyCache.invalidateByPluginId(id);
 
-    // Get component
-    const [component] = await db
+    // Get plugin
+    const [plugin] = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .limit(1);
 
-    if (!component) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+    if (!plugin) {
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    const componentBasePath = getComponentBasePath(component);
-    if (!componentBasePath || !existsSync(componentBasePath)) {
-      return NextResponse.json({ error: 'Component source not found' }, { status: 404 });
+    const pluginBasePath = getPluginBasePath(plugin);
+    if (!pluginBasePath || !existsSync(pluginBasePath)) {
+      return NextResponse.json({ error: 'Plugin source not found' }, { status: 404 });
     }
 
     // Extract dependencies using Claude SDK or regex extractor
     let extracted;
-    if (component.type === 'agent_set') {
-      // Agent sets: aggregate from all components
-      extracted = await extractAgentSetDependencies(componentBasePath);
+    if (plugin.type === 'agent_set') {
+      // Agent sets: aggregate from all plugins
+      extracted = await extractAgentSetDependencies(pluginBasePath);
     } else if (useClaude) {
       // Use Claude SDK for intelligent analysis
-      const analyzed = await claudeDependencyAnalyzer.analyze(componentBasePath, component.type);
+      const analyzed = await claudeDependencyAnalyzer.analyze(pluginBasePath, plugin.type);
       extracted = {
         libraries: analyzed.libraries,
-        components: analyzed.components,
+        plugins: analyzed.plugins,
       };
     } else {
       // Use regex-based extraction
-      extracted = await dependencyExtractor.extract(componentBasePath, component.type);
+      extracted = await dependencyExtractor.extract(pluginBasePath, plugin.type);
     }
 
     // Generate install scripts
     const installScripts = installScriptGenerator.generateAll(extracted.libraries);
 
     // Create dependency tree
-    const dependencyTree: DependencyTreeNode[] = extracted.components.map(comp => ({
+    const dependencyTree: DependencyTreeNode[] = extracted.plugins.map(comp => ({
       type: comp.type,
       name: comp.name,
       depth: 1,
@@ -246,11 +246,11 @@ export async function POST(
 
     // Cache the results
     await dependencyCache.set({
-      componentId: id,
-      sourcePath: componentBasePath,
-      type: component.type,
+      pluginId: id,
+      sourcePath: pluginBasePath,
+      type: plugin.type,
       libraryDeps: extracted.libraries,
-      componentDeps: extracted.components,
+      pluginDeps: extracted.plugins,
       installScriptNpm: installScripts.npm,
       installScriptPnpm: installScripts.pnpm,
       installScriptYarn: installScripts.yarn,
@@ -266,12 +266,12 @@ export async function POST(
 
     return NextResponse.json({
       libraries: extracted.libraries,
-      components: extracted.components,
+      plugins: extracted.plugins,
       installScripts,
       dependencyTree,
       depth: 1,
       hasCycles: false,
-      totalComponents: extracted.components.length,
+      totalPlugins: extracted.plugins.length,
       resolvedAt: Date.now(),
       message: useClaude
         ? 'Dependencies analyzed with Claude SDK successfully'

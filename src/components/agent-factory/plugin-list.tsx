@@ -4,49 +4,49 @@ import { useEffect, useState } from 'react';
 import { Package, Plus, RefreshCw, Search, Trash2, Edit, X, Upload } from 'lucide-react';
 import { useAgentFactoryStore } from '@/stores/agent-factory-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
-import { Component } from '@/types/agent-factory';
+import { Plugin } from '@/types/agent-factory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ComponentDetailDialog } from './component-detail-dialog';
-import { ComponentFormDialog } from './component-form-dialog';
+import { PluginDetailDialog } from './plugin-detail-dialog';
+import { PluginFormDialog } from './plugin-form-dialog';
 import { DiscoveryDialog } from './discovery-dialog';
 import { UploadDialog } from './upload-dialog';
 
-export function ComponentList() {
-  const { components, loading, error, fetchComponents, deleteComponent } = useAgentFactoryStore();
+export function PluginList() {
+  const { plugins, loading, error, fetchPlugins, deletePlugin } = useAgentFactoryStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const [filter, setFilter] = useState<'all' | 'skill' | 'command' | 'agent' | 'agent_set'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null);
+  const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null);
   const [createFormOpen, setCreateFormOpen] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  const [editingPlugin, setEditingPlugin] = useState<Plugin | null>(null);
 
   useEffect(() => {
-    fetchComponents();
-  }, [fetchComponents]);
+    fetchPlugins();
+  }, [fetchPlugins]);
 
-  const filteredComponents = components.filter((c) => {
-    const matchesStorage = c.storageType === 'imported' || c.storageType === 'local';
-    const matchesFilter = filter === 'all' || c.type === filter;
+  const filteredPlugins = plugins.filter((p) => {
+    const matchesStorage = p.storageType === 'imported' || p.storageType === 'local';
+    const matchesFilter = filter === 'all' || p.type === filter;
     const matchesSearch =
       !searchQuery ||
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-    // Only show components in CLAUDE_HOME_DIR/agent-factory
-    const isInAgentFactory = c.type === 'agent_set'
-      ? (c.agentSetPath?.includes('/agent-factory/') ?? false)
-      : (c.sourcePath?.includes('/agent-factory/') ?? false);
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    // Only show plugins in CLAUDE_HOME_DIR/agent-factory
+    const isInAgentFactory = p.type === 'agent_set'
+      ? (p.agentSetPath?.includes('/agent-factory/') ?? false)
+      : (p.sourcePath?.includes('/agent-factory/') ?? false);
     return matchesStorage && matchesFilter && matchesSearch && isInAgentFactory;
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this component?')) return;
+    if (!confirm('Are you sure you want to delete this plugin?')) return;
     try {
-      await deleteComponent(id);
+      await deletePlugin(id);
     } catch (error) {
-      console.error('Failed to delete component:', error);
+      console.error('Failed to delete plugin:', error);
     }
   };
 
@@ -88,7 +88,7 @@ export function ComponentList() {
           </Button>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" size="sm" onClick={() => fetchComponents()}>
+          <Button variant="outline" size="sm" onClick={() => fetchPlugins()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -130,7 +130,7 @@ export function ComponentList() {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search components..."
+            placeholder="Search plugins..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -148,43 +148,43 @@ export function ComponentList() {
       {/* Loading */}
       {loading && (
         <div className="text-center py-12 text-muted-foreground">
-          Loading components...
+          Loading plugins...
         </div>
       )}
 
-      {/* Component Grid */}
+      {/* Plugin Grid */}
       {!loading && (
         <div className="max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredComponents.map((component) => (
+            {filteredPlugins.map((plugin) => (
             <div
-              key={component.id}
+              key={plugin.id}
               className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedComponent(component)}
+              onClick={() => setSelectedPlugin(plugin)}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Package className="w-5 h-5 text-muted-foreground" />
-                  <h3 className="font-semibold">{component.name}</h3>
+                  <h3 className="font-semibold">{plugin.name}</h3>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${getTypeColor(component.type)}`}>
-                  {getTypeLabel(component.type)}
+                <span className={`text-xs px-2 py-1 rounded-full ${getTypeColor(plugin.type)}`}>
+                  {getTypeLabel(plugin.type)}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                {component.description || 'No description'}
+                {plugin.description || 'No description'}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="capitalize">{component.storageType}</span>
+                <span className="capitalize">{plugin.storageType}</span>
                 <span>•</span>
-                <span>{new Date(component.createdAt).toLocaleDateString()}</span>
+                <span>{new Date(plugin.createdAt).toLocaleDateString()}</span>
               </div>
               <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => setEditingComponent(component)}
+                  onClick={() => setEditingPlugin(plugin)}
                 >
                   <Edit className="w-3 h-3 mr-1" />
                   Edit
@@ -193,7 +193,7 @@ export function ComponentList() {
                   variant="outline"
                   size="sm"
                   className="flex-1 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(component.id)}
+                  onClick={() => handleDelete(plugin.id)}
                 >
                   <Trash2 className="w-3 h-3 mr-1" />
                   Delete
@@ -206,20 +206,20 @@ export function ComponentList() {
       )}
 
       {/* Empty State */}
-      {!loading && filteredComponents.length === 0 && (
+      {!loading && filteredPlugins.length === 0 && (
         <div className="text-center py-12">
           <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">No components found</h3>
+          <h3 className="text-lg font-semibold mb-2">No plugins found</h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery || filter !== 'all'
               ? 'Try adjusting your filters or search query'
-              : 'Get started by discovering existing components or creating a new one'}
+              : 'Get started by discovering existing plugins or creating a new one'}
           </p>
           {!searchQuery && filter === 'all' && (
             <div className="flex justify-center gap-2">
               <Button variant="outline" onClick={() => setDiscoveryOpen(true)}>
                 <Package className="w-4 h-4 mr-2" />
-                Discover Components
+                Discover Plugins
               </Button>
               <Button variant="outline" onClick={() => setUploadOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" />
@@ -235,26 +235,26 @@ export function ComponentList() {
       )}
 
       {/* Dialogs */}
-      {selectedComponent && (
-        <ComponentDetailDialog
-          component={selectedComponent}
-          open={!!selectedComponent}
-          onOpenChange={(open) => !open && setSelectedComponent(null)}
+      {selectedPlugin && (
+        <PluginDetailDialog
+          plugin={selectedPlugin}
+          open={!!selectedPlugin}
+          onOpenChange={(open) => !open && setSelectedPlugin(null)}
         />
       )}
 
       {createFormOpen && (
-        <ComponentFormDialog
+        <PluginFormDialog
           open={createFormOpen}
           onOpenChange={setCreateFormOpen}
         />
       )}
 
-      {editingComponent && (
-        <ComponentFormDialog
-          component={editingComponent}
-          open={!!editingComponent}
-          onOpenChange={(open) => !open && setEditingComponent(null)}
+      {editingPlugin && (
+        <PluginFormDialog
+          plugin={editingPlugin}
+          open={!!editingPlugin}
+          onOpenChange={(open) => !open && setEditingPlugin(null)}
         />
       )}
 
@@ -269,7 +269,7 @@ export function ComponentList() {
         <UploadDialog
           open={uploadOpen}
           onOpenChange={setUploadOpen}
-          onUploadSuccess={() => fetchComponents()}
+          onUploadSuccess={() => fetchPlugins()}
         />
       )}
     </div>

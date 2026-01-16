@@ -8,14 +8,14 @@ export interface LibraryDep {
   manager: 'npm' | 'pnpm' | 'yarn' | 'pip' | 'poetry' | 'cargo' | 'go' | 'composer' | 'gem';
 }
 
-export interface ComponentDep {
+export interface PluginDep {
   type: 'skill' | 'command' | 'agent';
   name: string;
 }
 
 export interface ExtractedDeps {
   libraries: LibraryDep[];
-  components: ComponentDep[];
+  plugins: PluginDep[];
 }
 
 /**
@@ -31,7 +31,7 @@ export class DependencyExtractor {
     try {
       // Check if source exists
       if (!existsSync(sourcePath)) {
-        return { libraries: [], components: [] };
+        return { libraries: [], plugins: [] };
       }
 
       const isDirectory = type === 'skill';
@@ -44,11 +44,11 @@ export class DependencyExtractor {
       }
 
       const libraries = new Map<string, LibraryDep>();
-      const components: ComponentDep[] = [];
+      const plugins: PluginDep[] = [];
 
       // Analyze each file
       for (const filePath of files) {
-        await this.analyzeFile(filePath, libraries, components);
+        await this.analyzeFile(filePath, libraries, plugins);
       }
 
       // Check for package manager files (package.json, requirements.txt, etc.)
@@ -58,11 +58,11 @@ export class DependencyExtractor {
 
       return {
         libraries: Array.from(libraries.values()),
-        components
+        plugins
       };
     } catch (error) {
       console.error('Error extracting dependencies:', error);
-      return { libraries: [], components: [] };
+      return { libraries: [], plugins: [] };
     }
   }
 
@@ -111,7 +111,7 @@ export class DependencyExtractor {
   private async analyzeFile(
     filePath: string,
     libraries: Map<string, LibraryDep>,
-    components: ComponentDep[]
+    plugins: PluginDep[]
   ): Promise<void> {
     try {
       const content = await readFile(filePath, 'utf-8');
@@ -121,8 +121,8 @@ export class DependencyExtractor {
       // Extract library dependencies
       this.extractLibraries(content, libraries, manager);
 
-      // Extract component dependencies
-      this.extractComponents(content, components);
+      // Extract plugin dependencies
+      this.extractComponents(content, plugins);
     } catch {
       // Skip files we can't read
     }
@@ -182,7 +182,7 @@ export class DependencyExtractor {
   /**
    * Extract component dependencies from content
    */
-  private extractComponents(content: string, components: ComponentDep[]): void {
+  private extractComponents(content: string, plugins: PluginDep[]): void {
     // Look for skill/command/agent references
     const patterns = [
       // skill: "name" or skill: 'name'
@@ -221,7 +221,7 @@ export class DependencyExtractor {
         const key = `${type}:${name}`;
         if (!seen.has(key)) {
           seen.add(key);
-          components.push({ type, name });
+          plugins.push({ type, name });
         }
       }
     }

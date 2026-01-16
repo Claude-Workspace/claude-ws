@@ -5,7 +5,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { getAgentFactoryDir } from '@/lib/agent-factory-dir';
 import { eq } from 'drizzle-orm';
 
@@ -26,7 +26,7 @@ interface ComponentWithStatus {
   sourcePath: string;
   metadata?: Record<string, unknown>;
   status: 'new' | 'update' | 'current';
-  existingComponent?: {
+  existingPlugin?: {
     id: string;
     sourcePath: string | null;
     updatedAt: number;
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
     // Get all imported components
     const imported = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.storageType, 'imported'));
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.storageType, 'imported'));
 
     const result: ComponentWithStatus[] = [];
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           result.push({
             ...comp,
             status: 'update',
-            existingComponent: {
+            existingPlugin: {
               id: existing.id,
               sourcePath: existing.sourcePath,
               updatedAt: existing.updatedAt,
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           result.push({
             ...comp,
             status: 'current',
-            existingComponent: {
+            existingPlugin: {
               id: existing.id,
               sourcePath: existing.sourcePath,
               updatedAt: existing.updatedAt,
@@ -105,9 +105,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ components: result });
+    return NextResponse.json({ plugins: result });
   } catch (error) {
-    console.error('Error comparing components:', error);
-    return NextResponse.json({ error: 'Failed to compare components' }, { status: 500 });
+    console.error('Error comparing plugins:', error);
+    return NextResponse.json({ error: 'Failed to compare plugins' }, { status: 500 });
   }
 }

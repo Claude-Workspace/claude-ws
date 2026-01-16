@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Component as AgentFactoryComponent } from '@/types/agent-factory';
+import { Plugin as AgentFactoryPlugin } from '@/types/agent-factory';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 
 interface ComponentSelectorProps {
@@ -25,7 +25,7 @@ interface InstalledStatus {
 
 export function ComponentSelector({ type, selectedIds, onChange, projectId, installedIds = [], onRefresh, onCloseDialog }: ComponentSelectorProps) {
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
-  const [components, setComponents] = useState<AgentFactoryComponent[]>([]);
+  const [components, setComponents] = useState<AgentFactoryPlugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [uninstalling, setUninstalling] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
     try {
       setLoading(true);
       const filterType = type === 'component' ? undefined : 'agent_set';
-      const url = new URL('/api/agent-factory/components', window.location.origin);
+      const url = new URL('/api/agent-factory/plugins', window.location.origin);
       if (filterType) {
         url.searchParams.set('type', filterType);
       }
@@ -54,12 +54,12 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch components');
+      if (!response.ok) throw new Error('Failed to fetch plugins');
 
       const data = await response.json();
-      setComponents(data.components || []);
+      setComponents(data.plugins || []);
     } catch (error) {
-      console.error('Error fetching components:', error);
+      console.error('Error fetching plugins:', error);
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
         <div className="p-2 space-y-1">
           {filteredComponents.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              {searchQuery ? 'No components found' : `No ${title.toLowerCase()} available`}
+              {searchQuery ? 'No plugins found' : `No ${title.toLowerCase()} available`}
             </div>
           ) : (
             filteredComponents.map((component) => {

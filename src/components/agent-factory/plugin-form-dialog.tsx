@@ -11,12 +11,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAgentFactoryStore } from '@/stores/agent-factory-store';
-import { Component, CreateComponentDTO, UpdateComponentDTO } from '@/types/agent-factory';
+import { Plugin, CreatePluginDTO, UpdatePluginDTO } from '@/types/agent-factory';
 
-interface ComponentFormDialogProps {
+interface PluginFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  component?: Component;
+  plugin?: Plugin;
 }
 
 function toKebabCase(name: string): string {
@@ -26,12 +26,12 @@ function toKebabCase(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function ComponentFormDialog({
+export function PluginFormDialog({
   open,
   onOpenChange,
-  component,
-}: ComponentFormDialogProps) {
-  const { createComponent, updateComponent, error } = useAgentFactoryStore();
+  plugin,
+}: PluginFormDialogProps) {
+  const { createPlugin, updatePlugin, error } = useAgentFactoryStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [name, setName] = useState('');
@@ -40,9 +40,9 @@ export function ComponentFormDialog({
   const [sourcePath, setSourcePath] = useState('');
   const [storageType, setStorageType] = useState<'local' | 'imported' | 'external'>('local');
 
-  // Generate preview path for new components
+  // Generate preview path for new plugins
   const previewPath = useMemo(() => {
-    if (component) return sourcePath;
+    if (plugin) return sourcePath;
     if (!name) return '~/.claude/agent-factory/...';
     const slug = toKebabCase(name);
     if (type === 'skill') {
@@ -52,18 +52,18 @@ export function ComponentFormDialog({
     } else {
       return `~/.claude/agent-factory/agents/${slug}.md`;
     }
-  }, [name, type, component]);
+  }, [name, type, plugin]);
 
   useEffect(() => {
-    if (component) {
-      setName(component.name);
+    if (plugin) {
+      setName(plugin.name);
       // Skip setting type for agent_set as this form doesn't support it
-      if (component.type !== 'agent_set') {
-        setType(component.type as 'skill' | 'command' | 'agent');
+      if (plugin.type !== 'agent_set') {
+        setType(plugin.type as 'skill' | 'command' | 'agent');
       }
-      setDescription(component.description || '');
-      setSourcePath(component.sourcePath || '');
-      setStorageType(component.storageType);
+      setDescription(plugin.description || '');
+      setSourcePath(plugin.sourcePath || '');
+      setStorageType(plugin.storageType);
     } else {
       setName('');
       setType('skill');
@@ -71,7 +71,7 @@ export function ComponentFormDialog({
       setSourcePath('');
       setStorageType('local');
     }
-  }, [component, open]);
+  }, [plugin, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,25 +81,25 @@ export function ComponentFormDialog({
 
     setIsSubmitting(true);
     try {
-      if (component) {
-        const data: UpdateComponentDTO = {
+      if (plugin) {
+        const data: UpdatePluginDTO = {
           name: name.trim(),
           description: description.trim() || undefined,
           sourcePath: sourcePath.trim(),
         };
-        await updateComponent(component.id, data);
+        await updatePlugin(plugin.id, data);
       } else {
-        const data: CreateComponentDTO = {
+        const data: CreatePluginDTO = {
           type,
           name: name.trim(),
           description: description.trim() || undefined,
           storageType,
         };
-        await createComponent(data);
+        await createPlugin(data);
       }
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to save component:', error);
+      console.error('Failed to save plugin:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -110,18 +110,18 @@ export function ComponentFormDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            {component ? 'Edit Component' : 'Create New Component'}
+            {plugin ? 'Edit Plugin' : 'Create New Plugin'}
           </DialogTitle>
           <DialogDescription>
-            {component
-              ? 'Update the component details below.'
-              : 'Add a new component to the Agent Factory registry.'}
+            {plugin
+              ? 'Update the plugin details below.'
+              : 'Add a new plugin to the Agent Factory registry.'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Component Type (only for new components) */}
-          {!component && (
+          {/* Plugin Type (only for new plugins) */}
+          {!plugin && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Type</label>
               <select
@@ -143,7 +143,7 @@ export function ComponentFormDialog({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Component name"
+              placeholder="Plugin name"
               disabled={isSubmitting}
               required
             />
@@ -155,19 +155,19 @@ export function ComponentFormDialog({
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of the component"
+              placeholder="Brief description of the plugin"
               disabled={isSubmitting}
             />
           </div>
 
           {/* Source Path - show for editing, read-only preview for new */}
-          {component ? (
+          {plugin ? (
             <div className="space-y-2">
               <label className="text-sm font-medium">Source Path *</label>
               <Input
                 value={sourcePath}
                 onChange={(e) => setSourcePath(e.target.value)}
-                placeholder="/path/to/component"
+                placeholder="/path/to/plugin"
                 disabled={isSubmitting}
                 required
               />
@@ -178,12 +178,12 @@ export function ComponentFormDialog({
               <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded border">
                 {previewPath}
               </div>
-              <p className="text-xs text-muted-foreground">Path will be auto-generated based on component type and name</p>
+              <p className="text-xs text-muted-foreground">Path will be auto-generated based on plugin type and name</p>
             </div>
           )}
 
-          {/* Storage Type (only for new components) */}
-          {!component && (
+          {/* Storage Type (only for new plugins) */}
+          {!plugin && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Storage Type</label>
               <select
@@ -217,7 +217,7 @@ export function ComponentFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || !name.trim()}>
-              {isSubmitting ? 'Saving...' : component ? 'Update' : 'Create'}
+              {isSubmitting ? 'Saving...' : plugin ? 'Update' : 'Create'}
             </Button>
           </div>
         </form>

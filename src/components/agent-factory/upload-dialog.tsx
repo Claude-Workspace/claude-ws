@@ -16,7 +16,7 @@ interface PreviewItem {
   type: 'skill' | 'command' | 'agent' | 'agent_set' | 'unknown';
   name: string;
   targetPath: string;
-  componentCount?: number;
+  pluginCount?: number;
 }
 
 interface UploadDialogProps {
@@ -295,12 +295,12 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileArchive className="w-5 h-5" />
-            {step === 'preview' ? 'Confirm Import' : 'Import Components from Archive'}
+            {step === 'preview' ? 'Confirm Import' : 'Import Plugins from Archive'}
           </DialogTitle>
           <DialogDescription>
             {step === 'preview'
-              ? `Review ${previewItems.length} component(s) found in ${uploadedFileName}`
-              : 'Upload a .zip, .tar, .gz, .gzip, or .tgz file containing components to import.'
+              ? `Review ${previewItems.length} plugin(s) found in ${uploadedFileName}`
+              : 'Upload a .zip, .tar, .gz, .gzip, or .tgz file containing plugins to import.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -387,8 +387,8 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{item.name}</p>
-                          {item.type === 'agent_set' && item.componentCount !== undefined && (
-                            <span className="text-xs text-muted-foreground">({item.componentCount} components)</span>
+                          {item.type === 'agent_set' && item.pluginCount !== undefined && (
+                            <span className="text-xs text-muted-foreground">({item.pluginCount} plugins)</span>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{item.targetPath}</p>
@@ -405,7 +405,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
               <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-lg text-sm">
                 <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  Archive analyzed successfully. Click <strong>Import</strong> to add these components to your Agent Factory.
+                  Archive analyzed successfully. Click <strong>Import</strong> to add these plugins to your Agent Factory.
                 </span>
               </div>
             </>
@@ -414,7 +414,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
           {step === 'importing' && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">Importing components...</p>
+              <p className="text-muted-foreground">Importing plugins...</p>
             </div>
           )}
         </div>
@@ -428,7 +428,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
               </Button>
               <Button onClick={handleConfirmImport} disabled={uploading}>
                 <Check className="w-4 h-4 mr-1" />
-                Import {previewItems.length} Component(s)
+                Import {previewItems.length} Plugin(s)
               </Button>
             </>
           ) : (

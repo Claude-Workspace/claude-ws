@@ -6,7 +6,7 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { getAgentFactoryDir } from '@/lib/agent-factory-dir';
 import { uploadSessions, cleanupDirectory, type ExtractedItem, type UploadSession } from '@/lib/upload-sessions';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import AdmZip from 'adm-zip';
@@ -177,10 +177,10 @@ async function importFromSession(session: UploadSession, agentFactoryDir: string
       // Check if component already exists in database
       const existing = await db
         .select()
-        .from(agentFactoryComponents)
+        .from(agentFactoryPlugins)
         .where(and(
-          eq(agentFactoryComponents.name, item.name),
-          eq(agentFactoryComponents.type, 'agent_set')
+          eq(agentFactoryPlugins.name, item.name),
+          eq(agentFactoryPlugins.type, 'agent_set')
         ))
         .get();
 
@@ -189,17 +189,17 @@ async function importFromSession(session: UploadSession, agentFactoryDir: string
       if (existing) {
         // Update existing component
         await db
-          .update(agentFactoryComponents)
+          .update(agentFactoryPlugins)
           .set({
             description,
             agentSetPath: item.targetPath,
             storageType: 'imported',
             updatedAt: now,
           })
-          .where(eq(agentFactoryComponents.id, existing.id));
+          .where(eq(agentFactoryPlugins.id, existing.id));
       } else {
         // Create new component entry
-        const newComponent = {
+        const newPlugin = {
           id: nanoid(),
           type: 'agent_set' as const,
           name: item.name,
@@ -211,7 +211,7 @@ async function importFromSession(session: UploadSession, agentFactoryDir: string
           createdAt: now,
           updatedAt: now,
         };
-        await db.insert(agentFactoryComponents).values(newComponent);
+        await db.insert(agentFactoryPlugins).values(newPlugin);
       }
     } else {
       // Regular component (skill, command, agent)
@@ -244,27 +244,27 @@ async function importFromSession(session: UploadSession, agentFactoryDir: string
       const componentType = item.type === 'unknown' ? 'command' : item.type;
       const existing = await db
         .select()
-        .from(agentFactoryComponents)
+        .from(agentFactoryPlugins)
         .where(and(
-          eq(agentFactoryComponents.name, item.name),
-          eq(agentFactoryComponents.type, componentType)
+          eq(agentFactoryPlugins.name, item.name),
+          eq(agentFactoryPlugins.type, componentType)
         ))
         .get();
 
       if (existing) {
         // Update existing component
         await db
-          .update(agentFactoryComponents)
+          .update(agentFactoryPlugins)
           .set({
             description,
             sourcePath: item.targetPath,
             storageType: 'imported',
             updatedAt: now,
           })
-          .where(eq(agentFactoryComponents.id, existing.id));
+          .where(eq(agentFactoryPlugins.id, existing.id));
       } else {
         // Create new component entry
-        const newComponent = {
+        const newPlugin = {
           id: nanoid(),
           type: componentType,
           name: item.name,
@@ -276,7 +276,7 @@ async function importFromSession(session: UploadSession, agentFactoryDir: string
           createdAt: now,
           updatedAt: now,
         };
-        await db.insert(agentFactoryComponents).values(newComponent);
+        await db.insert(agentFactoryPlugins).values(newPlugin);
       }
     }
 
@@ -344,7 +344,7 @@ async function analyzeForPreview(extractDir: string, agentFactoryDir: string): P
       }
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       const content = await readFile(entryPath, 'utf-8');
-      const type = detectComponentType(content, entry.name);
+      const type = detectPluginType(content, entry.name);
       let targetPath: string;
       const targetName = basename(entryPath, '.md');
 
@@ -376,7 +376,7 @@ async function previewDirectory(dirPath: string, agentFactoryDir: string, dirNam
     const entryPath = join(dirPath, entry.name);
     if (entry.isFile() && entry.name.endsWith('.md')) {
       const content = await readFile(entryPath, 'utf-8');
-      const type = detectComponentType(content, entry.name);
+      const type = detectPluginType(content, entry.name);
       const targetName = basename(entryPath, '.md');
       let targetPath: string;
 
@@ -500,7 +500,7 @@ async function processFile(filePath: string, agentFactoryDir: string, items: Ext
   if (!fileName.endsWith('.md')) return;
 
   const content = await readFile(filePath, 'utf-8');
-  const type = detectComponentType(content, fileName);
+  const type = detectPluginType(content, fileName);
 
   let targetPath: string;
   let targetName: string;
@@ -524,7 +524,7 @@ async function processFile(filePath: string, agentFactoryDir: string, items: Ext
   });
 }
 
-function detectComponentType(content: string, fileName: string): 'skill' | 'command' | 'agent' | 'unknown' {
+function detectPluginType(content: string, fileName: string): 'skill' | 'command' | 'agent' | 'unknown' {
   const lowerContent = content.toLowerCase();
   const lowerFileName = fileName.toLowerCase();
 

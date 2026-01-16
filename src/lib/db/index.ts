@@ -158,7 +158,7 @@ export function initDb() {
 
   // Agent Factory tables
   sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS agent_factory_components (
+    CREATE TABLE IF NOT EXISTS agent_factory_plugins (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL CHECK(type IN ('skill', 'command', 'agent', 'agent_set')),
       name TEXT NOT NULL,
@@ -171,37 +171,37 @@ export function initDb() {
       updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE TABLE IF NOT EXISTS project_components (
+    CREATE TABLE IF NOT EXISTS project_plugins (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      component_id TEXT NOT NULL REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      plugin_id TEXT NOT NULL REFERENCES agent_factory_plugins(id) ON DELETE CASCADE,
       enabled INTEGER NOT NULL DEFAULT 1,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_project_components ON project_components(project_id, component_id);
+    CREATE INDEX IF NOT EXISTS idx_project_plugins ON project_plugins(project_id, plugin_id);
 
-    CREATE TABLE IF NOT EXISTS component_dependencies (
+    CREATE TABLE IF NOT EXISTS plugin_dependencies (
       id TEXT PRIMARY KEY,
-      component_id TEXT NOT NULL REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      plugin_id TEXT NOT NULL REFERENCES agent_factory_plugins(id) ON DELETE CASCADE,
       dependency_type TEXT NOT NULL CHECK(dependency_type IN ('python', 'npm', 'system', 'skill', 'agent')),
       spec TEXT NOT NULL,
-      component_dependency_id TEXT REFERENCES agent_factory_components(id) ON DELETE SET NULL,
+      plugin_dependency_id TEXT REFERENCES agent_factory_plugins(id) ON DELETE SET NULL,
       installed INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_component_deps ON component_dependencies(component_id);
-    CREATE INDEX IF NOT EXISTS idx_component_depends_on ON component_dependencies(component_dependency_id);
+    CREATE INDEX IF NOT EXISTS idx_plugin_deps ON plugin_dependencies(plugin_id);
+    CREATE INDEX IF NOT EXISTS idx_plugin_depends_on ON plugin_dependencies(plugin_dependency_id);
 
-    CREATE TABLE IF NOT EXISTS component_dependency_cache (
+    CREATE TABLE IF NOT EXISTS plugin_dependency_cache (
       id TEXT PRIMARY KEY,
-      component_id TEXT REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      plugin_id TEXT REFERENCES agent_factory_plugins(id) ON DELETE CASCADE,
       source_path TEXT,
       source_hash TEXT,
       type TEXT NOT NULL CHECK(type IN ('skill', 'command', 'agent')),
       library_deps TEXT,
-      component_deps TEXT,
+      plugin_deps TEXT,
       install_script_npm TEXT,
       install_script_pnpm TEXT,
       install_script_yarn TEXT,
@@ -216,8 +216,8 @@ export function initDb() {
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_cache_component ON component_dependency_cache(component_id);
-    CREATE INDEX IF NOT EXISTS idx_cache_source ON component_dependency_cache(source_path);
+    CREATE INDEX IF NOT EXISTS idx_cache_plugin ON plugin_dependency_cache(plugin_id);
+    CREATE INDEX IF NOT EXISTS idx_cache_source ON plugin_dependency_cache(source_path);
   `);
 }
 

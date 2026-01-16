@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Folder, FileText, File, ChevronRight, ChevronDown, Loader2, X, PackageSearch, Terminal, Copy, AlertTriangle, AlertCircle, RefreshCw, Edit3, Save, X as XIcon } from 'lucide-react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
-import { Component } from '@/types/agent-factory';
-import { DependencyTree, type DependencyTreeNode, countComponents } from './dependency-tree';
+import { Plugin, DiscoveredPlugin } from '@/types/agent-factory';
+import { DependencyTree, type DependencyTreeNode, countPlugins } from './dependency-tree';
 import { Textarea } from '@/components/ui/textarea';
 
 interface FileNode {
@@ -52,7 +52,7 @@ interface InstallScripts {
 
 interface DependencyInfo {
   libraries: LibraryDep[];
-  components: Array<{
+  plugins: Array<{
     type: 'skill' | 'command' | 'agent';
     name: string;
   }>;
@@ -63,33 +63,24 @@ interface DependencyInfo {
   resolvedAt?: number;
 }
 
-// Discovered component (not yet imported)
-interface DiscoveredComponent {
-  type: string;
-  name: string;
-  description?: string;
-  sourcePath: string;
-  metadata?: Record<string, unknown>;
-}
+type PluginDetailProps = Plugin | DiscoveredPlugin;
 
-type ComponentDetailProps = Component | DiscoveredComponent;
-
-interface ComponentDetailDialogProps {
-  component: ComponentDetailProps;
+interface PluginDetailDialogProps {
+  plugin: PluginDetailProps;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function isImportedComponent(comp: ComponentDetailProps): comp is Component {
-  return 'id' in comp && 'storageType' in comp;
+function isImportedPlugin(plug: PluginDetailProps): plug is Plugin {
+  return 'id' in plug && 'storageType' in plug;
 }
 
-export function ComponentDetailDialog({
-  component,
+export function PluginDetailDialog({
+  plugin,
   open,
   onOpenChange,
-}: ComponentDetailDialogProps) {
-  const isImported = isImportedComponent(component);
+}: PluginDetailDialogProps) {
+  const isImported = isImportedPlugin(plugin);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'dependencies'>('details');
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -111,7 +102,7 @@ export function ComponentDetailDialog({
   const [editedContent, setEditedContent] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Reset state when component changes
+  // Reset state when plugin changes
   useEffect(() => {
     setFiles([]);
     setSelectedFile(null);
@@ -125,7 +116,7 @@ export function ComponentDetailDialog({
     setIsEditing(false);
     setEditedContent('');
     setSaving(false);
-  }, [component.name, component.sourcePath]);
+  }, [plugin.name, plugin.sourcePath]);
 
   useEffect(() => {
     if (open && activeTab === 'files' && files.length === 0) {
@@ -178,15 +169,15 @@ export function ComponentDetailDialog({
     try {
       let fileData;
       if (isImported) {
-        const res = await fetch(`/api/agent-factory/components/${component.id}/files`);
+        const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/files`);
         if (!res.ok) throw new Error('Failed to load files');
         fileData = await res.json();
       } else {
-        // For discovered components, use a different endpoint that reads from sourcePath
+        // For discovered plugins, use a different endpoint that reads from sourcePath
         const res = await fetch('/api/agent-factory/files', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourcePath: component.sourcePath, type: component.type }),
+          body: JSON.stringify({ sourcePath: plugin.sourcePath, type: plugin.type }),
         });
         if (!res.ok) throw new Error('Failed to load files');
         fileData = await res.json();
@@ -206,16 +197,16 @@ export function ComponentDetailDialog({
       let data;
       if (isImported) {
         const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-        const res = await fetch(`/api/agent-factory/components/${component.id}/files/${encodedPath}`);
+        const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/files/${encodedPath}`);
         if (!res.ok) throw new Error('Failed to load file');
         data = await res.json();
       } else {
-        // For discovered components
+        // For discovered plugins
         const res = await fetch('/api/agent-factory/file-content', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            basePath: component.sourcePath,
+            basePath: plugin.sourcePath,
             filePath,
           }),
         });
@@ -237,15 +228,15 @@ export function ComponentDetailDialog({
     try {
       let data;
       if (isImported) {
-        const res = await fetch(`/api/agent-factory/components/${component.id}/dependencies`);
+        const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/dependencies`);
         if (!res.ok) throw new Error('Failed to load dependencies');
         data = await res.json();
       } else {
-        // For discovered components
+        // For discovered plugins
         const res = await fetch('/api/agent-factory/dependencies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourcePath: component.sourcePath, type: component.type }),
+          body: JSON.stringify({ sourcePath: plugin.sourcePath, type: plugin.type }),
         });
         if (!res.ok) throw new Error('Failed to load dependencies');
         data = await res.json();
@@ -263,8 +254,8 @@ export function ComponentDetailDialog({
     setError(null);
     try {
       if (isImported) {
-        // For imported components, use POST endpoint with Claude SDK analysis
-        const res = await fetch(`/api/agent-factory/components/${component.id}/dependencies`, {
+        // For imported plugins, use POST endpoint with Claude SDK analysis
+        const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/dependencies`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ useClaude: true }),
@@ -273,13 +264,13 @@ export function ComponentDetailDialog({
         const data = await res.json();
         setDependencies(data);
       } else {
-        // For discovered components, re-fetch with POST to trigger Claude analysis
+        // For discovered plugins, re-fetch with POST to trigger Claude analysis
         const res = await fetch('/api/agent-factory/dependencies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sourcePath: component.sourcePath,
-            type: component.type,
+            sourcePath: plugin.sourcePath,
+            type: plugin.type,
             useClaude: true,
           }),
         });
@@ -404,22 +395,22 @@ export function ComponentDetailDialog({
   };
 
   const formatMetadata = () => {
-    if (isImported && component.metadata) {
+    if (isImported && plugin.metadata) {
       try {
-        return JSON.stringify(JSON.parse(component.metadata), null, 2);
+        return JSON.stringify(JSON.parse(plugin.metadata), null, 2);
       } catch {
-        return component.metadata;
+        return plugin.metadata;
       }
-    } else if (!isImported && component.metadata) {
-      return JSON.stringify(component.metadata, null, 2);
+    } else if (!isImported && plugin.metadata) {
+      return JSON.stringify(plugin.metadata, null, 2);
     }
     return null;
   };
 
   const metadataStr = formatMetadata();
 
-  // Check if current component can be edited (local storage only)
-  const canEdit = isImported && component.storageType === 'local';
+  // Check if current plugin can be edited (local storage only)
+  const canEdit = isImported && plugin.storageType === 'local';
 
   const handleStartEdit = () => {
     if (fileContent) {
@@ -439,7 +430,7 @@ export function ComponentDetailDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/agent-factory/components/${component.id}/files/save`, {
+      const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/files/save`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -473,13 +464,13 @@ export function ComponentDetailDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Package className="w-6 h-6" />
-              {component.name}
+              {plugin.name}
               {!isImported && (
                 <Badge variant="outline" className="text-xs">Discovered</Badge>
               )}
             </DialogTitle>
             <DialogDescription>
-              {isImported ? 'Component details and files' : 'Discovered component details and files'}
+              {isImported ? 'Plugin details and files' : 'Discovered plugin details and files'}
             </DialogDescription>
           </DialogHeader>
 
@@ -495,20 +486,20 @@ export function ComponentDetailDialog({
                 {/* Type Badge */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Type:</span>
-                  <Badge className={getTypeColor(component.type)}>
-                    {component.type}
+                  <Badge className={getTypeColor(plugin.type)}>
+                    {plugin.type}
                   </Badge>
                 </div>
 
                 {/* Description */}
-                {component.description && (
+                {plugin.description && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Description</span>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">
-                      {component.description}
+                      {plugin.description}
                     </p>
                   </div>
                 )}
@@ -520,7 +511,7 @@ export function ComponentDetailDialog({
                     <span className="text-sm font-medium">Source Path</span>
                   </div>
                   <code className="text-xs bg-muted px-2 py-1 rounded block pl-6 break-all">
-                    {component.sourcePath}
+                    {plugin.sourcePath}
                   </code>
                 </div>
 
@@ -528,7 +519,7 @@ export function ComponentDetailDialog({
                 {isImported && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Storage:</span>
-                    <Badge variant="secondary">{component.storageType}</Badge>
+                    <Badge variant="secondary">{plugin.storageType}</Badge>
                   </div>
                 )}
 
@@ -550,10 +541,10 @@ export function ComponentDetailDialog({
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      Created: {new Date(component.createdAt).toLocaleString()}
+                      Created: {new Date(plugin.createdAt).toLocaleString()}
                     </div>
                     <div className="flex items-center gap-1">
-                      Updated: {new Date(component.updatedAt).toLocaleString()}
+                      Updated: {new Date(plugin.updatedAt).toLocaleString()}
                     </div>
                   </div>
                 )}
@@ -795,27 +786,27 @@ export function ComponentDetailDialog({
                       )}
                     </div>
 
-                    {/* Component Dependencies */}
+                    {/* Plugin Dependencies */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Package className="w-4 h-4 text-muted-foreground" />
-                        <h3 className="text-sm font-medium">Component Dependencies</h3>
+                        <h3 className="text-sm font-medium">Plugin Dependencies</h3>
                         <Badge variant="secondary">
-                          {dependencies.dependencyTree ? countComponents(dependencies.dependencyTree) : dependencies.components.length}
+                          {dependencies.dependencyTree ? countPlugins(dependencies.dependencyTree) : dependencies.plugins.length}
                         </Badge>
                       </div>
-                      {(!dependencies.dependencyTree || dependencies.dependencyTree.length === 0) && dependencies.components.length === 0 ? (
-                        <p className="text-sm text-muted-foreground pl-6">No component dependencies found</p>
+                      {(!dependencies.dependencyTree || dependencies.dependencyTree.length === 0) && dependencies.plugins.length === 0 ? (
+                        <p className="text-sm text-muted-foreground pl-6">No plugin dependencies found</p>
                       ) : (
                         <div className="pl-6">
                           {dependencies.dependencyTree ? (
                             <DependencyTree nodes={dependencies.dependencyTree} />
                           ) : (
                             <div className="space-y-2">
-                              {dependencies.components.map((comp, idx) => (
+                              {dependencies.plugins.map((plug, idx) => (
                                 <div key={idx} className="flex items-center gap-2">
-                                  <Badge className={getTypeColor(comp.type)}>{comp.type}</Badge>
-                                  <span className="text-sm">{comp.name}</span>
+                                  <Badge className={getTypeColor(plug.type)}>{plug.type}</Badge>
+                                  <span className="text-sm">{plug.name}</span>
                                 </div>
                               ))}
                             </div>

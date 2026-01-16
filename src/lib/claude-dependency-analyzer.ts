@@ -13,14 +13,14 @@ export interface LibraryDep {
   manager: 'npm' | 'pnpm' | 'yarn' | 'pip' | 'poetry' | 'cargo' | 'go' | 'composer' | 'gem';
 }
 
-export interface ComponentDep {
+export interface PluginDep {
   type: 'skill' | 'command' | 'agent';
   name: string;
 }
 
 export interface AnalysisResult {
   libraries: LibraryDep[];
-  components: ComponentDep[];
+  plugins: PluginDep[];
   installScripts?: {
     npm?: string;
     pnpm?: string;
@@ -52,13 +52,13 @@ export class ClaudeDependencyAnalyzer {
     try {
       // Check if source exists
       if (!existsSync(sourcePath)) {
-        return { libraries: [], components: [] };
+        return { libraries: [], plugins: [] };
       }
 
       // Collect source files
       const files = await this.collectSourceFiles(sourcePath, type);
       if (files.length === 0) {
-        return { libraries: [], components: [] };
+        return { libraries: [], plugins: [] };
       }
 
       // Build analysis prompt
@@ -71,12 +71,12 @@ export class ClaudeDependencyAnalyzer {
       const parsed = this.parseAnalysisResult(result);
 
       // If Claude returned no results, fall back to regex extraction
-      if (parsed.libraries.length === 0 && parsed.components.length === 0) {
+      if (parsed.libraries.length === 0 && parsed.plugins.length === 0) {
         console.warn('Claude returned no results, falling back to regex extraction');
         const fallback = await dependencyExtractor.extract(sourcePath, type);
         return {
           libraries: fallback.libraries,
-          components: fallback.components,
+          plugins: fallback.plugins,
         };
       }
 
@@ -88,7 +88,7 @@ export class ClaudeDependencyAnalyzer {
       const fallback = await dependencyExtractor.extract(sourcePath, type);
       return {
         libraries: fallback.libraries,
-        components: fallback.components,
+        plugins: fallback.plugins,
       };
     }
   }
@@ -221,7 +221,7 @@ ${fileContents}`;
 
       if (!jsonMatch) {
         console.warn('No JSON found in Claude response');
-        return { libraries: [], components: [] };
+        return { libraries: [], plugins: [] };
       }
 
       const parsed = JSON.parse(jsonMatch[1]);
@@ -234,14 +234,14 @@ ${fileContents}`;
       }));
 
       // Validate components
-      const components: ComponentDep[] = (parsed.components || []).filter((c: any) => {
+      const components: PluginDep[] = (parsed.components || []).filter((c: any) => {
         return c.type && c.name && ['skill', 'command', 'agent'].includes(c.type);
       });
 
-      return { libraries, components };
+      return { libraries, plugins: components };
     } catch (error) {
       console.error('Failed to parse Claude response:', error);
-      return { libraries: [], components: [] };
+      return { libraries: [], plugins: [] };
     }
   }
 

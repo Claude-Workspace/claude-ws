@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { readFile, stat } from 'fs/promises';
 import { db } from '@/lib/db';
-import { componentDependencyCache } from '@/lib/db/schema';
+import { pluginDependencyCache } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -11,18 +11,18 @@ export interface LibraryDep {
   manager: 'npm' | 'pnpm' | 'yarn' | 'pip' | 'poetry' | 'cargo' | 'go' | 'composer' | 'gem';
 }
 
-export interface ComponentDep {
+export interface PluginDep {
   type: 'skill' | 'command' | 'agent';
   name: string;
 }
 
 export interface CachedDependencyData {
   id: string;
-  componentId?: string;
+  pluginId?: string;
   sourcePath?: string;
   type: string;
   libraryDeps: LibraryDep[];
-  componentDeps: ComponentDep[];
+  pluginDeps: PluginDep[];
   installScriptNpm?: string;
   installScriptPnpm?: string;
   installScriptYarn?: string;
@@ -38,13 +38,13 @@ export interface CachedDependencyData {
 
 export class DependencyCacheService {
   /**
-   * Get cached dependency data for an imported component
+   * Get cached dependency data for an imported plugin
    */
-  async getByComponentId(componentId: string): Promise<CachedDependencyData | null> {
+  async getByPluginId(pluginId: string): Promise<CachedDependencyData | null> {
     const [cached] = await db
       .select()
-      .from(componentDependencyCache)
-      .where(eq(componentDependencyCache.componentId, componentId))
+      .from(pluginDependencyCache)
+      .where(eq(pluginDependencyCache.pluginId, pluginId))
       .limit(1);
 
     return cached ? this.parseFromDb(cached) : null;
@@ -56,8 +56,8 @@ export class DependencyCacheService {
   async getBySourcePath(sourcePath: string): Promise<CachedDependencyData | null> {
     const [cached] = await db
       .select()
-      .from(componentDependencyCache)
-      .where(eq(componentDependencyCache.sourcePath, sourcePath))
+      .from(pluginDependencyCache)
+      .where(eq(pluginDependencyCache.sourcePath, sourcePath))
       .limit(1);
 
     if (!cached) return null;
@@ -84,12 +84,12 @@ export class DependencyCacheService {
 
     const insertData: Record<string, any> = {
       id,
-      componentId: data.componentId || null,
+      pluginId: data.pluginId || null,
       sourcePath: data.sourcePath || null,
       sourceHash,
       type: data.type,
       libraryDeps: JSON.stringify(data.libraryDeps),
-      componentDeps: JSON.stringify(data.componentDeps),
+      pluginDeps: JSON.stringify(data.pluginDeps),
       installScriptNpm: data.installScriptNpm || null,
       installScriptPnpm: data.installScriptPnpm || null,
       installScriptYarn: data.installScriptYarn || null,
@@ -103,7 +103,7 @@ export class DependencyCacheService {
       resolvedAt: data.resolvedAt,
     };
 
-    await db.insert(componentDependencyCache).values(insertData as any);
+    await db.insert(pluginDependencyCache).values(insertData as any);
 
     return id;
   }
@@ -113,17 +113,17 @@ export class DependencyCacheService {
    */
   async invalidate(id: string): Promise<void> {
     await db
-      .delete(componentDependencyCache)
-      .where(eq(componentDependencyCache.id, id));
+      .delete(pluginDependencyCache)
+      .where(eq(pluginDependencyCache.id, id));
   }
 
   /**
-   * Invalidate all cache for a component
+   * Invalidate all cache for a plugin
    */
-  async invalidateByComponentId(componentId: string): Promise<void> {
+  async invalidateByPluginId(pluginId: string): Promise<void> {
     await db
-      .delete(componentDependencyCache)
-      .where(eq(componentDependencyCache.componentId, componentId));
+      .delete(pluginDependencyCache)
+      .where(eq(pluginDependencyCache.pluginId, pluginId));
   }
 
   /**
@@ -131,8 +131,8 @@ export class DependencyCacheService {
    */
   async invalidateBySourcePath(sourcePath: string): Promise<void> {
     await db
-      .delete(componentDependencyCache)
-      .where(eq(componentDependencyCache.sourcePath, sourcePath));
+      .delete(pluginDependencyCache)
+      .where(eq(pluginDependencyCache.sourcePath, sourcePath));
   }
 
   /**
@@ -162,11 +162,11 @@ export class DependencyCacheService {
   private parseFromDb(row: any): CachedDependencyData {
     return {
       id: row.id,
-      componentId: row.componentId || undefined,
+      pluginId: row.pluginId || undefined,
       sourcePath: row.sourcePath || undefined,
       type: row.type,
       libraryDeps: JSON.parse(row.libraryDeps || '[]'),
-      componentDeps: JSON.parse(row.componentDeps || '[]'),
+      pluginDeps: JSON.parse(row.pluginDeps || '[]'),
       installScriptNpm: row.installScriptNpm || undefined,
       installScriptPnpm: row.installScriptPnpm || undefined,
       installScriptYarn: row.installScriptYarn || undefined,

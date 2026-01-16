@@ -12,17 +12,17 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Package, Search, RefreshCw, RotateCcw } from 'lucide-react';
 import { useAgentFactoryStore } from '@/stores/agent-factory-store';
-import { DiscoveredComponent, Component } from '@/types/agent-factory';
-import { ComponentDetailDialog } from './component-detail-dialog';
+import { DiscoveredPlugin, Plugin } from '@/types/agent-factory';
+import { PluginDetailDialog } from './plugin-detail-dialog';
 
 interface DiscoveryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface DiscoveredWithStatus extends DiscoveredComponent {
+interface DiscoveredWithStatus extends DiscoveredPlugin {
   status: 'new' | 'update' | 'current';
-  existingComponent?: {
+  existingPlugin?: {
     id: string;
     sourcePath: string | null;
     updatedAt: number;
@@ -30,21 +30,21 @@ interface DiscoveredWithStatus extends DiscoveredComponent {
 }
 
 interface CompareResponse {
-  components: DiscoveredWithStatus[];
+  plugins: DiscoveredWithStatus[];
 }
 
-// Memoized component item to prevent unnecessary re-renders
+// Memoized plugin item to prevent unnecessary re-renders
 interface DiscoveredItemProps {
-  component: DiscoveredWithStatus;
+  plugin: DiscoveredWithStatus;
   isSelected: boolean;
   isProcessing: boolean;
-  onToggle: (component: DiscoveredWithStatus) => void;
-  onImport: (component: DiscoveredWithStatus) => void;
-  onClick: (component: DiscoveredWithStatus, e: React.MouseEvent) => void;
+  onToggle: (plugin: DiscoveredWithStatus) => void;
+  onImport: (plugin: DiscoveredWithStatus) => void;
+  onClick: (plugin: DiscoveredWithStatus, e: React.MouseEvent) => void;
 }
 
 const DiscoveredItem = memo(function DiscoveredItem({
-  component,
+  plugin,
   isSelected,
   isProcessing,
   onToggle,
@@ -80,34 +80,34 @@ const DiscoveredItem = memo(function DiscoveredItem({
   return (
     <div
       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:border-primary/50 ${
-        component.status === 'current'
+        plugin.status === 'current'
           ? 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800 opacity-60'
-          : component.status === 'update'
+          : plugin.status === 'update'
             ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
             : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
       }`}
-      onClick={(e) => onClick(component, e)}
+      onClick={(e) => onClick(plugin, e)}
     >
       <Checkbox
         checked={isSelected}
-        onCheckedChange={() => onToggle(component)}
-        disabled={component.status === 'current' || isProcessing}
+        onCheckedChange={() => onToggle(plugin)}
+        disabled={plugin.status === 'current' || isProcessing}
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(component.type)}`}>
-            {component.type}
+          <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(plugin.type)}`}>
+            {plugin.type}
           </span>
-          <span className="font-medium">{component.name}</span>
-          {getStatusBadge(component.status)}
+          <span className="font-medium">{plugin.name}</span>
+          {getStatusBadge(plugin.status)}
         </div>
-        {component.description && (
+        {plugin.description && (
           <p className="text-sm text-muted-foreground line-clamp-2">
-            {component.description}
+            {plugin.description}
           </p>
         )}
         <code className="text-xs text-muted-foreground block mt-1">
-          {component.sourcePath}
+          {plugin.sourcePath}
         </code>
       </div>
       <Button
@@ -115,15 +115,15 @@ const DiscoveredItem = memo(function DiscoveredItem({
         size="sm"
         onClick={(e) => {
           e.stopPropagation();
-          onImport(component);
+          onImport(plugin);
         }}
-        disabled={component.status === 'current' || isProcessing}
+        disabled={plugin.status === 'current' || isProcessing}
       >
         {isProcessing ? (
           <RefreshCw className="w-3 h-3 animate-spin" />
-        ) : component.status === 'current' ? (
+        ) : plugin.status === 'current' ? (
           'Current'
-        ) : component.status === 'update' ? (
+        ) : plugin.status === 'update' ? (
           <>
             <RotateCcw className="w-3 h-3 mr-1" />
             Update
@@ -137,14 +137,14 @@ const DiscoveredItem = memo(function DiscoveredItem({
 });
 
 export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
-  const { components, discovering, discoverComponents, importComponent, fetchComponents } = useAgentFactoryStore();
+  const { plugins, discovering, discoverPlugins, importPlugin, fetchPlugins } = useAgentFactoryStore();
   const [discovered, setDiscovered] = useState<DiscoveredWithStatus[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [scanned, setScanned] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [detailComponent, setDetailComponent] = useState<DiscoveredWithStatus | null>(null);
+  const [detailPlugin, setDetailPlugin] = useState<DiscoveredWithStatus | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
@@ -158,10 +158,10 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
 
   // Memoize filter counts to prevent recalculation on every render
   const { newCount, updateCount, currentCount, needsAction } = useMemo(() => ({
-    newCount: discovered.filter((c) => c.status === 'new').length,
-    updateCount: discovered.filter((c) => c.status === 'update').length,
-    currentCount: discovered.filter((c) => c.status === 'current').length,
-    needsAction: discovered.filter((c) => c.status !== 'current').length,
+    newCount: discovered.filter((p) => p.status === 'new').length,
+    updateCount: discovered.filter((p) => p.status === 'update').length,
+    currentCount: discovered.filter((p) => p.status === 'current').length,
+    needsAction: discovered.filter((p) => p.status !== 'current').length,
   }), [discovered]);
 
   // Memoize handlers to prevent recreation on every render
@@ -170,38 +170,38 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     setDiscovered([]);
     setScanned(false);
     try {
-      const results = await discoverComponents();
-      const withStatus = await checkComponentStatus(results);
+      const results = await discoverPlugins();
+      const withStatus = await checkPluginStatus(results);
       setDiscovered(withStatus);
       setScanned(true);
     } catch (error) {
-      console.error('Failed to scan components:', error);
+      console.error('Failed to scan plugins:', error);
     } finally {
       setScanning(false);
     }
-  }, [discoverComponents]);
+  }, [discoverPlugins]);
 
-  const checkComponentStatus = async (discoveredComponents: DiscoveredComponent[]): Promise<DiscoveredWithStatus[]> => {
+  const checkPluginStatus = async (discoveredPlugins: DiscoveredPlugin[]): Promise<DiscoveredWithStatus[]> => {
     try {
       const res = await fetch('/api/agent-factory/compare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ discovered: discoveredComponents }),
+        body: JSON.stringify({ discovered: discoveredPlugins }),
       });
       if (!res.ok) {
-        throw new Error('Failed to compare components');
+        throw new Error('Failed to compare plugins');
       }
       const data: CompareResponse = await res.json();
-      return data.components;
+      return data.plugins;
     } catch (error) {
-      console.error('Failed to compare components:', error);
+      console.error('Failed to compare plugins:', error);
       // Fallback: mark all as new
-      return discoveredComponents.map((c) => ({ ...c, status: 'new' as const }));
+      return discoveredPlugins.map((p) => ({ ...p, status: 'new' as const }));
     }
   };
 
-  const toggleSelection = useCallback((component: DiscoveredWithStatus) => {
-    const key = `${component.type}-${component.name}`;
+  const toggleSelection = useCallback((plugin: DiscoveredWithStatus) => {
+    const key = `${plugin.type}-${plugin.name}`;
     setSelectedIds((prev) => {
       const newSelected = new Set(prev);
       if (newSelected.has(key)) {
@@ -213,37 +213,37 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     });
   }, []);
 
-  const isSelected = useCallback((component: DiscoveredWithStatus) => {
-    return selectedIds.has(`${component.type}-${component.name}`);
+  const isSelected = useCallback((plugin: DiscoveredWithStatus) => {
+    return selectedIds.has(`${plugin.type}-${plugin.name}`);
   }, [selectedIds]);
 
-  const isProcessing = useCallback((component: DiscoveredWithStatus) => {
-    return processingIds.has(`${component.type}-${component.name}`);
+  const isProcessing = useCallback((plugin: DiscoveredWithStatus) => {
+    return processingIds.has(`${plugin.type}-${plugin.name}`);
   }, [processingIds]);
 
-  const handleDetailClick = useCallback((component: DiscoveredWithStatus, e: React.MouseEvent) => {
+  const handleDetailClick = useCallback((plugin: DiscoveredWithStatus, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDetailComponent(component);
+    setDetailPlugin(plugin);
     setDetailOpen(true);
   }, []);
 
   const handleImportSelected = useCallback(async () => {
     setImporting(true);
     try {
-      for (const component of discovered) {
-        if (isSelected(component)) {
-          const key = `${component.type}-${component.name}`;
+      for (const plugin of discovered) {
+        if (isSelected(plugin)) {
+          const key = `${plugin.type}-${plugin.name}`;
           setProcessingIds((prev) => new Set(prev).add(key));
           try {
-            if (component.status === 'update' && component.existingComponent) {
+            if (plugin.status === 'update' && plugin.existingPlugin) {
               // Delete old and import new
-              await fetch(`/api/agent-factory/components/${component.existingComponent.id}`, {
+              await fetch(`/api/agent-factory/plugins/${plugin.existingPlugin.id}`, {
                 method: 'DELETE',
               });
             }
-            await importComponent(component);
+            await importPlugin(plugin);
           } catch (error) {
-            console.error(`Failed to import ${component.name}:`, error);
+            console.error(`Failed to import ${plugin.name}:`, error);
           }
           setProcessingIds((prev) => {
             const newSet = new Set(prev);
@@ -252,60 +252,60 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
           });
         }
       }
-      await fetchComponents();
+      await fetchPlugins();
       // Refresh status after import
-      const results = await discoverComponents();
-      const withStatus = await checkComponentStatus(results);
+      const results = await discoverPlugins();
+      const withStatus = await checkPluginStatus(results);
       setDiscovered(withStatus);
       setSelectedIds(new Set());
     } catch (error) {
-      console.error('Failed to import components:', error);
+      console.error('Failed to import plugins:', error);
     } finally {
       setImporting(false);
     }
-  }, [discovered, isSelected, discoverComponents, checkComponentStatus, importComponent, fetchComponents]);
+  }, [discovered, isSelected, discoverPlugins, checkPluginStatus, importPlugin, fetchPlugins]);
 
   const handleImportAll = useCallback(async () => {
-    // Select all components that need action (new or update)
+    // Select all plugins that need action (new or update)
     const allToImport = new Set(
       discovered
-        .filter((c) => c.status !== 'current')
-        .map((c) => `${c.type}-${c.name}`)
+        .filter((p) => p.status !== 'current')
+        .map((p) => `${p.type}-${p.name}`)
     );
     setSelectedIds(allToImport);
     await handleImportSelected();
   }, [discovered, handleImportSelected]);
 
-  const handleImportSingle = useCallback(async (component: DiscoveredWithStatus) => {
-    const key = `${component.type}-${component.name}`;
+  const handleImportSingle = useCallback(async (plugin: DiscoveredWithStatus) => {
+    const key = `${plugin.type}-${plugin.name}`;
     setProcessingIds((prev) => new Set(prev).add(key));
     try {
-      if (component.status === 'update' && component.existingComponent) {
+      if (plugin.status === 'update' && plugin.existingPlugin) {
         // Delete old and import new
-        await fetch(`/api/agent-factory/components/${component.existingComponent.id}`, {
+        await fetch(`/api/agent-factory/plugins/${plugin.existingPlugin.id}`, {
           method: 'DELETE',
         });
       }
-      await importComponent(component);
-      await fetchComponents();
+      await importPlugin(plugin);
+      await fetchPlugins();
       // Update status
-      setDiscovered((prev) => prev.map((c) => {
-        if (c.type === component.type && c.name === component.name) {
-          const existing = components.find(
-            (comp) => comp.type === component.type && comp.name === component.name && comp.storageType === 'imported'
+      setDiscovered((prev) => prev.map((p) => {
+        if (p.type === plugin.type && p.name === plugin.name) {
+          const existing = plugins.find(
+            (plug) => plug.type === plugin.type && plug.name === plugin.name && plug.storageType === 'imported'
           );
           return {
-            ...c, status: 'current' as const, existingComponent: existing ? {
+            ...p, status: 'current' as const, existingPlugin: existing ? {
               id: existing.id,
               sourcePath: existing.sourcePath ?? null,
               updatedAt: existing.updatedAt,
             } : undefined
           };
         }
-        return c;
+        return p;
       }));
     } catch (error) {
-      console.error(`Failed to import ${component.name}:`, error);
+      console.error(`Failed to import ${plugin.name}:`, error);
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -313,7 +313,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
         return newSet;
       });
     }
-  }, [components, importComponent, fetchComponents]);
+  }, [plugins, importPlugin, fetchPlugins]);
 
   return (
     <>
@@ -322,10 +322,10 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Package className="w-6 h-6" />
-              Discover Components
+              Discover Plugins
             </DialogTitle>
             <DialogDescription>
-              Scan your filesystem for existing Claude components and import them into Agent Factory.
+              Scan your filesystem for existing Claude plugins and import them into Agent Factory.
             </DialogDescription>
           </DialogHeader>
 
@@ -333,7 +333,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             {!scanned ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="mb-4">Click the Scan button to search for components</p>
+                <p className="mb-4">Click the Scan button to search for plugins</p>
                 <Button onClick={handleScan} disabled={scanning}>
                   {scanning ? (
                     <>
@@ -351,11 +351,11 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             ) : scanning ? (
               <div className="text-center py-8 text-muted-foreground">
                 <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-                Scanning for components...
+                Scanning for plugins...
               </div>
             ) : discovered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="mb-4">No components found /skills, /commands, or /agents</p>
+                <p className="mb-4">No plugins found /skills, /commands, or /agents</p>
                 <Button variant="outline" onClick={handleScan} disabled={scanning}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Rescan
@@ -364,7 +364,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             ) : (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-2 py-1 text-sm text-muted-foreground">
-                  <span>{discovered.length} components found</span>
+                  <span>{discovered.length} plugins found</span>
                   <div className="flex gap-2">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -380,12 +380,12 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
                     </span>
                   </div>
                 </div>
-                {discovered.map((component) => (
+                {discovered.map((plugin) => (
                   <DiscoveredItem
-                    key={`${component.type}-${component.name}`}
-                    component={component}
-                    isSelected={isSelected(component)}
-                    isProcessing={isProcessing(component)}
+                    key={`${plugin.type}-${plugin.name}`}
+                    plugin={plugin}
+                    isSelected={isSelected(plugin)}
+                    isProcessing={isProcessing(plugin)}
                     onToggle={toggleSelection}
                     onImport={handleImportSingle}
                     onClick={handleDetailClick}
@@ -452,9 +452,9 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
         </DialogContent>
       </Dialog>
 
-      {detailComponent && (
-        <ComponentDetailDialog
-          component={detailComponent}
+      {detailPlugin && (
+        <PluginDetailDialog
+          plugin={detailPlugin}
           open={detailOpen}
           onOpenChange={setDetailOpen}
         />

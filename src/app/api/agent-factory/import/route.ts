@@ -5,7 +5,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { getAgentFactoryDir } from '@/lib/agent-factory-dir';
 
 interface ImportRequest {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = Date.now();
-    const newComponent = {
+    const newPlugin = {
       id: nanoid(),
       type,
       name,
@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     };
 
-    await db.insert(agentFactoryComponents).values(newComponent);
+    await db.insert(agentFactoryPlugins).values(newPlugin);
 
-    return NextResponse.json({ component: newComponent }, { status: 201 });
+    return NextResponse.json({ component: newPlugin }, { status: 201 });
   } catch (error) {
     console.error('Error importing component:', error);
     return NextResponse.json({ error: 'Failed to import component' }, { status: 500 });

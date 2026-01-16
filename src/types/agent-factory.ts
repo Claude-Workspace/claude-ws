@@ -1,12 +1,12 @@
-// Agent Factory types for component management
+// Agent Factory types for plugin management
 
-export type ComponentType = 'skill' | 'command' | 'agent' | 'agent_set';
+export type PluginType = 'skill' | 'command' | 'agent' | 'agent_set';
 export type StorageType = 'local' | 'imported' | 'external';
 export type DependencyType = 'python' | 'npm' | 'system' | 'skill' | 'agent';
 
-export interface Component {
+export interface Plugin {
   id: string;
-  type: ComponentType;
+  type: PluginType;
   name: string;
   description?: string | null;
   sourcePath?: string | null; // null for agent_set
@@ -17,53 +17,53 @@ export interface Component {
   updatedAt: number;
 }
 
-export interface ComponentFile {
-  type: ComponentType;
+export interface PluginFile {
+  type: PluginType;
   name: string;
   path: string;
   isDirectory: boolean;
-  children?: ComponentFile[];
+  children?: PluginFile[];
   content?: string; // For file editing
 }
 
 // File tree entry for explorer UI (recursive structure)
-export interface ComponentFileEntry {
+export interface PluginFileEntry {
   name: string;
   path: string;
   type: 'file' | 'directory';
-  children?: ComponentFileEntry[];
+  children?: PluginFileEntry[];
   size?: number;
   mimeType?: string;
   gitStatus?: 'M' | 'A' | 'D' | 'U' | 'R'; // Optional git status
 }
 
-export interface ComponentDependency {
+export interface PluginDependency {
   id: string;
-  componentId: string;
+  pluginId: string;
   dependencyType: DependencyType;
   spec: string;
-  componentDependencyId?: string | null; // For skill/agent deps
+  pluginDependencyId?: string | null; // For skill/agent deps
   installed: boolean;
   createdAt: number;
 }
 
 export interface DependencyNode {
-  dependency: ComponentDependency;
-  component?: Component; // For skill/agent deps
+  dependency: PluginDependency;
+  plugin?: Plugin; // For skill/agent deps
   children: DependencyNode[];
   circular?: boolean;
 }
 
-export interface DiscoveredComponent {
-  type: ComponentType;
+export interface DiscoveredPlugin {
+  type: PluginType;
   name: string;
   description?: string;
   sourcePath: string;
   metadata?: Record<string, unknown>;
 }
 
-export interface CreateComponentDTO {
-  type: ComponentType;
+export interface CreatePluginDTO {
+  type: PluginType;
   name: string;
   description?: string;
   sourcePath?: string; // Auto-generated if not provided
@@ -71,7 +71,7 @@ export interface CreateComponentDTO {
   metadata?: Record<string, unknown>;
 }
 
-export interface UpdateComponentDTO {
+export interface UpdatePluginDTO {
   name?: string;
   description?: string;
   sourcePath?: string;
@@ -79,8 +79,8 @@ export interface UpdateComponentDTO {
 }
 
 export interface CreateDependencyDTO {
-  componentId: string;
+  pluginId: string;
   dependencyType: DependencyType;
   spec: string;
-  componentDependencyId?: string;
+  pluginDependencyId?: string;
 }

@@ -3,7 +3,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 
@@ -29,8 +29,8 @@ export async function PUT(
     // Get component from database
     const component = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
     if (!component) {

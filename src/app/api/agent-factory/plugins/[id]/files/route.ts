@@ -4,7 +4,7 @@ import { readdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 interface FileNode {
@@ -14,7 +14,7 @@ interface FileNode {
   children?: FileNode[];
 }
 
-// GET /api/agent-factory/components/[id]/files - List files in component directory
+// GET /api/agent-factory/plugins/[id]/files - List files in plugin directory
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -26,29 +26,29 @@ export async function GET(
 
     const { id } = await params;
 
-    // Get component from database
-    const component = await db
+    // Get plugin from database
+    const plugin = await db
       .select()
-      .from(agentFactoryComponents)
-      .where(eq(agentFactoryComponents.id, id))
+      .from(agentFactoryPlugins)
+      .where(eq(agentFactoryPlugins.id, id))
       .get();
 
-    if (!component) {
-      return NextResponse.json({ error: 'Component not found' }, { status: 404 });
+    if (!plugin) {
+      return NextResponse.json({ error: 'Plugin not found' }, { status: 404 });
     }
 
-    let componentPath: string | null | undefined;
+    let pluginPath: string | null | undefined;
 
     // For agent sets: use agentSetPath
     // For others: use sourcePath
-    if (component.type === 'agent_set') {
-      componentPath = component.agentSetPath;
+    if (plugin.type === 'agent_set') {
+      pluginPath = plugin.agentSetPath;
     } else {
-      componentPath = component.sourcePath;
+      pluginPath = plugin.sourcePath;
     }
 
-    if (!componentPath) {
-      return NextResponse.json({ error: 'Component path not found' }, { status: 404 });
+    if (!pluginPath) {
+      return NextResponse.json({ error: 'Plugin path not found' }, { status: 404 });
     }
 
     let fileTree: FileNode[];
@@ -56,9 +56,9 @@ export async function GET(
     // For skills: sourcePath points to SKILL.md, get parent directory to list files
     // For commands/agents: sourcePath is the single file
     // For agent_sets: agentSetPath is the directory
-    if (component.type === 'skill') {
+    if (plugin.type === 'skill') {
       // sourcePath is .../skills/skill-name/SKILL.md, get parent directory
-      const skillDir = dirname(componentPath);
+      const skillDir = dirname(pluginPath);
 
       // Check if skill directory exists
       if (!existsSync(skillDir)) {
@@ -66,20 +66,20 @@ export async function GET(
       }
 
       fileTree = await buildFileTree(skillDir, '');
-    } else if (component.type === 'agent_set') {
+    } else if (plugin.type === 'agent_set') {
       // agent_set: agentSetPath is the directory
-      if (!existsSync(componentPath)) {
+      if (!existsSync(pluginPath)) {
         return NextResponse.json({ error: 'Agent set directory not found' }, { status: 404 });
       }
 
-      fileTree = await buildFileTree(componentPath, '');
+      fileTree = await buildFileTree(pluginPath, '');
     } else {
       // commands and agents: sourcePath is the single file
-      if (!existsSync(componentPath)) {
-        return NextResponse.json({ error: 'Component file not found' }, { status: 404 });
+      if (!existsSync(pluginPath)) {
+        return NextResponse.json({ error: 'Plugin file not found' }, { status: 404 });
       }
 
-      const fileName = componentPath.split('/').pop()!;
+      const fileName = pluginPath.split('/').pop()!;
       fileTree = [{
         name: fileName,
         path: fileName,
@@ -89,7 +89,7 @@ export async function GET(
 
     return NextResponse.json({ files: fileTree });
   } catch (error) {
-    console.error('Error listing component files:', error);
+    console.error('Error listing plugin files:', error);
     return NextResponse.json({ error: 'Failed to list files' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { projects, agentFactoryComponents } from '@/lib/db/schema';
+import { projects, agentFactoryPlugins } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, readFileSync } from 'fs';
@@ -116,7 +116,7 @@ export async function GET(
     }
 
     // Fetch all components
-    const allComponents = await db.select().from(agentFactoryComponents);
+    const allComponents = await db.select().from(agentFactoryPlugins);
     const selectedComponents = allComponents.filter(c => allComponentIds.includes(c.id));
 
     // Check which are installed

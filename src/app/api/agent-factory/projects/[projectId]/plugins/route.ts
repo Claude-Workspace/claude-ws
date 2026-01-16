@@ -5,7 +5,7 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-// GET /api/agent-factory/projects/:projectId/components - Get plugins for project
+// GET /api/agent-factory/projects/:projectId/plugins - Get plugins for project
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -35,14 +35,14 @@ export async function GET(
       .innerJoin(agentFactoryPlugins, eq(projectPlugins.pluginId, agentFactoryPlugins.id))
       .where(eq(projectPlugins.projectId, projectId));
 
-    return NextResponse.json({ components: assignedPlugins });
+    return NextResponse.json({ plugins: assignedPlugins });
   } catch (error) {
     console.error('Error fetching project plugins:', error);
     return NextResponse.json({ error: 'Failed to fetch project plugins' }, { status: 500 });
   }
 }
 
-// POST /api/agent-factory/projects/:projectId/components - Assign plugin to project
+// POST /api/agent-factory/projects/:projectId/plugins - Assign plugin to project
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -54,17 +54,17 @@ export async function POST(
 
     const { projectId } = await params;
     const body = await request.json();
-    const { componentId, enabled = true } = body;
+    const { pluginId, enabled = true } = body;
 
-    if (!componentId) {
-      return NextResponse.json({ error: 'Missing componentId' }, { status: 400 });
+    if (!pluginId) {
+      return NextResponse.json({ error: 'Missing pluginId' }, { status: 400 });
     }
 
     // Check if plugin exists
     const plugin = await db
       .select()
       .from(agentFactoryPlugins)
-      .where(eq(agentFactoryPlugins.id, componentId))
+      .where(eq(agentFactoryPlugins.id, pluginId))
       .get();
 
     if (!plugin) {
@@ -75,7 +75,7 @@ export async function POST(
     const existing = await db
       .select()
       .from(projectPlugins)
-      .where(and(eq(projectPlugins.projectId, projectId), eq(projectPlugins.pluginId, componentId)))
+      .where(and(eq(projectPlugins.projectId, projectId), eq(projectPlugins.pluginId, pluginId)))
       .get();
 
     if (existing) {
@@ -86,7 +86,7 @@ export async function POST(
     const newAssignment = {
       id: nanoid(),
       projectId,
-      pluginId: componentId,
+      pluginId,
       enabled: enabled ? true : false,
       createdAt: now,
     };
@@ -100,7 +100,7 @@ export async function POST(
   }
 }
 
-// DELETE /api/agent-factory/projects/:projectId/components/:componentId - Remove assignment
+// DELETE /api/agent-factory/projects/:projectId/plugins/:pluginId - Remove assignment
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -112,15 +112,15 @@ export async function DELETE(
 
     const { projectId } = await params;
     const { searchParams } = new URL(request.url);
-    const componentId = searchParams.get('componentId');
+    const pluginId = searchParams.get('pluginId');
 
-    if (!componentId) {
-      return NextResponse.json({ error: 'Missing componentId parameter' }, { status: 400 });
+    if (!pluginId) {
+      return NextResponse.json({ error: 'Missing pluginId parameter' }, { status: 400 });
     }
 
     await db
       .delete(projectPlugins)
-      .where(and(eq(projectPlugins.projectId, projectId), eq(projectPlugins.pluginId, componentId)));
+      .where(and(eq(projectPlugins.projectId, projectId), eq(projectPlugins.pluginId, pluginId)));
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { projects, agentFactoryComponents } from '@/lib/db/schema';
+import { projects, agentFactoryPlugins } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, copyFileSync, writeFileSync, rmSync } from 'fs';
@@ -11,7 +11,7 @@ interface ProjectSettings {
   selectedAgentSets: string[];
 }
 
-interface ComponentType {
+interface PluginType {
   id: string;
   type: 'skill' | 'command' | 'agent' | 'agent_set';
   name: string;
@@ -83,7 +83,7 @@ function updateClaudeConfig(projectPath: string, componentIds: string[]): void {
 }
 
 // Check if a component's files exist in the project
-function isComponentInstalled(claudeDir: string, component: ComponentType): boolean {
+function isComponentInstalled(claudeDir: string, component: PluginType): boolean {
   switch (component.type) {
     case 'skill': {
       const skillDir = join(claudeDir, 'skills', component.name);
@@ -128,7 +128,7 @@ function isComponentInstalled(claudeDir: string, component: ComponentType): bool
 }
 
 // Get target directory for a component type
-function getTargetDir(claudeDir: string, component: ComponentType): string {
+function getTargetDir(claudeDir: string, component: PluginType): string {
   switch (component.type) {
     case 'skill':
       return join(claudeDir, 'skills');
@@ -257,8 +257,8 @@ export async function POST(
     }
 
     // Fetch component details
-    const allComponents = await db.select().from(agentFactoryComponents);
-    const selectedComponents = allComponents.filter(c => allComponentIds.includes(c.id)) as ComponentType[];
+    const allComponents = await db.select().from(agentFactoryPlugins);
+    const selectedComponents = allComponents.filter(c => allComponentIds.includes(c.id)) as PluginType[];
 
     const claudeDir = join(project.path, '.claude');
 

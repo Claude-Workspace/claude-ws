@@ -1,8 +1,8 @@
 import { dependencyExtractor } from './dependency-extractor';
 import { db } from '@/lib/db';
-import { agentFactoryComponents } from '@/lib/db/schema';
+import { agentFactoryPlugins } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import type { LibraryDep, ComponentDep } from './dependency-extractor';
+import type { LibraryDep, PluginDep } from './dependency-extractor';
 
 export interface ResolveOptions {
   maxDepth?: number;      // Default: 5
@@ -31,7 +31,7 @@ export interface ResolvedDependencyTree {
   hasCycles: boolean;
   totalComponents: number;
   allLibraries: LibraryDep[];
-  componentMap: Map<string, ComponentDep>;
+  componentMap: Map<string, PluginDep>;
 }
 
 /**
@@ -52,7 +52,7 @@ export class DependencyResolver {
     } = options;
 
     const allLibraries = new Map<string, LibraryDep>();
-    const allComponents = new Map<string, ComponentDep>();
+    const allComponents = new Map<string, PluginDep>();
     const hasCycles = new Set<string>();
 
     // Get direct dependencies for root component
@@ -66,7 +66,7 @@ export class DependencyResolver {
 
     // Resolve component dependencies recursively
     const components = await this.resolveComponents(
-      rootDeps.components,
+      rootDeps.plugins,
       { maxDepth, currentDepth: currentDepth + 1, visited },
       allLibraries,
       allComponents,
@@ -92,10 +92,10 @@ export class DependencyResolver {
    * Resolve component dependencies recursively
    */
   private async resolveComponents(
-    componentDeps: ComponentDep[],
+    componentDeps: PluginDep[],
     options: ResolveOptions,
     allLibraries: Map<string, LibraryDep>,
-    allComponents: Map<string, ComponentDep>,
+    allComponents: Map<string, PluginDep>,
     hasCycles: Set<string>
   ): Promise<ResolvedComponent[]> {
     const { maxDepth = this.defaultMaxDepth, currentDepth = 0, visited = new Set() } = options;
@@ -167,7 +167,7 @@ export class DependencyResolver {
       newVisited.add(key);
 
       const children = await this.resolveComponents(
-        deps.components,
+        deps.plugins,
         {
           maxDepth,
           currentDepth: currentDepth + 1,
@@ -191,7 +191,7 @@ export class DependencyResolver {
   /**
    * Find a component by type and name
    */
-  private async findComponent(dep: ComponentDep): Promise<{
+  private async findComponent(dep: PluginDep): Promise<{
     id: string;
     type: string;
     name: string;
@@ -200,16 +200,16 @@ export class DependencyResolver {
     try {
       const [component] = await db
         .select({
-          id: agentFactoryComponents.id,
-          type: agentFactoryComponents.type,
-          name: agentFactoryComponents.name,
-          sourcePath: agentFactoryComponents.sourcePath,
+          id: agentFactoryPlugins.id,
+          type: agentFactoryPlugins.type,
+          name: agentFactoryPlugins.name,
+          sourcePath: agentFactoryPlugins.sourcePath,
         })
-        .from(agentFactoryComponents)
+        .from(agentFactoryPlugins)
         .where(
           and(
-            eq(agentFactoryComponents.name, dep.name),
-            eq(agentFactoryComponents.type, dep.type)
+            eq(agentFactoryPlugins.name, dep.name),
+            eq(agentFactoryPlugins.type, dep.type)
           )
         )
         .limit(1);
@@ -255,8 +255,8 @@ export class DependencyResolver {
   /**
    * Flatten component tree into a single array (for caching)
    */
-  flattenComponents(components: ResolvedComponent[]): ComponentDep[] {
-    const result: ComponentDep[] = [];
+  flattenComponents(components: ResolvedComponent[]): PluginDep[] {
+    const result: PluginDep[] = [];
     for (const comp of components) {
       result.push({ type: comp.type, name: comp.name });
       if (comp.children) {

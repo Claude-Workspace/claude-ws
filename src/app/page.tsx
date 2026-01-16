@@ -12,7 +12,7 @@ import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffPreviewPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
 import { ApiKeyProvider, ApiKeyDialog, useApiKeyCheck } from '@/components/auth/api-key-dialog';
-import { ComponentList } from '@/components/agent-factory/component-list';
+import { PluginList } from '@/components/agent-factory/plugin-list';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { Task } from '@/types';
@@ -241,7 +241,7 @@ function KanbanApp() {
       {/* Agent Factory Dialog */}
       {agentFactoryOpen && (
         <div className="fixed inset-0 z-50 bg-background">
-          <ComponentList />
+          <PluginList />
         </div>
       )}
 
