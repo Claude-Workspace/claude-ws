@@ -135,6 +135,99 @@ export const checkpoints = sqliteTable(
   ]
 );
 
+// Agent Factory Components table - skills, commands, agents registry
+export const agentFactoryComponents = sqliteTable('agent_factory_components', {
+  id: text('id').primaryKey(),
+  type: text('type', { enum: ['skill', 'command', 'agent', 'agent_set'] }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  sourcePath: text('source_path'), // Path in .claude/agentfactory/ or external (null for agent sets)
+  storageType: text('storage_type', { enum: ['local', 'imported', 'external'] }).notNull().default('local'),
+  agentSetPath: text('agent_set_path'), // For agent sets: path to the agent set folder
+  metadata: text('metadata'), // JSON for extra properties
+  createdAt: integer('created_at', { mode: 'number' })
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  updatedAt: integer('updated_at', { mode: 'number' })
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// Project Components table - many-to-many relationship between projects and components
+export const projectComponents = sqliteTable(
+  'project_components',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    componentId: text('component_id')
+      .notNull()
+      .references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_project_components').on(table.projectId, table.componentId),
+  ]
+);
+
+// Component Dependencies table - track package and component dependencies
+export const componentDependencies = sqliteTable(
+  'component_dependencies',
+  {
+    id: text('id').primaryKey(),
+    componentId: text('component_id')
+      .notNull()
+      .references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
+    dependencyType: text('dependency_type', { enum: ['python', 'npm', 'system', 'skill', 'agent'] }).notNull(),
+    spec: text('spec').notNull(), // e.g. "package>=1.0.0" or component name
+    componentDependencyId: text('component_dependency_id').references(() => agentFactoryComponents.id, { onDelete: 'set null' }), // For skill/agent deps
+    installed: integer('installed', { mode: 'boolean' }).notNull().default(false),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_component_deps').on(table.componentId),
+    index('idx_component_depends_on').on(table.componentDependencyId),
+  ]
+);
+
+// Component Dependency Cache table - cache resolved dependency trees and install scripts
+export const componentDependencyCache = sqliteTable(
+  'component_dependency_cache',
+  {
+    id: text('id').primaryKey(),
+    componentId: text('component_id').references(() => agentFactoryComponents.id, { onDelete: 'cascade' }),
+    sourcePath: text('source_path'), // For discovered components
+    sourceHash: text('source_hash'), // For cache invalidation
+    type: text('type', { enum: ['skill', 'command', 'agent'] }).notNull(),
+    libraryDeps: text('library_deps'), // JSON array of library dependencies
+    componentDeps: text('component_deps'), // JSON array of component dependencies
+    installScriptNpm: text('install_script_npm'),
+    installScriptPnpm: text('install_script_pnpm'),
+    installScriptYarn: text('install_script_yarn'),
+    installScriptPip: text('install_script_pip'),
+    installScriptPoetry: text('install_script_poetry'),
+    installScriptCargo: text('install_script_cargo'),
+    installScriptGo: text('install_script_go'),
+    dockerfile: text('dockerfile'),
+    depth: integer('depth').notNull().default(0),
+    hasCycles: integer('has_cycles', { mode: 'boolean' }).notNull().default(false),
+    resolvedAt: integer('resolved_at', { mode: 'number' }).notNull(),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_cache_component').on(table.componentId),
+    index('idx_cache_source').on(table.sourcePath),
+  ]
+);
+
 // Type exports for queries
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -148,3 +241,11 @@ export type Checkpoint = typeof checkpoints.$inferSelect;
 export type NewCheckpoint = typeof checkpoints.$inferInsert;
 export type AttemptFile = typeof attemptFiles.$inferSelect;
 export type NewAttemptFile = typeof attemptFiles.$inferInsert;
+export type AgentFactoryComponent = typeof agentFactoryComponents.$inferSelect;
+export type NewAgentFactoryComponent = typeof agentFactoryComponents.$inferInsert;
+export type ProjectComponent = typeof projectComponents.$inferSelect;
+export type NewProjectComponent = typeof projectComponents.$inferInsert;
+export type ComponentDependency = typeof componentDependencies.$inferSelect;
+export type NewComponentDependency = typeof componentDependencies.$inferInsert;
+export type ComponentDependencyCache = typeof componentDependencyCache.$inferSelect;
+export type NewComponentDependencyCache = typeof componentDependencyCache.$inferInsert;

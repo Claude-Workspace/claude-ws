@@ -39,6 +39,9 @@ export function initDb() {
       description TEXT,
       status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo', 'in_progress', 'in_review', 'done', 'cancelled')),
       position INTEGER NOT NULL,
+      chat_init INTEGER NOT NULL DEFAULT 0,
+      rewind_session_id TEXT,
+      rewind_message_uuid TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
@@ -49,6 +52,7 @@ export function initDb() {
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       prompt TEXT NOT NULL,
+      display_prompt TEXT,
       status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'failed', 'cancelled')),
       session_id TEXT,
       branch TEXT,
@@ -77,6 +81,7 @@ export function initDb() {
       session_id TEXT NOT NULL,
       message_count INTEGER NOT NULL,
       summary TEXT,
+      git_commit_hash TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
@@ -134,12 +139,70 @@ export function initDb() {
   } catch {
     // Column already exists, ignore error
   }
-  // Cleanup old column if exists (renamed from forked_from_session_id)
-  try {
-    sqlite.exec(`ALTER TABLE tasks DROP COLUMN forked_from_session_id`);
-  } catch {
-    // Column doesn't exist or SQLite doesn't support DROP COLUMN, ignore
-  }
+
+  // Agent Factory tables
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS agent_factory_components (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL CHECK(type IN ('skill', 'command', 'agent', 'agent_set')),
+      name TEXT NOT NULL,
+      description TEXT,
+      source_path TEXT,
+      storage_type TEXT NOT NULL DEFAULT 'local' CHECK(storage_type IN ('local', 'imported', 'external')),
+      agent_set_path TEXT,
+      metadata TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE TABLE IF NOT EXISTS project_components (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      component_id TEXT NOT NULL REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_project_components ON project_components(project_id, component_id);
+
+    CREATE TABLE IF NOT EXISTS component_dependencies (
+      id TEXT PRIMARY KEY,
+      component_id TEXT NOT NULL REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      dependency_type TEXT NOT NULL CHECK(dependency_type IN ('python', 'npm', 'system', 'skill', 'agent')),
+      spec TEXT NOT NULL,
+      component_dependency_id TEXT REFERENCES agent_factory_components(id) ON DELETE SET NULL,
+      installed INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_component_deps ON component_dependencies(component_id);
+    CREATE INDEX IF NOT EXISTS idx_component_depends_on ON component_dependencies(component_dependency_id);
+
+    CREATE TABLE IF NOT EXISTS component_dependency_cache (
+      id TEXT PRIMARY KEY,
+      component_id TEXT REFERENCES agent_factory_components(id) ON DELETE CASCADE,
+      source_path TEXT,
+      source_hash TEXT,
+      type TEXT NOT NULL CHECK(type IN ('skill', 'command', 'agent')),
+      library_deps TEXT,
+      component_deps TEXT,
+      install_script_npm TEXT,
+      install_script_pnpm TEXT,
+      install_script_yarn TEXT,
+      install_script_pip TEXT,
+      install_script_poetry TEXT,
+      install_script_cargo TEXT,
+      install_script_go TEXT,
+      dockerfile TEXT,
+      depth INTEGER NOT NULL DEFAULT 0,
+      has_cycles INTEGER NOT NULL DEFAULT 0,
+      resolved_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cache_component ON component_dependency_cache(component_id);
+    CREATE INDEX IF NOT EXISTS idx_cache_source ON component_dependency_cache(source_path);
+  `);
 }
 
 // Initialize on first import
