@@ -17,6 +17,9 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { AttemptStatus } from './src/types';
 import { processAttachments } from './src/lib/file-processor';
+import { usageTracker } from './src/lib/usage-tracker';
+import { workflowTracker } from './src/lib/workflow-tracker';
+import { gitStatsCache } from './src/lib/git-stats-collector';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -501,9 +504,43 @@ app.prepare().then(async () => {
       where: eq(schema.attempts.id, attemptId),
     });
 
+    if (!attempt) {
+      console.error(`[Server] Attempt ${attemptId} not found`);
+      return;
+    }
+
+    // Get usage stats from tracker
+    const usageStats = usageTracker.getUsage(attemptId);
+    const gitStatsData = gitStatsCache.get(attemptId);
+
+    // Update attempt with status and usage stats
     await db
       .update(schema.attempts)
-      .set({ status, completedAt: Date.now() })
+      .set({
+        status,
+        completedAt: Date.now(),
+        // Save usage stats
+        ...(usageStats && {
+          totalTokens: usageStats.totalTokens,
+          inputTokens: usageStats.totalInputTokens,
+          outputTokens: usageStats.totalOutputTokens,
+          cacheCreationTokens: usageStats.totalCacheCreationTokens,
+          cacheReadTokens: usageStats.totalCacheReadTokens,
+          totalCostUSD: usageStats.totalCostUSD.toString(),
+          numTurns: usageStats.numTurns,
+          durationMs: usageStats.durationMs,
+          // Context usage (calculated from cache_read_input_tokens)
+          contextUsed: usageStats.contextUsed,
+          contextLimit: usageStats.contextLimit,
+          contextPercentage: Math.round(usageStats.contextPercentage),
+          baselineContext: usageStats.baselineContext,
+        }),
+        // Save git stats
+        ...(gitStatsData && {
+          diffAdditions: gitStatsData.additions,
+          diffDeletions: gitStatsData.deletions,
+        }),
+      })
       .where(eq(schema.attempts.id, attemptId));
 
     // Create checkpoint on successful completion
@@ -558,9 +595,41 @@ app.prepare().then(async () => {
       code,
     });
 
+    // Emit git stats if available
+    const gitStats = gitStatsCache.get(attemptId);
+    if (gitStats) {
+      console.log(`[Server] Emitting status:git for ${attemptId}: +${gitStats.additions} -${gitStats.deletions}`);
+      io.to(`attempt:${attemptId}`).emit('status:git', {
+        attemptId,
+        stats: gitStats,
+      });
+    }
+
     // Global event for all clients to track completed tasks
     if (attempt?.taskId) {
       io.emit('task:finished', { taskId: attempt.taskId, status });
+    }
+  });
+
+  // Forward tracking module events to Socket.io clients
+  // Usage tracking (tokens, costs, model usage)
+  usageTracker.on('usage-update', ({ attemptId, usage }) => {
+    console.log(`[Server] Emitting status:usage for ${attemptId}:`, usage.totalTokens, 'tokens');
+    io.to(`attempt:${attemptId}`).emit('status:usage', {
+      attemptId,
+      usage,
+    });
+  });
+
+  // Workflow tracking (subagent execution chain)
+  workflowTracker.on('workflow-update', ({ attemptId, workflow }) => {
+    const summary = workflowTracker.getWorkflowSummary(attemptId);
+    if (summary) {
+      console.log(`[Server] Emitting status:workflow for ${attemptId}:`, summary.chain);
+      io.to(`attempt:${attemptId}`).emit('status:workflow', {
+        attemptId,
+        workflow: summary,
+      });
     }
   });
 

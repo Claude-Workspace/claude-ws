@@ -1,0 +1,196 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Clock, TrendingUp, GitBranch, Workflow } from 'lucide-react';
+import { useSocket } from '@/hooks/use-socket';
+import { cn } from '@/lib/utils';
+import type { UsageStats } from '@/lib/usage-tracker';
+import type { GitStats } from '@/lib/git-stats-collector';
+
+interface WorkflowSummary {
+  chain: string[];
+  completedCount: number;
+  activeCount: number;
+  totalCount: number;
+}
+
+interface StatusLineProps {
+  taskId: string;
+  currentAttemptId: string | null;
+  className?: string;
+}
+
+/**
+ * StatusLine - Display real-time tracking information below task input
+ *
+ * Shows three sections:
+ * 1. Usage (tokens, cost, time)
+ * 2. Git Stats (file changes)
+ * 3. Workflow (subagent chain)
+ *
+ * Always visible when task is open, shows data from:
+ * - Current running attempt (real-time)
+ * - Last completed attempt (if no running attempt)
+ */
+export function StatusLine({ taskId, currentAttemptId, className }: StatusLineProps) {
+  const socket = useSocket();
+  const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [gitStats, setGitStats] = useState<GitStats | null>(null);
+  const [workflow, setWorkflow] = useState<WorkflowSummary | null>(null);
+
+  // Reset state when task changes (not when attemptId changes)
+  useEffect(() => {
+    setUsage(null);
+    setGitStats(null);
+    setWorkflow(null);
+  }, [taskId]);
+
+  // Subscribe to tracking events
+  useEffect(() => {
+    if (!socket || !currentAttemptId) return;
+
+    console.log('[StatusLine] Subscribing to room for attemptId:', currentAttemptId);
+
+    // Join the attempt room to receive events
+    socket.emit('attempt:subscribe', { attemptId: currentAttemptId });
+
+    // Usage updates
+    const handleUsageUpdate = (data: { attemptId: string; usage: UsageStats }) => {
+      console.log('[StatusLine] Usage update:', data);
+      if (data.attemptId === currentAttemptId) {
+        setUsage(data.usage);
+      }
+    };
+
+    // Workflow updates
+    const handleWorkflowUpdate = (data: { attemptId: string; workflow: WorkflowSummary }) => {
+      console.log('[StatusLine] Workflow update:', data);
+      if (data.attemptId === currentAttemptId) {
+        setWorkflow(data.workflow);
+      }
+    };
+
+    // Git stats (on completion)
+    const handleGitStats = (data: { attemptId: string; stats: GitStats }) => {
+      console.log('[StatusLine] Git stats:', data);
+      if (data.attemptId === currentAttemptId) {
+        setGitStats(data.stats);
+      }
+    };
+
+    socket.on('status:usage', handleUsageUpdate);
+    socket.on('status:workflow', handleWorkflowUpdate);
+    socket.on('status:git', handleGitStats);
+
+    return () => {
+      socket.off('status:usage', handleUsageUpdate);
+      socket.off('status:workflow', handleWorkflowUpdate);
+      socket.off('status:git', handleGitStats);
+    };
+  }, [socket, currentAttemptId]);
+
+  // Always render when task is open
+  const hasData = usage || gitStats || workflow;
+  const hasRunningAttempt = !!currentAttemptId;
+
+  return (
+    <div
+      className={cn(
+        'px-3 py-2 border-t bg-muted/20 text-xs text-muted-foreground',
+        'flex items-center gap-4 flex-wrap',
+        className
+      )}
+    >
+      {/* Show status based on state */}
+      {!hasRunningAttempt && !hasData && (
+        <div className="flex items-center gap-1.5 text-muted-foreground/50">
+          <TrendingUp className="size-3.5" />
+          <span>No attempt running. Send a message to start.</span>
+        </div>
+      )}
+
+      {hasRunningAttempt && !hasData && (
+        <div className="flex items-center gap-1.5 text-muted-foreground/50">
+          <TrendingUp className="size-3.5 animate-pulse" />
+          <span>Waiting for tracking data...</span>
+        </div>
+      )}
+
+      {/* Usage Section */}
+      {usage && (
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="size-3.5" />
+          <span className="font-medium">
+            {usage.totalTokens.toLocaleString()} tokens
+          </span>
+          {usage.totalCostUSD > 0 && (
+            <span className="text-muted-foreground/70">
+              (${usage.totalCostUSD.toFixed(4)})
+            </span>
+          )}
+          {usage.numTurns > 0 && (
+            <span className="text-muted-foreground/70">
+              · {usage.numTurns} {usage.numTurns === 1 ? 'turn' : 'turns'}
+            </span>
+          )}
+          {usage.durationMs > 0 && (
+            <span className="text-muted-foreground/70 flex items-center gap-1">
+              · <Clock className="size-3" /> {formatDuration(usage.durationMs)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Git Stats Section */}
+      {gitStats && gitStats.filesChanged > 0 && (
+        <div className="flex items-center gap-1.5">
+          <GitBranch className="size-3.5" />
+          <span className="font-medium text-green-600">
+            +{gitStats.additions}
+          </span>
+          <span className="font-medium text-red-600">
+            -{gitStats.deletions}
+          </span>
+          <span className="text-muted-foreground/70">
+            ({gitStats.filesChanged} {gitStats.filesChanged === 1 ? 'file' : 'files'})
+          </span>
+        </div>
+      )}
+
+      {/* Workflow Section */}
+      {workflow && workflow.totalCount > 0 && (
+        <div className="flex items-center gap-1.5">
+          <Workflow className="size-3.5" />
+          <span className="font-medium">
+            {workflow.chain.slice(0, 3).join(' → ')}
+            {workflow.chain.length > 3 && ' ...'}
+          </span>
+          <span className="text-muted-foreground/70">
+            ({workflow.completedCount}/{workflow.totalCount} done)
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Format duration in milliseconds to human-readable string
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  return `${seconds}s`;
+}

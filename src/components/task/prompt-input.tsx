@@ -3,7 +3,7 @@
 import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2, Command, ImagePlus, Square } from 'lucide-react';
+import { Send, Loader2, Command, ImagePlus, Square, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandSelector } from './command-selector';
 import { FileDropZone } from './file-drop-zone';
@@ -45,6 +45,18 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
+  const [taskStats, setTaskStats] = useState<{
+    totalTokens: number;
+    totalCostUSD: number;
+    totalTurns: number;
+    totalDurationMs: number;
+    totalAdditions: number;
+    totalDeletions: number;
+    filesChanged: number;
+    contextUsed: number;
+    contextLimit: number;
+    contextPercentage: number;
+  } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { openCommand } = useInteractiveCommandStore();
@@ -84,6 +96,28 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
       setCommandFilter('');
     }
   }, [prompt, selectedCommand]);
+
+  // Fetch task stats when taskId changes
+  useEffect(() => {
+    if (!taskId) return;
+
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`/api/tasks/${taskId}/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setTaskStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch task stats:', error);
+      }
+    };
+
+    fetchStats();
+    // Poll every 5 seconds while task is open
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
+  }, [taskId]);
 
   const handleFilesSelected = async (files: File[]) => {
     if (!taskId) return;
@@ -278,17 +312,80 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
         {!hideSendButton && (
           <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-px">
-              <p className="text-[10px] text-muted-foreground">
-                Type <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> for commands
-              </p>
-              {!disableSubmitShortcut && (
+            <div className="flex items-center gap-4">
+              {/* Command hints */}
+              <div className="flex flex-col gap-px">
                 <p className="text-[10px] text-muted-foreground">
-                  <kbd className="px-0.5 bg-muted rounded text-[9px]">
-                    {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}
-                  </kbd>
-                  +<kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> to send
+                  Type <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> for commands
                 </p>
+                {!disableSubmitShortcut && (
+                  <p className="text-[10px] text-muted-foreground">
+                    <kbd className="px-0.5 bg-muted rounded text-[9px]">
+                      {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}
+                    </kbd>
+                    +<kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> to send
+                  </p>
+                )}
+              </div>
+
+              {/* Task Stats - Vertically centered - Always visible when task is open */}
+              {taskId && (
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground self-center">
+                  {/* Context Usage - Always show with color-coded warnings */}
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className="size-3" />
+                    {/* Progress bar with blocks - Color changes based on usage */}
+                    <div className="flex items-center gap-1">
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 10 }).map((_, i) => {
+                          const percentage = taskStats?.contextPercentage || 0;
+                          const filled = (percentage / 10) > i;
+                          // Color coding: green (0-60%), yellow (60-90%), red (>90%)
+                          let color = 'bg-muted';
+                          if (filled) {
+                            if (percentage > 90) {
+                              color = 'bg-red-500';
+                            } else if (percentage >= 60) {
+                              color = 'bg-yellow-500';
+                            } else {
+                              color = 'bg-green-500';
+                            }
+                          }
+                          return (
+                            <div
+                              key={i}
+                              className={`w-1.5 h-2 rounded-[1px] ${color}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className={`font-medium ${
+                        (taskStats?.contextPercentage || 0) > 90
+                          ? 'text-red-500'
+                          : (taskStats?.contextPercentage || 0) >= 60
+                            ? 'text-yellow-500'
+                            : ''
+                      }`}>
+                        {taskStats?.contextPercentage || 0}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cost - Only show if > 0 */}
+                  {taskStats && taskStats.totalCostUSD > 0 && (
+                    <div className="flex items-center gap-0.5">
+                      <span>💵</span>
+                      <span className="font-medium">${taskStats.totalCostUSD.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Git changes - Always show */}
+                  <div className="flex items-center gap-1">
+                    <span>📝</span>
+                    <span className="text-green-600">+{taskStats?.totalAdditions || 0}</span>
+                    <span className="text-red-600">-{taskStats?.totalDeletions || 0}</span>
+                  </div>
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -354,3 +451,4 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 });
 
 PromptInput.displayName = 'PromptInput';
+

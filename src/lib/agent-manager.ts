@@ -8,10 +8,13 @@
 import { EventEmitter } from 'events';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeOutput } from '@/types';
-import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo } from './sdk-event-adapter';
+import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo, type SDKResultMessage } from './sdk-event-adapter';
 import { sessionManager } from './session-manager';
 import { checkpointManager } from './checkpoint-manager';
 import { getSystemPrompt } from './system-prompt';
+import { usageTracker } from './usage-tracker';
+import { workflowTracker } from './workflow-tracker';
+import { collectGitStats, gitStatsCache } from './git-stats-collector';
 
 interface AgentInstance {
   attemptId: string;
@@ -211,6 +214,42 @@ class AgentManager extends EventEmitter {
             checkpointManager.captureCheckpointUuid(attemptId, adapted.checkpointUuid);
           }
 
+          // Track subagent workflow (from assistant messages with Task tool)
+          if (message.type === 'assistant' && 'message' in message) {
+            const assistantMsg = message as { message: { content: Array<{ type: string; id?: string; name?: string }> }; parent_tool_use_id: string | null };
+            for (const block of assistantMsg.message.content) {
+              if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
+                const taskInput = (block as { input?: { subagent_type?: string } }).input;
+                const subagentType = taskInput?.subagent_type || 'unknown';
+                console.log(`[AgentManager] Tracking subagent start: ${subagentType} (${block.id})`);
+                workflowTracker.trackSubagentStart(
+                  attemptId,
+                  block.id,
+                  subagentType,
+                  assistantMsg.parent_tool_use_id
+                );
+              }
+            }
+          }
+
+          // Track subagent completion (from user messages with tool_result)
+          if (message.type === 'user' && 'message' in message) {
+            const userMsg = message as { message: { content: Array<{ type: string; tool_use_id?: string; is_error?: boolean }> } };
+            for (const block of userMsg.message.content) {
+              if (block.type === 'tool_result' && block.tool_use_id) {
+                const success = !block.is_error;
+                workflowTracker.trackSubagentEnd(attemptId, block.tool_use_id, success);
+              }
+            }
+          }
+
+          // Track usage stats from result messages
+          if (message.type === 'result') {
+            const resultMsg = message as SDKResultMessage;
+            console.log(`[AgentManager] Tracking usage for ${attemptId}:`, resultMsg);
+            usageTracker.trackResult(attemptId, resultMsg);
+          }
+
           // Note: AskUserQuestion is now handled via canUseTool callback
           // which properly pauses streaming until user responds
 
@@ -242,6 +281,18 @@ class AgentManager extends EventEmitter {
 
       // Query completed successfully
       console.log(`[AgentManager] Query completed for ${attemptId}`);
+
+      // Collect git stats snapshot on completion
+      try {
+        const gitStats = await collectGitStats(projectPath);
+        if (gitStats) {
+          gitStatsCache.set(attemptId, gitStats);
+          console.log(`[AgentManager] Git stats collected: +${gitStats.additions} -${gitStats.deletions}`);
+        }
+      } catch (gitError) {
+        console.warn(`[AgentManager] Failed to collect git stats:`, gitError);
+      }
+
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
