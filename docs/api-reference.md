@@ -755,6 +755,38 @@ POST /api/git/push
 - `409` - Push rejected (pull first)
 - `400` - No upstream branch
 
+### Generate Commit Message (AI)
+
+Generates a conventional commit message based on staged changes using Claude.
+
+```http
+POST /api/git/generate-message
+```
+
+**Request Body:**
+```json
+{
+  "projectPath": "/path/to/project"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "feat(scope): descriptive commit message",
+  "diff": {
+    "additions": 10,
+    "deletions": 5
+  }
+}
+```
+
+**Error Responses:**
+- `400` - Missing projectPath, invalid path, not a git repository, or no staged files
+- `401` - API authentication failed
+- `429` - Rate limit exceeded
+- `504` - Git command timed out
+
 ### Fetch from Remote
 
 ```http

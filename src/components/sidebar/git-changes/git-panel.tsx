@@ -23,6 +23,7 @@ export function GitPanel() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
+  const [generatingMessage, setGeneratingMessage] = useState(false);
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
 
@@ -185,6 +186,32 @@ export function GitPanel() {
     }
   }, [activeProject?.path, commitMessage, fetchStatus]);
 
+  const handleGenerateMessage = useCallback(async () => {
+    if (!activeProject?.path) return;
+
+    setGeneratingMessage(true);
+    try {
+      const res = await fetch('/api/git/generate-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectPath: activeProject.path }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to generate message');
+      }
+
+      const { message } = await res.json();
+      setCommitMessage(message);
+    } catch (err) {
+      console.error('AI generation error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to generate commit message');
+    } finally {
+      setGeneratingMessage(false);
+    }
+  }, [activeProject?.path]);
+
   // Combine unstaged and untracked into single "Changes" section
   const changes: GitFileStatus[] = useMemo(() => {
     if (!status) return [];
@@ -335,21 +362,22 @@ export function GitPanel() {
                     />
                     {/* Generate commit message button */}
                     <button
-                      className="flex items-center justify-center size-8 hover:bg-accent rounded-md border bg-muted/50 transition-colors shrink-0"
+                      className="flex items-center justify-center size-8 hover:bg-accent rounded-md border bg-muted/50 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Generate commit message with AI"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // TODO: Implement AI commit message generation
-                        alert('AI commit message generation coming soon!');
-                      }}
+                      onClick={handleGenerateMessage}
+                      disabled={generatingMessage || (status?.staged.length || 0) === 0}
                     >
-                      <Image
-                        src="/logo.png"
-                        alt="Generate"
-                        width={18}
-                        height={18}
-                        className="opacity-80 hover:opacity-100"
-                      />
+                      {generatingMessage ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Image
+                          src="/logo.png"
+                          alt="Generate"
+                          width={18}
+                          height={18}
+                          className="opacity-80 hover:opacity-100"
+                        />
+                      )}
                     </button>
                   </div>
                   <Button
