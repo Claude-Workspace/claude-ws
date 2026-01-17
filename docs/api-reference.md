@@ -621,12 +621,18 @@ GET /api/git/log?path=/project/path&limit=50
       "author": "John Doe",
       "date": "2 days ago",
       "parents": ["parent_hash"],
-      "refs": ["HEAD -> main", "origin/main"]
+      "refs": ["HEAD -> main", "origin/main"],
+      "isLocal": false,
+      "isMerge": false
     }
   ],
   "head": "abc123def456..."
 }
 ```
+
+**Fields:**
+- `isLocal`: Boolean indicating if the commit is not present on any remote tracking branches.
+- `isMerge`: Boolean indicating if the commit has multiple parents.
 
 ### Stage Files
 

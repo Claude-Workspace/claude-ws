@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronRight, ChevronDown, RefreshCw, Loader2, GitPullRequest, ArrowUpFromLine, ArrowDownToLine, RotateCcw, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, ChevronDown, RefreshCw, Loader2, ArrowUpFromLine, ArrowDownToLine, RotateCcw, MoreHorizontal } from 'lucide-react';
 import { GitCommitItem } from './git-commit-item';
 import { GraphRenderer } from './graph-renderer';
+import { CommitDetailsModal } from './commit-details-modal';
 import { useActiveProject } from '@/hooks/use-active-project';
 import { cn } from '@/lib/utils';
 import { calculateLanes } from '@/lib/git/lane-calculator';
@@ -17,6 +18,8 @@ interface GitCommit {
   date: string;
   parents: string[];
   refs: string[];
+  isLocal?: boolean;
+  isMerge?: boolean;
 }
 
 export function GitGraph() {
@@ -28,6 +31,8 @@ export function GitGraph() {
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const [hoveredCommit, setHoveredCommit] = useState<string | null>(null);
+  const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const fetchLog = useCallback(async () => {
     if (!activeProject?.path) return;
@@ -193,16 +198,17 @@ export function GitGraph() {
               No commits yet
             </div>
           ) : graphData ? (
-            <div className="relative">
+            <div className="relative pl-2">
               {/* Render SVG graph overlay */}
-              <div className="absolute left-0 top-0 z-0">
+              <div className="absolute left-2 top-0 z-0">
                 <GraphRenderer
                   lanes={graphData.lanes}
                   paths={graphData.paths}
                   maxLane={graphData.maxLane}
                   highlightedCommit={hoveredCommit || undefined}
                   onCommitClick={(hash) => {
-                    // TODO: Show commit details panel
+                    setSelectedCommit(hash);
+                    setModalOpen(true);
                   }}
                 />
               </div>
@@ -216,27 +222,24 @@ export function GitGraph() {
                     <div
                       key={commit.hash}
                       className="flex items-center"
-                      style={{ minHeight: '32px' }}
+                      style={{ height: `${GRAPH_CONSTANTS.ROW_HEIGHT}px` }}
                       onMouseEnter={() => setHoveredCommit(commit.hash)}
                       onMouseLeave={() => setHoveredCommit(null)}
                     >
-                      {/* Spacer for graph column */}
-                      <div
-                        style={{
-                          width: (graphData.maxLane + 1) * GRAPH_CONSTANTS.LANE_WIDTH + 8,
-                          minWidth: (graphData.maxLane + 1) * GRAPH_CONSTANTS.LANE_WIDTH + 8,
-                        }}
-                        className="shrink-0"
-                      />
-
-                      {/* Commit info */}
-                      <GitCommitItem
-                        commit={commit}
-                        isHead={commit.hash === head}
-                        color={lane.color}
-                        isMerge={commit.parents.length > 1}
-                        showLine={false}
-                      />
+                      {/* Commit info with dynamic margin based on lane */}
+                      <div style={{ marginLeft: `${lane.lane * GRAPH_CONSTANTS.LANE_WIDTH + 16}px` }} className="flex-1 min-w-0">
+                        <GitCommitItem
+                          commit={commit}
+                          isHead={commit.hash === head}
+                          color={lane.color}
+                          isMerge={commit.parents.length > 1}
+                          showLine={false}
+                          onClick={() => {
+                            setSelectedCommit(commit.hash);
+                            setModalOpen(true);
+                          }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
@@ -245,6 +248,14 @@ export function GitGraph() {
           ) : null}
         </div>
       )}
+
+      {/* Commit Details Modal */}
+      <CommitDetailsModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        commitHash={selectedCommit}
+        projectPath={activeProject.path}
+      />
     </div>
   );
 }

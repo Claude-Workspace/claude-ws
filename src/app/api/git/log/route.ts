@@ -15,6 +15,22 @@ export interface GitCommit {
   date: string;
   parents: string[];
   refs: string[];
+  isLocal?: boolean;
+  isMerge?: boolean;
+}
+
+async function getRemoteCommitHashes(cwd: string): Promise<Set<string>> {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['log', '--remotes', '--format=%H'],
+      { cwd, timeout: GIT_TIMEOUT }
+    );
+    return new Set(stdout.trim().split('\n').filter(Boolean));
+  } catch (error) {
+    console.error('Failed to get remote commits:', error);
+    return new Set();
+  }
 }
 
 // GET /api/git/log?path=/project/path&limit=50
@@ -58,9 +74,14 @@ export async function GET(request: NextRequest) {
     const commits: GitCommit[] = [];
     const lines = stdout.trim().split('\n');
 
+    // Get remote commit hashes for local detection
+    const remoteHashes = await getRemoteCommitHashes(resolvedPath);
+
     for (const line of lines) {
       if (!line) continue;
       const [hash, shortHash, message, author, date, parents, refs] = line.split('|');
+
+      const parentsList = parents ? parents.split(' ').filter(Boolean) : [];
 
       commits.push({
         hash,
@@ -68,8 +89,10 @@ export async function GET(request: NextRequest) {
         message,
         author,
         date,
-        parents: parents ? parents.split(' ').filter(Boolean) : [],
+        parents: parentsList,
         refs: refs ? refs.split(', ').filter(Boolean) : [],
+        isLocal: !remoteHashes.has(hash),
+        isMerge: parentsList.length > 1,
       });
     }
 

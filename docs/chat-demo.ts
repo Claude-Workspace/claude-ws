@@ -211,7 +211,7 @@ class ChatClient {
 
     switch (output.type) {
       case 'system':
-        console.log('\n🔧 System:', output.subtype || 'init');
+        console.log('\n🔧 System:', (output as any).subtype || 'init');
         if (output.session_id) {
           console.log(`   Session ID: ${output.session_id}`);
         }

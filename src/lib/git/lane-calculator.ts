@@ -25,6 +25,8 @@ export interface GitCommit {
   date: string;
   parents: string[];
   refs: string[];
+  isLocal?: boolean;   // Not on any remote tracking branch
+  isMerge?: boolean;   // Has multiple parents
 }
 
 const BRANCH_COLORS = [
@@ -71,27 +73,41 @@ function assignColor(
  */
 export function calculateLanes(commits: GitCommit[]): GraphData {
   const laneAssignments: LaneAssignment[] = [];
-  const activeLanes: (string | null)[] = []; // index is lane number, value is expected commit hash
-  const colorMap: Map<number, string> = new Map();
+  const activeLanes: (string | null)[] = []; // Track expected commits per lane
+  const commitColors: Map<string, string> = new Map(); // Track color per commit
 
-  // Process commits in display order (newest to oldest)
   for (let i = 0; i < commits.length; i++) {
     const commit = commits[i];
 
-    // Find lane expecting this commit, or assign new lane
+    // Find lane expecting this commit
     let lane = activeLanes.indexOf(commit.hash);
 
     if (lane === -1) {
-      // Not expected - start new lane (new branch head)
+      // Not expected - find first free lane, max 2 lanes
       lane = activeLanes.findIndex(h => h === null);
-      if (lane === -1) lane = activeLanes.length;
-      assignColor(lane, commit, colorMap);
+      if (lane === -1) {
+        lane = activeLanes.length < 2 ? activeLanes.length : 0;
+      }
     }
 
-    // Calculate parent lane connections for visual display
+    // Assign color based on branch refs, not lane
+    let color = commitColors.get(commit.hash);
+    if (!color) {
+      if (commit.refs.length > 0) {
+        color = hashBranchColor(commit.refs[0]);
+      } else {
+        // Use parent's color if available
+        if (commit.parents.length > 0) {
+          color = commitColors.get(commit.parents[0]) || BRANCH_COLORS[lane % BRANCH_COLORS.length];
+        } else {
+          color = BRANCH_COLORS[lane % BRANCH_COLORS.length];
+        }
+      }
+      commitColors.set(commit.hash, color);
+    }
+
     const inLanes: number[] = [];
-    for (let p = 0; p < commit.parents.length; p++) {
-      const parentHash = commit.parents[p];
+    for (const parentHash of commit.parents) {
       const parentLane = activeLanes.indexOf(parentHash);
       if (parentLane !== -1) {
         inLanes.push(parentLane);
@@ -103,37 +119,36 @@ export function calculateLanes(commits: GitCommit[]): GraphData {
       lane,
       inLanes,
       outLanes: [lane],
-      color: colorMap.get(lane) || BRANCH_COLORS[0],
+      color,
     });
 
-    // Update active lanes for this commit's parents
+    // Update active lanes and propagate colors
     if (commit.parents.length > 0) {
-      // First parent continues in same lane
       activeLanes[lane] = commit.parents[0];
+      commitColors.set(commit.parents[0], color);
 
-      // Additional parents get new lanes (merge branches)
+      // Additional parents - assign to available lanes
       for (let p = 1; p < commit.parents.length; p++) {
-        let nextFreeLane = activeLanes.indexOf(null);
-        if (nextFreeLane === -1) nextFreeLane = activeLanes.length;
-        activeLanes[nextFreeLane] = commit.parents[p];
-        if (!colorMap.has(nextFreeLane)) {
-          colorMap.set(nextFreeLane, BRANCH_COLORS[nextFreeLane % BRANCH_COLORS.length]);
-        }
+        const parentLane = p < 2 ? p : (lane === 0 ? 1 : 0);
+        activeLanes[parentLane] = commit.parents[p];
+
+        // Assign different color for merge parent
+        const parentColor = BRANCH_COLORS[(lane + p) % BRANCH_COLORS.length];
+        commitColors.set(commit.parents[p], parentColor);
       }
     } else {
-      // No parents - terminate lane (initial commit)
       activeLanes[lane] = null;
     }
   }
 
-  // Calculate maxLane from assignments
-  const maxLane = laneAssignments.length > 0
-    ? Math.max(...laneAssignments.map(a => a.lane))
-    : 0;
+  const maxLane = Math.min(
+    laneAssignments.length > 0 ? Math.max(...laneAssignments.map(a => a.lane)) : 0,
+    1
+  );
 
   return {
     lanes: laneAssignments,
     maxLane,
-    colorMap,
+    colorMap: new Map([[0, BRANCH_COLORS[0]], [1, BRANCH_COLORS[1]]]),
   };
 }

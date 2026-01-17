@@ -37,10 +37,12 @@ Claude Kanban is a project management and development assistant application that
 - **Agent Factory**: Plugin system for skills, commands, and custom agents
 
 ## Git Workflow & AI Integration
-The application includes a specialized AI commit message generation feature.
-- **Endpoint**: `POST /api/git/generate-message`
-- **Functionality**: Analyzes staged git diffs and generates conventional commit messages using Claude.
-- **UI**: Integrated into the `GitPanel` with a "Sparkles" (Logo) button next to the commit input.
+The application includes a specialized AI commit message generation feature and a visual git graph.
+- **Git Graph**: Real-time visualization of commit topology with local/remote detection.
+  - **Lane Calculation**: Logic in `src/lib/git/lane-calculator.ts` handles horizontal positioning.
+  - **Path Generation**: Logic in `src/lib/git/path-generator.ts` creates SVG paths for branch connections.
+- **AI Commit Generation**: `POST /api/git/generate-message` analyzes staged git diffs and generates conventional commit messages using Claude.
+- **UI**: Integrated into the `GitPanel` with the `GitGraph` component and "Sparkles" (Logo) button for AI messages.
 
 ## API Architecture
 The system exposes a RESTful API under `/api` for project/task management and git operations, complemented by a WebSocket layer for long-running agent tasks and terminal interactions.

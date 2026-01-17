@@ -10,6 +10,8 @@ interface GitCommit {
   date: string;
   parents: string[];
   refs: string[];
+  isLocal?: boolean;
+  isMerge?: boolean;
 }
 
 interface GitCommitItemProps {
@@ -18,6 +20,7 @@ interface GitCommitItemProps {
   color: string;
   isMerge: boolean;
   showLine: boolean;
+  onClick?: () => void;
 }
 
 // Parse refs to extract branch/tag names
@@ -51,24 +54,26 @@ export function GitCommitItem({
   color,
   isMerge,
   showLine,
+  onClick,
 }: GitCommitItemProps) {
   const { branches, tags } = parseRefs(commit.refs);
 
   return (
-    <div className="flex-1 min-w-0 py-0.5 px-2 hover:bg-accent/30 cursor-pointer group">
-      {/* Commit info only - graph is handled by GraphRenderer */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Commit message */}
-        <span className="text-xs truncate flex-1 min-w-0">
+    <div
+      className="flex-1 min-w-0 px-2 hover:bg-accent/30 cursor-pointer group flex items-center"
+      style={{ minHeight: '24px' }}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-1.5 flex-wrap flex-1">
+        <span className="text-sm truncate flex-1 min-w-0 leading-[24px]">
           {commit.message}
         </span>
 
-        {/* Branch badges */}
         {branches.map((branch) => (
           <span
             key={branch}
             className={cn(
-              'px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0',
+              'px-1 py-0.5 text-[10px] font-medium rounded shrink-0 leading-none',
               branch === 'main' || branch === 'master'
                 ? 'bg-blue-500/20 text-blue-400'
                 : 'bg-green-500/20 text-green-400'
@@ -78,20 +83,18 @@ export function GitCommitItem({
           </span>
         ))}
 
-        {/* Tag badges */}
         {tags.map((tag) => (
           <span
             key={tag}
-            className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-yellow-500/20 text-yellow-400 shrink-0"
+            className="px-1 py-0.5 text-[10px] font-medium rounded bg-yellow-500/20 text-yellow-400 shrink-0 leading-none"
           >
             {tag}
           </span>
         ))}
-      </div>
 
-      {/* Author and date - visible on hover */}
-      <div className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-        {commit.author} • {commit.date}
+        <div className="text-[9px] text-muted-foreground/70 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          {commit.author} • {commit.date}
+        </div>
       </div>
     </div>
   );
