@@ -1,6 +1,7 @@
 import { db, schema } from '@/lib/db';
 import { eq, desc } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { calculateContextHealth } from '@/lib/context-health';
 
 export async function GET(
   _request: Request,
@@ -23,9 +24,22 @@ export async function GET(
     let totalAdditions = 0;
     let totalDeletions = 0;
     let filesChanged = 0;
-    let contextUsed = 0;
-    let contextLimit = 200000;
-    let contextPercentage = 0;
+
+    // Context usage: Use LATEST attempt only (most recent)
+    // Each attempt is a separate session - context doesn't accumulate across attempts
+    const latestAttempt = attempts[0]; // Already ordered by createdAt DESC
+    const contextUsed = latestAttempt?.contextUsed || 0;
+    const contextLimit = latestAttempt?.contextLimit || 200000;
+    const contextPercentage = latestAttempt?.contextPercentage || 0;
+
+    // Calculate context health metrics (ClaudeKit formulas)
+    // Note: We approximate input/output split since DB only stores total contextUsed
+    // For stats API, we use contextUsed as total and calculate health accordingly
+    const contextHealth = calculateContextHealth(
+      contextUsed, // Using total as input approximation
+      0,           // Output already included in contextUsed from usage-tracker
+      contextLimit
+    );
 
     for (const attempt of attempts) {
       totalTokens += attempt.totalTokens || 0;
@@ -36,12 +50,6 @@ export async function GET(
       totalDeletions += attempt.diffDeletions || 0;
       if ((attempt.diffAdditions || 0) > 0 || (attempt.diffDeletions || 0) > 0) {
         filesChanged++;
-      }
-      // Use latest attempt's context data (most recent)
-      if (attempt.contextUsed && attempt.contextUsed > contextUsed) {
-        contextUsed = attempt.contextUsed;
-        contextLimit = attempt.contextLimit || 200000;
-        contextPercentage = attempt.contextPercentage || 0;
       }
     }
 
@@ -56,6 +64,13 @@ export async function GET(
       contextUsed,
       contextLimit,
       contextPercentage,
+      contextHealth: {
+        status: contextHealth.status,
+        score: contextHealth.score,
+        utilizationPercent: contextHealth.utilizationPercent,
+        shouldCompact: contextHealth.shouldCompact,
+        compactThreshold: contextHealth.compactThreshold,
+      },
       attemptCount: attempts.length,
       lastUpdatedAt: attempts[0]?.completedAt || Date.now(),
     });

@@ -6,6 +6,7 @@
 
 import { EventEmitter } from 'events';
 import type { SDKResultMessage } from './sdk-event-adapter';
+import { calculateContextHealth, type ContextHealth } from './context-health';
 
 /**
  * Aggregated usage statistics for a session
@@ -21,11 +22,14 @@ export interface UsageStats {
   durationMs: number;
   durationApiMs: number;
 
-  // Context usage tracking
-  contextUsed: number;        // Total tokens in context (baseline + messages)
+  // Context usage tracking (ClaudeKit-compatible)
+  contextUsed: number;        // Total context (input + output, following ClaudeKit)
   contextLimit: number;        // Max context window (200K for Opus/Sonnet)
   contextPercentage: number;   // (contextUsed / contextLimit) * 100
   baselineContext: number;     // Initial context before any messages (system prompt, tools, skills, etc.)
+
+  // Context health metrics (ClaudeKit formulas)
+  contextHealth?: ContextHealth;
 
   // Per-model breakdown
   modelUsage: Record<string, {
@@ -134,19 +138,23 @@ class UsageTracker extends EventEmitter {
       stats.totalCacheReadTokens += usage.cache_read_input_tokens || 0;
       stats.totalTokens = stats.totalInputTokens + stats.totalOutputTokens;
 
-      // Calculate context usage based on Claude Code's formula
-      // Context = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+      // Calculate context usage following ClaudeKit Engineer's formula:
+      // usage = (context_input + context_output) / context_size × 100
       //
-      // Note: On each turn:
+      // Context input components:
       // - cache_read_input_tokens: Baseline context (system prompt, tools, skills, previous messages)
       // - input_tokens: New user message + any new content
       // - cache_creation_input_tokens: New cache entries being created
       //
-      // The current context size is the SUM of all three on the LATEST turn
-      // (Previous turns' outputs are included in cache_read on subsequent turns)
+      // Context output:
+      // - output_tokens: Current response from Claude
+      //
+      // Note: ClaudeKit includes output_tokens in context calculation
+      // This differs from pure input-only tracking
       const inputTokens = usage.input_tokens || 0;
       const cacheRead = usage.cache_read_input_tokens || 0;
       const cacheCreation = usage.cache_creation_input_tokens || 0;
+      const outputTokens = usage.output_tokens || 0;
 
       // Track baseline from first turn's cache_read
       if (stats.numTurns === 0 && cacheRead > 0) {
@@ -154,15 +162,30 @@ class UsageTracker extends EventEmitter {
         console.log(`[UsageTracker] First turn baseline context: ${cacheRead} tokens`);
       }
 
-      // Current context = all input sources from this turn
-      // This represents what's CURRENTLY in the context window
-      const currentContextSize = inputTokens + cacheRead + cacheCreation;
+      // Current input context = all input sources from this turn
+      const currentInputContext = inputTokens + cacheRead + cacheCreation;
 
-      // Update stats with current context (not cumulative, but snapshot)
-      stats.contextUsed = currentContextSize;
+      // Total context = input + output (ClaudeKit formula)
+      const totalContext = currentInputContext + outputTokens;
+
+      // Update stats with current context (snapshot, not cumulative)
+      stats.contextUsed = totalContext;
       stats.contextPercentage = (stats.contextUsed / stats.contextLimit) * 100;
 
-      console.log(`[UsageTracker] Context: ${stats.contextUsed}/${stats.contextLimit} (${stats.contextPercentage.toFixed(1)}%) | Input: ${inputTokens} | CacheRead: ${cacheRead} | CacheCreate: ${cacheCreation}`);
+      // Calculate health metrics using ClaudeKit formulas
+      stats.contextHealth = calculateContextHealth(
+        currentInputContext,
+        outputTokens,
+        stats.contextLimit
+      );
+
+      console.log(
+        `[UsageTracker] Context: ${stats.contextUsed}/${stats.contextLimit} ` +
+        `(${stats.contextPercentage.toFixed(1)}%) | ` +
+        `Health: ${stats.contextHealth.status} | ` +
+        `Input: ${inputTokens} | CacheRead: ${cacheRead} | ` +
+        `CacheCreate: ${cacheCreation} | Output: ${outputTokens}`
+      );
     }
 
     // Aggregate cost (common field)

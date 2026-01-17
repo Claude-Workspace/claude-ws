@@ -139,7 +139,24 @@ function MarkdownContent({ content }: { content: string }) {
         // Code
         code({ inline, className, children, ...props }: any) {
           const match = /language-(\w+)/.exec(className || '');
-          const codeString = String(children).replace(/\n$/, '');
+
+          // Extract code string from children (handle React nodes properly)
+          let codeString = '';
+          if (Array.isArray(children)) {
+            codeString = children
+              .map(child => (typeof child === 'string' ? child : ''))
+              .join('');
+          } else if (typeof children === 'string') {
+            codeString = children;
+          } else if (children && typeof children === 'object' && 'props' in children) {
+            // Handle React element nodes
+            codeString = String(children.props?.children || '');
+          } else {
+            codeString = String(children || '');
+          }
+
+          // Remove trailing newline
+          codeString = codeString.replace(/\n$/, '');
 
           // Only use CodeBlock for actual code blocks (has language OR has multiple lines)
           const isMultiLine = codeString.includes('\n');
