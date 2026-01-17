@@ -354,11 +354,23 @@ export function GitPanel() {
                     }}
                   />
                   <div className="flex gap-1.5 mt-1.5">
+                    <Button
+                      className="flex-[3]"
+                      size="sm"
+                      disabled={!canCommit || committing}
+                      onClick={handleCommit}
+                    >
+                      {committing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
+                    </Button>
                     {/* Generate commit message button */}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-[2]"
                       title={
                         totalChanges === 0
                           ? 'No changes to generate commit message for'
@@ -379,18 +391,6 @@ export function GitPanel() {
                           height={16}
                           className="opacity-80"
                         />
-                      )}
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      size="sm"
-                      disabled={!canCommit || committing}
-                      onClick={handleCommit}
-                    >
-                      {committing ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Check className="size-4" />
                       )}
                     </Button>
                   </div>
