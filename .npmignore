@@ -2,12 +2,17 @@
 .next/
 node_modules/
 .plans/
+plans/
+docs/
+uploads/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.tgz
+*.tsbuildinfo
 
 # Environment variables
 .env
@@ -19,6 +24,7 @@ lerna-debug.log*
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -41,4 +47,6 @@ drizzle/
 # Misc
 .pnpmfile.cjs.tmp
 IMPLEMENTATION.md
+PUBLISHING.md
 pnpm-workspace.yaml
+CLAUDE.md

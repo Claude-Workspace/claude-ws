@@ -1,6 +1,6 @@
 {
   "name": "claude-ws",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "description": "A beautifully crafted workspace interface for Claude Code with real-time streaming and local SQLite database",
   "keywords": ["claude", "claude-code", "workspace", "task-management", "ai", "anthropic", "nextjs", "sqlite"],
@@ -21,7 +21,6 @@
     "bin",
     "src",
     "public",
-    ".next",
     "server.ts",
     "next.config.ts",
     "tsconfig.json",
