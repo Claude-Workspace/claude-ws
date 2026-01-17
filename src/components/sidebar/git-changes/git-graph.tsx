@@ -227,7 +227,7 @@ export function GitGraph() {
                       onMouseLeave={() => setHoveredCommit(null)}
                     >
                       {/* Commit info with dynamic margin based on lane */}
-                      <div style={{ marginLeft: `${lane.lane * GRAPH_CONSTANTS.LANE_WIDTH + 16}px` }} className="flex-1 min-w-0">
+                      <div style={{ marginLeft: `${lane.lane * GRAPH_CONSTANTS.LANE_WIDTH + 18}px` }} className="flex-1 min-w-0">
                         <GitCommitItem
                           commit={commit}
                           isHead={commit.hash === head}

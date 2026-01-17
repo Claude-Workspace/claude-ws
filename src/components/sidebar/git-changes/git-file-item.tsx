@@ -57,7 +57,7 @@ export function GitFileItem({
   return (
     <div
       className={cn(
-        'group flex items-center gap-1.5 px-2 py-0.5 text-xs cursor-pointer',
+        'group relative flex items-center gap-1.5 px-2 py-0.5 text-xs cursor-pointer',
         'hover:bg-accent/50 transition-colors',
         isSelected && 'bg-accent text-accent-foreground'
       )}
@@ -68,17 +68,17 @@ export function GitFileItem({
       <FileText className="size-4 shrink-0 text-muted-foreground" />
 
       {/* File name + parent dir */}
-      <div className="flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
-        <span className="truncate">{fileName}</span>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden pr-20">
+        <span className="truncate text-sm">{fileName}</span>
         {parentDir && (
-          <span className="text-xs text-muted-foreground truncate">
-            {parentDir}
+          <span className="text-xs text-muted-foreground/70 truncate" style={{ direction: 'rtl', textAlign: 'left' }}>
+            <span style={{ direction: 'ltr', unicodeBidi: 'plaintext' }}>{parentDir}</span>
           </span>
         )}
       </div>
 
-      {/* Action buttons (visible on hover) */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Action buttons (absolute positioned, visible on hover) */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-background px-1 rounded">
         {staged ? (
           // Unstage button for staged files
           <button
@@ -119,8 +119,8 @@ export function GitFileItem({
         )}
       </div>
 
-      {/* Stats: +X -Y for modified, "New" for new files - moved to end */}
-      <span className="text-[10px] shrink-0 w-16 text-right font-medium">
+      {/* Stats: +X -Y for modified, "New" for new files - absolute positioned */}
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] shrink-0 font-medium group-hover:opacity-0 transition-opacity">
         {isNew ? (
           <span className="text-green-500">New</span>
         ) : hasStats ? (

@@ -7,7 +7,7 @@ import { LaneAssignment, GitCommit } from './lane-calculator';
 
 // Layout constants - Mermaid.js style
 const LANE_WIDTH = 20;      // Horizontal spacing between lanes
-const ROW_HEIGHT = 24;      // Vertical spacing between commits
+const ROW_HEIGHT = 28;      // Vertical spacing between commits
 const DOT_RADIUS = 5;       // Commit dot size (larger for visibility)
 const CURVE_CONTROL = 0.4;  // Bézier curve control point ratio
 

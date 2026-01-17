@@ -26,6 +26,7 @@ export function GitPanel() {
   const [generatingMessage, setGeneratingMessage] = useState(false);
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!activeProject?.path) {
@@ -168,6 +169,14 @@ export function GitPanel() {
     if (!activeProject?.path || !commitMessage.trim()) return;
     setCommitting(true);
     try {
+      // Auto-stage all changes before commit
+      await fetch('/api/git/stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectPath: activeProject.path, all: true }),
+      });
+
+      // Then commit
       const res = await fetch('/api/git/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,6 +221,27 @@ export function GitPanel() {
     }
   }, [activeProject?.path]);
 
+  const handleSync = useCallback(async () => {
+    if (!activeProject?.path) return;
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/git/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectPath: activeProject.path }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to push');
+      }
+      fetchStatus();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to push changes');
+    } finally {
+      setSyncing(false);
+    }
+  }, [activeProject?.path, fetchStatus]);
+
   // Combine unstaged and untracked into single "Changes" section
   const changes: GitFileStatus[] = useMemo(() => {
     if (!status) return [];
@@ -246,7 +276,8 @@ export function GitPanel() {
   }
 
   const totalChanges = (status?.staged.length || 0) + changes.length;
-  const canCommit = (status?.staged.length || 0) > 0 && commitMessage.trim().length > 0;
+  const canCommit = totalChanges > 0 && commitMessage.trim().length > 0;
+  const hasUnpushedCommits = (status?.ahead || 0) > 0 && totalChanges === 0; // Only show sync when no uncommitted changes
 
   return (
     <div className="flex flex-col h-full">
@@ -354,18 +385,6 @@ export function GitPanel() {
                     }}
                   />
                   <div className="flex gap-1.5 mt-1.5">
-                    <Button
-                      className="flex-1"
-                      size="sm"
-                      disabled={!canCommit || committing}
-                      onClick={handleCommit}
-                    >
-                      {committing ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Check className="size-4" />
-                      )}
-                    </Button>
                     {/* Generate commit message button */}
                     <Button
                       variant="outline"
@@ -391,6 +410,28 @@ export function GitPanel() {
                           height={20}
                           className="opacity-80"
                         />
+                      )}
+                    </Button>
+
+                    {/* Commit or Sync button */}
+                    <Button
+                      className="flex-1"
+                      size="sm"
+                      disabled={(!canCommit && !hasUnpushedCommits) || committing || syncing}
+                      onClick={hasUnpushedCommits ? handleSync : handleCommit}
+                    >
+                      {committing || syncing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : hasUnpushedCommits ? (
+                        <>
+                          <ArrowUp className="size-4 mr-1" />
+                          Sync changes
+                        </>
+                      ) : (
+                        <>
+                          <Check className="size-4 mr-1" />
+                          Commit changes
+                        </>
                       )}
                     </Button>
                   </div>

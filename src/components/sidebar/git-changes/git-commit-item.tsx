@@ -48,6 +48,44 @@ function parseRefs(refs: string[]): { branches: string[]; tags: string[] } {
   };
 }
 
+// Parse conventional commit message to highlight prefix
+function parseCommitMessage(message: string): { prefix: string | null; scope: string | null; subject: string } {
+  const conventionalCommitRegex = /^(feat|fix|docs|refactor|chore|style|test|perf|ci|build|revert)(\(.+?\))?:\s*(.+)$/;
+  const match = message.match(conventionalCommitRegex);
+
+  if (match) {
+    return {
+      prefix: match[1],
+      scope: match[2] || null,
+      subject: match[3],
+    };
+  }
+
+  return {
+    prefix: null,
+    scope: null,
+    subject: message,
+  };
+}
+
+// Get color for conventional commit type
+function getCommitTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    feat: 'text-green-400',
+    fix: 'text-red-400',
+    docs: 'text-blue-400',
+    refactor: 'text-purple-400',
+    chore: 'text-gray-400',
+    style: 'text-pink-400',
+    test: 'text-yellow-400',
+    perf: 'text-orange-400',
+    ci: 'text-cyan-400',
+    build: 'text-indigo-400',
+    revert: 'text-red-400',
+  };
+  return colors[type] || 'text-muted-foreground';
+}
+
 export function GitCommitItem({
   commit,
   isHead,
@@ -57,16 +95,28 @@ export function GitCommitItem({
   onClick,
 }: GitCommitItemProps) {
   const { branches, tags } = parseRefs(commit.refs);
+  const { prefix, scope, subject } = parseCommitMessage(commit.message);
 
   return (
     <div
       className="flex-1 min-w-0 px-2 hover:bg-accent/30 cursor-pointer group flex items-center"
-      style={{ minHeight: '24px' }}
+      style={{ minHeight: '28px' }}
       onClick={onClick}
     >
       <div className="flex items-center gap-1.5 flex-wrap flex-1">
-        <span className="text-sm truncate flex-1 min-w-0 leading-[24px]">
-          {commit.message}
+        <span className="text-sm truncate flex-1 min-w-0 leading-[28px]">
+          {prefix && (
+            <>
+              <span className={cn('font-semibold', getCommitTypeColor(prefix))}>
+                {prefix}
+              </span>
+              {scope && (
+                <span className="text-muted-foreground/70">{scope}</span>
+              )}
+              <span className="text-muted-foreground">: </span>
+            </>
+          )}
+          <span>{subject}</span>
         </span>
 
         {branches.map((branch) => (
