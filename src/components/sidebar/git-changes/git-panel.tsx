@@ -342,21 +342,23 @@ export function GitPanel() {
               <div className="mt-0.5">
                 {/* Commit message input inside Changes section */}
                 <div className="px-2 pb-2">
-                  <div className="flex gap-1.5 items-start">
-                    <textarea
-                      className="flex-1 min-h-[60px] px-2 py-1.5 text-sm bg-muted/50 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                      placeholder="Commit message"
-                      value={commitMessage}
-                      onChange={(e) => setCommitMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canCommit) {
-                          handleCommit();
-                        }
-                      }}
-                    />
+                  <textarea
+                    className="w-full min-h-[60px] px-2 py-1.5 text-sm bg-muted/50 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                    placeholder="Commit message"
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canCommit) {
+                        handleCommit();
+                      }
+                    }}
+                  />
+                  <div className="flex gap-1.5 mt-1.5">
                     {/* Generate commit message button */}
-                    <button
-                      className="flex items-center justify-center size-8 hover:bg-accent rounded-md border bg-muted/50 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
                       title={
                         totalChanges === 0
                           ? 'No changes to generate commit message for'
@@ -373,25 +375,25 @@ export function GitPanel() {
                         <Image
                           src="/logo.png"
                           alt="Generate"
-                          width={18}
-                          height={18}
-                          className="opacity-80 hover:opacity-100"
+                          width={16}
+                          height={16}
+                          className="opacity-80"
                         />
                       )}
-                    </button>
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      size="sm"
+                      disabled={!canCommit || committing}
+                      onClick={handleCommit}
+                    >
+                      {committing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    className="w-full mt-1.5"
-                    size="sm"
-                    disabled={!canCommit || committing}
-                    onClick={handleCommit}
-                  >
-                    {committing ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Check className="size-4" />
-                    )}
-                  </Button>
                 </div>
 
                 {totalChanges === 0 ? (
