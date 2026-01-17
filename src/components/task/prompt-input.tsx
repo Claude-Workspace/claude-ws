@@ -511,10 +511,10 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
           </div>
         </div>
 
-        {/* Command hints and Task Stats */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Command hints */}
-          <div className="flex flex-col gap-px">
+        {/* Command hints and Task Stats - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+          {/* Command hints - Hide on mobile */}
+          <div className="hidden sm:flex flex-col gap-px">
             <p className="text-[10px] text-muted-foreground">
               <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> commands
               <span className="mx-1">·</span>
@@ -530,19 +530,18 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
             )}
           </div>
 
-          {/* Task Stats - Always visible when task is open */}
+          {/* Task Stats - Condensed on mobile, full on desktop */}
           {taskId && (
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              {/* Context Usage - Always show with color-coded warnings */}
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="size-3" />
-                {/* Progress bar with blocks - Color changes based on usage */}
-                <div className="flex items-center gap-1">
-                  <div className="flex gap-0.5">
+            <div className="flex items-center gap-2 sm:gap-3 text-[10px] text-muted-foreground">
+              {/* Context Usage - Compact on mobile */}
+              <div className="flex items-center gap-1">
+                <TrendingUp className="size-3 hidden sm:inline" />
+                <div className="flex items-center gap-0.5 sm:gap-1">
+                  {/* Hide progress bar on mobile, show only percentage */}
+                  <div className="hidden sm:flex gap-0.5">
                     {Array.from({ length: 10 }).map((_, i) => {
                       const percentage = taskStats?.contextPercentage || 0;
                       const filled = (percentage / 10) > i;
-                      // Color coding: green (0-60%), yellow (60-90%), red (>90%)
                       let color = 'bg-muted';
                       if (filled) {
                         if (percentage > 90) {
@@ -561,7 +560,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                       );
                     })}
                   </div>
-                  <span className={`font-medium ${
+                  <span className={`font-medium text-[9px] sm:text-[10px] ${
                     (taskStats?.contextPercentage || 0) > 90
                       ? 'text-red-500'
                       : (taskStats?.contextPercentage || 0) >= 60
@@ -573,19 +572,19 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 </div>
               </div>
 
-              {/* Cost - Only show if > 0 */}
+              {/* Cost - Compact on mobile */}
               {taskStats && taskStats.totalCostUSD > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <span>💵</span>
-                  <span className="font-medium">${taskStats.totalCostUSD.toFixed(2)}</span>
+                  <span className="hidden sm:inline">💵</span>
+                  <span className="font-medium text-[9px] sm:text-[10px]">${taskStats.totalCostUSD.toFixed(2)}</span>
                 </div>
               )}
 
-              {/* Git changes - Always show */}
-              <div className="flex items-center gap-1">
-                <span>📝</span>
-                <span className="text-green-600">+{taskStats?.totalAdditions || 0}</span>
-                <span className="text-red-600">-{taskStats?.totalDeletions || 0}</span>
+              {/* Git changes - Compact on mobile */}
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <span className="hidden sm:inline">📝</span>
+                <span className="text-green-600 text-[9px] sm:text-[10px]">+{taskStats?.totalAdditions || 0}</span>
+                <span className="text-red-600 text-[9px] sm:text-[10px]">-{taskStats?.totalDeletions || 0}</span>
               </div>
             </div>
           )}
