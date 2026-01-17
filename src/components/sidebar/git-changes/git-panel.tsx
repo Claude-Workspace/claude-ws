@@ -355,7 +355,7 @@ export function GitPanel() {
                   />
                   <div className="flex gap-1.5 mt-1.5">
                     <Button
-                      className="flex-[3]"
+                      className="flex-1"
                       size="sm"
                       disabled={!canCommit || committing}
                       onClick={handleCommit}
@@ -370,7 +370,7 @@ export function GitPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-[2]"
+                      className="px-2"
                       title={
                         totalChanges === 0
                           ? 'No changes to generate commit message for'
@@ -382,13 +382,13 @@ export function GitPanel() {
                       disabled={generatingMessage || totalChanges === 0}
                     >
                       {generatingMessage ? (
-                        <Loader2 className="size-4 animate-spin" />
+                        <Loader2 className="size-5 animate-spin" />
                       ) : (
                         <Image
                           src="/logo.png"
                           alt="Generate"
-                          width={16}
-                          height={16}
+                          width={20}
+                          height={20}
                           className="opacity-80"
                         />
                       )}
