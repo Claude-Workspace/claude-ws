@@ -15,3 +15,5 @@ Use it for:
 - Creating new Agent SDK projects
 - Verifying SDK usage and best practices
 - Debugging SDK integration issues
+
+Dont try start run dev when finish a conversation only when you are asked to.

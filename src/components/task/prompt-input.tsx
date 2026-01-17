@@ -3,7 +3,7 @@
 import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2, Command, ImagePlus, Square, TrendingUp } from 'lucide-react';
+import { Send, Loader2, Command, Paperclip, Square, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandSelector } from './command-selector';
 import { FileDropZone } from './file-drop-zone';
@@ -416,7 +416,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
         )}
 
         {/* Input area */}
-        <div className="relative w-full min-w-0">
+        <div className="w-full min-w-0">
           {/* File Mention Dropdown */}
           <FileMentionDropdown
             query={fileMentionQuery}
@@ -425,155 +425,171 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
             visible={showFileMention}
           />
 
-          <Textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            onFocus={() => {
-              // Scroll to bottom of textarea on focus (for mobile virtual keyboard)
-              setTimeout(() => {
-                textareaRef.current?.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
-                textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }, 100);
-            }}
-            placeholder={placeholder}
-            disabled={disabled}
-            className={cn(
-              'min-h-24 max-h-48 resize-none pr-10 w-full break-words overflow-y-auto',
-              selectedCommand && 'border-primary'
-            )}
-          />
-          {selectedCommand && (
-            <div className="absolute top-2 right-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
-                <Command className="size-3" />
-                {selectedCommand}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {!hideSendButton && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {/* Command hints */}
-              <div className="flex flex-col gap-px">
-                <p className="text-[10px] text-muted-foreground">
-                  <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> commands
-                  <span className="mx-1">·</span>
-                  <kbd className="px-0.5 bg-muted rounded text-[9px]">@</kbd> files
-                </p>
-                {!disableSubmitShortcut && (
-                  <p className="text-[10px] text-muted-foreground">
-                    <kbd className="px-0.5 bg-muted rounded text-[9px]">
-                      {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}
-                    </kbd>
-                    +<kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> to send
-                  </p>
+          {/* Textarea and buttons as a single block */}
+          <div className={cn(
+            'rounded-md border overflow-hidden bg-background',
+            selectedCommand ? 'border-primary' : 'border-input'
+          )}>
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  // Scroll to bottom of textarea on focus (for mobile virtual keyboard)
+                  setTimeout(() => {
+                    textareaRef.current?.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
+                    textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+                placeholder={placeholder}
+                disabled={disabled}
+                className={cn(
+                  'min-h-10 max-h-48 resize-none w-full break-words overflow-y-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0',
+                  selectedCommand && 'border-primary'
                 )}
-              </div>
-
-              {/* Task Stats - Vertically centered - Always visible when task is open */}
-              {taskId && (
-                <div className="flex items-center gap-3 text-[10px] text-muted-foreground self-center">
-                  {/* Context Usage - Always show with color-coded warnings */}
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="size-3" />
-                    {/* Progress bar with blocks - Color changes based on usage */}
-                    <div className="flex items-center gap-1">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 10 }).map((_, i) => {
-                          const percentage = taskStats?.contextPercentage || 0;
-                          const filled = (percentage / 10) > i;
-                          // Color coding: green (0-60%), yellow (60-90%), red (>90%)
-                          let color = 'bg-muted';
-                          if (filled) {
-                            if (percentage > 90) {
-                              color = 'bg-red-500';
-                            } else if (percentage >= 60) {
-                              color = 'bg-yellow-500';
-                            } else {
-                              color = 'bg-green-500';
-                            }
-                          }
-                          return (
-                            <div
-                              key={i}
-                              className={`w-1.5 h-2 rounded-[1px] ${color}`}
-                            />
-                          );
-                        })}
-                      </div>
-                      <span className={`font-medium ${
-                        (taskStats?.contextPercentage || 0) > 90
-                          ? 'text-red-500'
-                          : (taskStats?.contextPercentage || 0) >= 60
-                            ? 'text-yellow-500'
-                            : ''
-                      }`}>
-                        {taskStats?.contextPercentage || 0}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Cost - Only show if > 0 */}
-                  {taskStats && taskStats.totalCostUSD > 0 && (
-                    <div className="flex items-center gap-0.5">
-                      <span>💵</span>
-                      <span className="font-medium">${taskStats.totalCostUSD.toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  {/* Git changes - Always show */}
-                  <div className="flex items-center gap-1">
-                    <span>📝</span>
-                    <span className="text-green-600">+{taskStats?.totalAdditions || 0}</span>
-                    <span className="text-red-600">-{taskStats?.totalDeletions || 0}</span>
-                  </div>
+              />
+              {selectedCommand && (
+                <div className="absolute top-2 right-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
+                    <Command className="size-3" />
+                    {selectedCommand}
+                  </span>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Buttons row - below textarea */}
+            <div className="flex items-center justify-between px-2 py-1.5 bg-transparent dark:bg-input/30">
+              {/* File upload button - left */}
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={openFilePicker}
                 disabled={disabled}
-                title="Attach images & files"
+                title="Attach files"
                 className="size-8"
               >
-                <ImagePlus className="size-4" />
+                <Paperclip className="size-4" />
               </Button>
-              {disabled && onCancel ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={onCancel}
-                >
-                  <Square className="size-4" />
-                  Stop
-                </Button>
-              ) : (
-                <Button type="submit" disabled={disabled || (!prompt.trim() && mentions.length === 0)} size="sm">
-                  {disabled ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="size-4" />
-                      Send
-                    </>
-                  )}
-                </Button>
+
+              {/* Send/Stop button - right */}
+              {!hideSendButton && (
+                disabled && onCancel ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={onCancel}
+                  >
+                    <Square className="size-4" />
+                    Stop
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={disabled || (!prompt.trim() && mentions.length === 0)}
+                    size="sm"
+                  >
+                    {disabled ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="size-4" />
+                        Send
+                      </>
+                    )}
+                  </Button>
+                )
               )}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Command hints and Task Stats */}
+        <div className="flex items-center justify-between gap-4">
+          {/* Command hints */}
+          <div className="flex flex-col gap-px">
+            <p className="text-[10px] text-muted-foreground">
+              <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> commands
+              <span className="mx-1">·</span>
+              <kbd className="px-0.5 bg-muted rounded text-[9px]">@</kbd> files
+            </p>
+            {!disableSubmitShortcut && (
+              <p className="text-[10px] text-muted-foreground">
+                <kbd className="px-0.5 bg-muted rounded text-[9px]">
+                  {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}
+                </kbd>
+                +<kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> to send
+              </p>
+            )}
+          </div>
+
+          {/* Task Stats - Always visible when task is open */}
+          {taskId && (
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              {/* Context Usage - Always show with color-coded warnings */}
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="size-3" />
+                {/* Progress bar with blocks - Color changes based on usage */}
+                <div className="flex items-center gap-1">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const percentage = taskStats?.contextPercentage || 0;
+                      const filled = (percentage / 10) > i;
+                      // Color coding: green (0-60%), yellow (60-90%), red (>90%)
+                      let color = 'bg-muted';
+                      if (filled) {
+                        if (percentage > 90) {
+                          color = 'bg-red-500';
+                        } else if (percentage >= 60) {
+                          color = 'bg-yellow-500';
+                        } else {
+                          color = 'bg-green-500';
+                        }
+                      }
+                      return (
+                        <div
+                          key={i}
+                          className={`w-1.5 h-2 rounded-[1px] ${color}`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className={`font-medium ${
+                    (taskStats?.contextPercentage || 0) > 90
+                      ? 'text-red-500'
+                      : (taskStats?.contextPercentage || 0) >= 60
+                        ? 'text-yellow-500'
+                        : ''
+                  }`}>
+                    {taskStats?.contextPercentage || 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Cost - Only show if > 0 */}
+              {taskStats && taskStats.totalCostUSD > 0 && (
+                <div className="flex items-center gap-0.5">
+                  <span>💵</span>
+                  <span className="font-medium">${taskStats.totalCostUSD.toFixed(2)}</span>
+                </div>
+              )}
+
+              {/* Git changes - Always show */}
+              <div className="flex items-center gap-1">
+                <span>📝</span>
+                <span className="text-green-600">+{taskStats?.totalAdditions || 0}</span>
+                <span className="text-red-600">-{taskStats?.totalDeletions || 0}</span>
+              </div>
+            </div>
+          )}
+        </div>
       </form>
 
       {/* Hidden file input for Paperclip button */}

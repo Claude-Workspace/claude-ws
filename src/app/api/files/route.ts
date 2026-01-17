@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const basePath = searchParams.get('path');
     const depth = parseInt(searchParams.get('depth') || '10', 10);
-    const showHidden = searchParams.get('showHidden') === 'true';
+    const showHidden = searchParams.get('showHidden') !== 'false';
 
     if (!basePath) {
       return NextResponse.json({ error: 'path parameter is required' }, { status: 400 });
