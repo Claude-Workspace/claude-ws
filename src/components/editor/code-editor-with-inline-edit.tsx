@@ -20,12 +20,16 @@ import {
   type InlineEditSelection,
   type InlineEditDiffState,
 } from './extensions/inline-edit';
+import { addToContextExtension, type ContextSelection } from './extensions/add-to-context';
 import { DefinitionPopup } from './definition-popup';
 import { InlineEditDialog } from './inline-edit-dialog';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useInlineEdit } from '@/hooks/use-inline-edit';
 import { useInlineEditStore } from '@/stores/inline-edit-store';
+import { useContextMentionStore } from '@/stores/context-mention-store';
+import { useTaskStore } from '@/stores/task-store';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface EditorPosition {
   lineNumber?: number;
@@ -80,6 +84,10 @@ export function CodeEditorWithInlineEdit({
 
   // Inline edit store
   const { getSession } = useInlineEditStore();
+
+  // Context mention store
+  const { addLineMention } = useContextMentionStore();
+  const { selectedTaskId } = useTaskStore();
 
   // Get screen position for selection (for popup positioning)
   const getSelectionPosition = useCallback(() => {
@@ -298,6 +306,30 @@ export function CodeEditorWithInlineEdit({
     inlineEdit.reject();
   }, [inlineEdit]);
 
+  // Handle add to context (Cmd+L)
+  const handleAddToContext = useCallback(
+    (selection: ContextSelection) => {
+      if (!selectedTaskId) {
+        toast.error('Select a task first to add context');
+        return;
+      }
+
+      addLineMention(
+        selectedTaskId,
+        selection.fileName,
+        selection.filePath,
+        selection.startLine,
+        selection.endLine
+      );
+
+      const lineRange = selection.startLine === selection.endLine
+        ? `L${selection.startLine}`
+        : `L${selection.startLine}-${selection.endLine}`;
+      toast.success(`Added @${selection.fileName}#${lineRange} to context`);
+    },
+    [selectedTaskId, addLineMention]
+  );
+
   // Build extensions
   const extensions = useMemo(() => {
     const langExtension = language ? languages[language] : null;
@@ -342,6 +374,17 @@ export function CodeEditorWithInlineEdit({
       );
     }
 
+    // Add context (Cmd+L) extension - always enabled when filePath exists
+    if (filePath) {
+      baseExtensions.push(
+        addToContextExtension({
+          onAddToContext: handleAddToContext,
+          filePath,
+          enabled: true,
+        })
+      );
+    }
+
     return baseExtensions;
   }, [
     language,
@@ -358,6 +401,7 @@ export function CodeEditorWithInlineEdit({
     handleEditRequest,
     handleAccept,
     handleReject,
+    handleAddToContext,
   ]);
 
   // Capture editor view when created

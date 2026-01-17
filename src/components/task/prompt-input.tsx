@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, Command, ImagePlus, Square, TrendingUp } from 'lucide-react';
@@ -8,9 +8,13 @@ import { toast } from 'sonner';
 import { CommandSelector } from './command-selector';
 import { FileDropZone } from './file-drop-zone';
 import { AttachmentBar } from './attachment-bar';
+import { FileMentionDropdown } from './file-mention-dropdown';
+import { FileIcon } from '@/components/sidebar/file-browser/file-icon';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
+import { useContextMentionStore } from '@/stores/context-mention-store';
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
 
 export interface PromptInputRef {
   submit: () => void;
@@ -45,6 +49,14 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
+  // File mention state (for @ dropdown)
+  const [showFileMention, setShowFileMention] = useState(false);
+  const [fileMentionQuery, setFileMentionQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+
+  // Context mention store (for both @file and @file#lines from Cmd+L)
+  const { getMentions, addFileMention, removeMention, clearMentions, buildPromptWithMentions } = useContextMentionStore();
+  const mentions = taskId ? getMentions(taskId) : [];
   const [taskStats, setTaskStats] = useState<{
     totalTokens: number;
     totalCostUSD: number;
@@ -79,6 +91,77 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     setPrompt(newPrompt);
     onChange?.(newPrompt);
   };
+
+  // Detect @ mention for file search
+  const checkForFileMention = useCallback((text: string, cursorPos: number) => {
+    // Look backwards from cursor to find @
+    let atIndex = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      const char = text[i];
+      if (char === '@') {
+        atIndex = i;
+        break;
+      }
+      // Stop if we hit a space or newline before finding @
+      if (char === ' ' || char === '\n') {
+        break;
+      }
+    }
+
+    if (atIndex >= 0) {
+      const query = text.slice(atIndex + 1, cursorPos);
+      // Only show if query doesn't contain spaces (still typing the filename)
+      if (!query.includes(' ')) {
+        setShowFileMention(true);
+        setFileMentionQuery(query);
+        setMentionStartIndex(atIndex);
+        return;
+      }
+    }
+
+    setShowFileMention(false);
+    setFileMentionQuery('');
+    setMentionStartIndex(-1);
+  }, []);
+
+  // Handle file selection from dropdown
+  const handleFileSelect = useCallback((filePath: string) => {
+    if (mentionStartIndex >= 0 && taskId) {
+      // Get just the filename for display
+      const fileName = filePath.split('/').pop() || filePath;
+
+      // Remove the @query from textarea (just show chip above)
+      const before = prompt.slice(0, mentionStartIndex);
+      const cursorPos = textareaRef.current?.selectionStart || prompt.length;
+      const after = prompt.slice(cursorPos);
+      const newPrompt = `${before}${after}`.trim();
+      updatePrompt(newPrompt);
+
+      // Add to context mention store
+      addFileMention(taskId, fileName, filePath);
+
+      // Focus back on textarea
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    }
+    setShowFileMention(false);
+    setFileMentionQuery('');
+    setMentionStartIndex(-1);
+  }, [mentionStartIndex, prompt, updatePrompt, taskId, addFileMention]);
+
+  const handleFileMentionClose = useCallback(() => {
+    setShowFileMention(false);
+    setFileMentionQuery('');
+    setMentionStartIndex(-1);
+  }, []);
+
+  // Remove a mentioned file/lines
+  const handleRemoveMention = useCallback((displayName: string) => {
+    if (taskId) {
+      removeMention(taskId, displayName);
+    }
+  }, [taskId, removeMention]);
 
   // Detect slash command input
   useEffect(() => {
@@ -130,7 +213,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim() || disabled) return;
+    // Allow submit if there's text OR context mentions
+    if ((!prompt.trim() && mentions.length === 0) || disabled) return;
 
     // Check if files are still uploading
     if (taskId && hasUploadingFiles(taskId)) {
@@ -141,6 +225,13 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     const originalPrompt = prompt.trim();
     let finalPrompt = originalPrompt;
     let displayPrompt: string | undefined;
+
+    // Build prompt with context mentions (files and lines)
+    if (taskId && mentions.length > 0) {
+      const result = buildPromptWithMentions(taskId, originalPrompt);
+      finalPrompt = result.finalPrompt;
+      displayPrompt = result.displayPrompt;
+    }
 
     // If it's a command, process it
     if (selectedCommand || prompt.startsWith('/')) {
@@ -177,11 +268,18 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     setSelectedCommand(null);
     setShowCommands(false);
     if (taskId) {
+      clearMentions(taskId);
       clearFiles(taskId);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Let file mention dropdown handle these keys when visible
+    if (showFileMention && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Tab' || e.key === 'Enter' || e.key === 'Escape')) {
+      // Don't prevent default for Tab/Enter if no results - those are handled by dropdown
+      return;
+    }
+
     if (showCommands && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter' || e.key === 'Escape')) {
       return;
     }
@@ -191,11 +289,26 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
       handleSubmit(e as any);
     }
 
-    if (e.key === 'Escape' && showCommands) {
-      e.preventDefault();
-      setShowCommands(false);
-      updatePrompt('');
+    if (e.key === 'Escape') {
+      if (showFileMention) {
+        e.preventDefault();
+        handleFileMentionClose();
+      } else if (showCommands) {
+        e.preventDefault();
+        setShowCommands(false);
+        updatePrompt('');
+      }
     }
+  };
+
+  // Handle input change - check for @ mentions
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    updatePrompt(newValue);
+
+    // Check for file mention
+    const cursorPos = e.target.selectionStart || 0;
+    checkForFileMention(newValue, cursorPos);
   };
 
   const handleCommandSelect = (command: string, isInteractive?: boolean) => {
@@ -269,6 +382,29 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
           filter={commandFilter}
         />
 
+        {/* Context Mentions Bar (files and line selections) */}
+        {mentions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-1">
+            {mentions.map((mention) => (
+              <div
+                key={mention.displayName}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-muted/80 rounded text-xs group"
+                title={mention.type === 'lines' ? `${mention.filePath}#L${mention.startLine}-${mention.endLine}` : mention.filePath}
+              >
+                <FileIcon name={mention.fileName} type="file" className="size-3" />
+                <span className="text-foreground">{mention.displayName}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveMention(mention.displayName)}
+                  className="text-muted-foreground hover:text-foreground opacity-60 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Attachment Bar */}
         {taskId && pendingFiles.length > 0 && (
           <AttachmentBar
@@ -281,10 +417,18 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
         {/* Input area */}
         <div className="relative w-full min-w-0">
+          {/* File Mention Dropdown */}
+          <FileMentionDropdown
+            query={fileMentionQuery}
+            onSelect={handleFileSelect}
+            onClose={handleFileMentionClose}
+            visible={showFileMention}
+          />
+
           <Textarea
             ref={textareaRef}
             value={prompt}
-            onChange={(e) => updatePrompt(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={() => {
               // Scroll to bottom of textarea on focus (for mobile virtual keyboard)
@@ -316,7 +460,9 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
               {/* Command hints */}
               <div className="flex flex-col gap-px">
                 <p className="text-[10px] text-muted-foreground">
-                  Type <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> for commands
+                  <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> commands
+                  <span className="mx-1">·</span>
+                  <kbd className="px-0.5 bg-muted rounded text-[9px]">@</kbd> files
                 </p>
                 {!disableSubmitShortcut && (
                   <p className="text-[10px] text-muted-foreground">
@@ -411,7 +557,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                   Stop
                 </Button>
               ) : (
-                <Button type="submit" disabled={disabled || !prompt.trim()} size="sm">
+                <Button type="submit" disabled={disabled || (!prompt.trim() && mentions.length === 0)} size="sm">
                   {disabled ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
