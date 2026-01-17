@@ -85,12 +85,12 @@ export function FileTreeItem({
       />
 
       {/* File/folder name */}
-      <span className="truncate">{entry.name}</span>
+      <span className="truncate flex-1">{entry.name}</span>
 
       {/* Git status indicator */}
       {!isDirectory && entry.gitStatus && (
         <span className={cn(
-          'ml-auto text-xs font-medium shrink-0',
+          'text-xs font-medium shrink-0',
           entry.gitStatus === 'M' && 'text-yellow-500',
           entry.gitStatus === 'A' && 'text-green-500',
           entry.gitStatus === 'D' && 'text-red-500',
