@@ -84,17 +84,18 @@ export function calculateContextBudget(config = DEFAULT_BUDGET_CONFIG): ContextB
 /**
  * Calculate auto-compact threshold
  *
- * Formula from ClaudeKit:
+ * Updated formula (aligned with Claude Code CLI):
  * - For window >= 1M: threshold = size × 0.33 (33%)
- * - For window < 1M:  threshold = size × 0.775 (77.5%)
+ * - For window < 1M:  threshold = size × 0.93 (93%)
  *
- * Example: 200K window → 155K threshold
+ * Example: 200K window → 186K threshold (better utilization)
+ * Previous: 155K (77.5%) - too aggressive, left only 22.5% for output
  */
 export function calculateCompactThreshold(contextWindowSize: number): number {
   if (contextWindowSize >= 1_000_000) {
     return Math.floor(contextWindowSize * 0.33);
   }
-  return Math.floor(contextWindowSize * 0.775);
+  return Math.floor(contextWindowSize * 0.93);
 }
 
 /**
