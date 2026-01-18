@@ -44,7 +44,7 @@ export function FileTreeItem({
       className={cn(
         'flex items-center gap-1 py-1 px-2 cursor-pointer rounded-sm text-sm relative',
         'hover:bg-accent/50 transition-colors',
-        isSelected && 'bg-accent text-accent-foreground'
+        isSelected && 'bg-primary/20 text-primary-foreground dark:bg-primary/30'
       )}
       style={{ paddingLeft: `${level * 16 + 8}px` }}
       onClick={handleClick}

@@ -16,7 +16,7 @@ import go from 'highlight.js/lib/languages/go';
 import rust from 'highlight.js/lib/languages/rust';
 import java from 'highlight.js/lib/languages/java';
 import type { GitDiff } from '@/types';
-import 'highlight.js/styles/github-dark.css';
+// Custom syntax highlighting theme in globals.css - no need for github-dark.css
 
 // Register languages
 hljs.registerLanguage('typescript', typescript);
@@ -170,7 +170,7 @@ export function DiffViewer({ filePath, staged, onClose }: DiffViewerProps) {
         <div className="flex items-center gap-2">
           {diff && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center gap-0.5 text-green-600">
+              <span className="flex items-center gap-0.5 text-teal-600">
                 <Plus className="size-3" />
                 {diff.additions}
               </span>
@@ -215,25 +215,22 @@ export function DiffViewer({ filePath, staged, onClose }: DiffViewerProps) {
                   key={i}
                   className={cn(
                     'flex',
-                    line.type === 'addition' && 'bg-green-500/15',
+                    line.type === 'addition' && 'bg-teal-500/15',
                     line.type === 'deletion' && 'bg-red-500/15',
                     line.type === 'header' && 'bg-muted/50 text-muted-foreground',
                     line.type === 'hunk' && 'bg-blue-500/10 text-blue-600'
                   )}
                 >
-                  {/* Line numbers - sticky to left */}
+                  {/* Line number - single column */}
                   <div className="flex shrink-0 text-muted-foreground/60 select-none sticky left-0 bg-inherit z-10">
                     <span className="w-10 text-right pr-1 border-r border-border/50 bg-background">
-                      {line.lineNumber?.old ?? ''}
-                    </span>
-                    <span className="w-10 text-right pr-1 border-r border-border/50 bg-background">
-                      {line.lineNumber?.new ?? ''}
+                      {line.lineNumber?.new ?? line.lineNumber?.old ?? ''}
                     </span>
                   </div>
                   {/* Line content */}
                   <pre className="px-2 whitespace-pre">
                     {line.type === 'addition' && (
-                      <span className="text-green-700 dark:text-green-400">+ </span>
+                      <span className="text-teal-700 dark:text-teal-400">+ </span>
                     )}
                     {line.type === 'deletion' && (
                       <span className="text-red-700 dark:text-red-400">- </span>

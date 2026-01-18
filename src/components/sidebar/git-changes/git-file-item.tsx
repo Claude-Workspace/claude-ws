@@ -60,7 +60,7 @@ export function GitFileItem({
       className={cn(
         'group relative flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer w-full',
         'hover:bg-accent/50 transition-colors',
-        isSelected && 'bg-accent text-accent-foreground'
+        isSelected && 'bg-primary/20 text-primary-foreground dark:bg-primary/30'
       )}
       onClick={onClick}
       title={file.path}
