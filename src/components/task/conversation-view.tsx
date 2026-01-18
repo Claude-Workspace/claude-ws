@@ -5,7 +5,7 @@ import { Loader2, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBlock } from '@/components/claude/message-block';
 import { ToolUseBlock } from '@/components/claude/tool-use-block';
-import { RunningDots } from '@/components/ui/running-dots';
+import { RunningDots, useRandomStatusVerb } from '@/components/ui/running-dots';
 import { cn } from '@/lib/utils';
 import type { ClaudeOutput, ClaudeContentBlock, AttemptFile, PendingFile } from '@/types';
 
@@ -125,6 +125,7 @@ export function ConversationView({
   const [historicalTurns, setHistoricalTurns] = useState<ConversationTurn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastIsRunning, setLastIsRunning] = useState(isRunning);
+  const statusVerb = useRandomStatusVerb();
 
   // Check if user is near bottom of scroll area (within threshold)
   const isNearBottom = () => {
@@ -311,7 +312,7 @@ export function ConversationView({
       const blocks = output.message.content;
 
       return (
-        <div key={(output as any)._msgId || index} className="space-y-1 max-w-full overflow-hidden">
+        <div key={(output as any)._msgId || index} className="space-y-1 w-full max-w-full overflow-hidden">
           {blocks.map((block, blockIndex) =>
             renderContentBlock(block, blockIndex, lastToolUseId, toolResultsMap, isStreaming)
           )}
@@ -373,7 +374,7 @@ export function ConversationView({
 
   // User prompt - simple muted box with file thumbnails
   const renderUserTurn = (turn: ConversationTurn) => (
-    <div key={`user-${turn.attemptId}`} className="bg-muted/40 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3">
+    <div key={`user-${turn.attemptId}`} className="bg-muted/40 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 w-full max-w-full overflow-hidden">
       <div>{turn.prompt}</div>
       {turn.files && turn.files.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -417,7 +418,7 @@ export function ConversationView({
 
   // Assistant response - clean text flow
   const renderAssistantTurn = (turn: ConversationTurn) => (
-    <div key={`assistant-${turn.attemptId}`} className="space-y-4 max-w-full overflow-hidden">
+    <div key={`assistant-${turn.attemptId}`} className="space-y-4 w-full max-w-full overflow-hidden">
       {turn.messages.map((msg, idx) => renderMessage(msg, idx, false, turn.messages))}
     </div>
   );
@@ -458,8 +459,8 @@ export function ConversationView({
     : historicalTurns;
 
   return (
-    <ScrollArea ref={scrollAreaRef} className={cn('h-full', className)}>
-      <div className="space-y-6 p-4 pb-4 max-w-full overflow-hidden">
+    <ScrollArea ref={scrollAreaRef} className={cn('h-full w-full max-w-full overflow-x-hidden', className)}>
+      <div className="space-y-6 p-4 pb-24 w-full max-w-full overflow-x-hidden box-border">
         {/* Historical turns */}
         {filteredHistoricalTurns.map(renderTurn)}
 
@@ -469,7 +470,7 @@ export function ConversationView({
             <>
               {/* User prompt if not in history */}
               {!filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'user') && currentPrompt && (
-                <div className="bg-muted/40 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3">
+                <div className="bg-muted/40 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 w-full max-w-full overflow-hidden">
                   <div>{currentPrompt}</div>
                   {currentFiles && currentFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -505,7 +506,7 @@ export function ConversationView({
                 </div>
               )}
               {/* Streaming response */}
-              <div className="space-y-4 max-w-full overflow-hidden">
+              <div className="space-y-4 w-full max-w-full overflow-hidden">
                 {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentMessages))}
               </div>
             </>
@@ -515,8 +516,8 @@ export function ConversationView({
         {isRunning && !hasVisibleContent(currentMessages) &&
           !filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'assistant') && (
             <div className="flex items-center gap-2 text-muted-foreground text-sm py-1">
-              <RunningDots className="text-primary" />
-              <span className="font-mono text-[14px]">Thinking...</span>
+              <RunningDots />
+              <span className="font-mono text-[14px]" style={{ color: '#b9664a' }}>{statusVerb}...</span>
             </div>
           )}
       </div>

@@ -161,17 +161,17 @@ function BashBlock({ command, output, isError }: { command: string; output?: str
   const outputLines = output?.split('\n').length || 0;
 
   return (
-    <div className="rounded-md border border-border overflow-hidden text-xs font-mono">
+    <div className="rounded-md border border-border overflow-hidden text-xs font-mono w-full max-w-full">
       {/* Command header */}
       <div
         className={cn(
-          'flex items-center gap-2 px-3 py-2 bg-zinc-900 dark:bg-zinc-950',
+          'flex items-center gap-2 px-3 py-2 bg-zinc-900 dark:bg-zinc-950 w-full max-w-full',
           hasOutput && 'cursor-pointer hover:bg-zinc-800 dark:hover:bg-zinc-900'
         )}
         onClick={() => hasOutput && setIsExpanded(!isExpanded)}
       >
         <Terminal className="size-3.5 text-zinc-400 shrink-0" />
-        <code className="text-zinc-100 flex-1 truncate">{command}</code>
+        <code className="text-zinc-100 flex-1 truncate min-w-0">{command}</code>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -249,11 +249,11 @@ export function ToolUseBlock({ name, input, result, isError, isStreaming, classN
   const isCompleted = !isStreaming && result && !isError;
 
   return (
-    <div className={cn('group max-w-full overflow-hidden my-2', className)}>
+    <div className={cn('group w-full max-w-full overflow-hidden my-2', className)}>
       {/* Main status line */}
       <div
         className={cn(
-          'flex items-start gap-2.5 py-1.5 px-2 rounded-md transition-colors min-w-0 border border-transparent',
+          'flex items-start gap-2.5 py-1.5 px-2 rounded-md transition-colors min-w-0 w-full max-w-full border border-transparent',
           isStreaming ? 'text-foreground bg-accent/30 border-accent/20' : 'text-muted-foreground hover:bg-accent/20',
           hasOtherDetails && 'cursor-pointer'
         )}
@@ -272,9 +272,9 @@ export function ToolUseBlock({ name, input, result, isError, isStreaming, classN
 
         {/* Streaming spinner or icon */}
         {isStreaming ? (
-          <RunningDots className="shrink-0 text-green-500 dark:text-green-400 mt-1 animate-glow-green" />
+          <RunningDots className="shrink-0" />
         ) : isCompleted ? null : (
-          <Icon className={cn('size-4 shrink-0 mt-1', isError && 'text-destructive')} />
+          <Icon className={cn('size-4 shrink-0', isError && 'text-destructive')} />
         )}
 
         {/* Tool name and target - allow wrapping */}
@@ -310,7 +310,7 @@ export function ToolUseBlock({ name, input, result, isError, isStreaming, classN
 
       {/* Special view for Bash */}
       {isBash && Boolean(inputObj?.command) && (
-        <div className="mt-1.5 ml-5">
+        <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
           <BashBlock
             command={String(inputObj?.command)}
             output={result}
@@ -321,14 +321,14 @@ export function ToolUseBlock({ name, input, result, isError, isStreaming, classN
 
       {/* Special view for Edit with diff */}
       {hasEditDiff && (
-        <div className="mt-1.5 ml-5">
+        <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
           <EditBlock input={inputObj} result={result} isError={isError} />
         </div>
       )}
 
       {/* Standard expandable details for other tools */}
       {isExpanded && hasOtherDetails && (
-        <div className="ml-5 mt-1 pl-4 border-l border-border/50 text-[13px] text-muted-foreground space-y-2 max-w-full overflow-hidden">
+        <div className="ml-5 mt-1 pl-4 border-l border-border/50 text-[13px] text-muted-foreground space-y-2 w-full max-w-full overflow-hidden pr-5">
           {inputObj && Object.keys(inputObj).length > 1 && (
             <pre className="font-mono bg-muted/30 p-2 rounded overflow-x-auto max-h-32 whitespace-pre-wrap break-all">
               {JSON.stringify(inputObj, null, 2)}

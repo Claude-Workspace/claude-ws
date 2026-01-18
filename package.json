@@ -1,6 +1,6 @@
 {
   "name": "claude-ws",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "description": "A beautifully crafted workspace interface for Claude Code with real-time streaming and local SQLite database",
   "keywords": ["claude", "claude-code", "workspace", "task-management", "ai", "anthropic", "nextjs", "sqlite"],
@@ -48,11 +48,14 @@
   "scripts": {
     "dev": "tsx server.ts",
     "dev:next": "next dev",
-    "build": "next build",
+    "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
     "prepublish:build": "pnpm run build",
     "publish:npm": "pnpm run prepublish:build && npm publish --access public"
   },

@@ -85,8 +85,8 @@ export function MessageBlock({ content, isThinking = false, isStreaming = false,
           ) : (
             <ChevronRight className="size-3" />
           )}
-          <RunningDots className="text-primary" />
-          <span className="font-mono text-[14px]">Thinking...</span>
+          <RunningDots />
+          <span className="font-mono text-[14px]" style={{ color: '#b9664a' }}>Thinking...</span>
         </button>
 
         {isExpanded && (
@@ -99,7 +99,7 @@ export function MessageBlock({ content, isThinking = false, isStreaming = false,
   }
 
   return (
-    <div className={cn('text-[15px] leading-7 max-w-full overflow-hidden', className)}>
+    <div className={cn('text-[15px] leading-7 max-w-full w-full overflow-hidden', className)}>
       <MarkdownContent content={displayContent} />
     </div>
   );
@@ -176,7 +176,7 @@ function MarkdownContent({ content }: { content: string }) {
         },
         // Pre blocks
         pre: ({ children }) => (
-          <div className="my-2 overflow-x-auto">{children}</div>
+          <div className="my-2 w-full max-w-full overflow-x-auto">{children}</div>
         ),
         // Strong/Bold
         strong: ({ children }) => (

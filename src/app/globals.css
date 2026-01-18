@@ -303,10 +303,39 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Prevent horizontal scrolling on mobile */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Prevent iOS Safari zoom on input focus (inputs smaller than 16px trigger zoom) */
+  @media screen and (max-width: 767px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+
+    /* Ensure all fixed elements respect viewport bounds */
+    .fixed {
+      max-width: 100vw !important;
+      overflow-x: hidden !important;
+    }
+
+    /* Force Radix ScrollArea to respect viewport width on mobile */
+    [data-slot="scroll-area"],
+    [data-slot="scroll-area-viewport"],
+    [data-slot="scroll-area-viewport"] > div {
+      max-width: 100vw !important;
+      width: 100% !important;
+      overflow-x: hidden !important;
+    }
   }
 }
 
@@ -390,21 +419,21 @@
   animation: spin-border 2s linear infinite;
 }
 
-/* Green glow animation for processing spinner */
-@keyframes glow-green {
+/* Warm glow animation for processing spinner */
+@keyframes glow-warm {
 
   0%,
   100% {
-    filter: drop-shadow(0 0 2px #22c55e) drop-shadow(0 0 4px #22c55e);
+    filter: drop-shadow(0 0 2px #b9664a) drop-shadow(0 0 4px #b9664a);
   }
 
   50% {
-    filter: drop-shadow(0 0 4px #22c55e) drop-shadow(0 0 12px #22c55e) drop-shadow(0 0 16px #22c55e);
+    filter: drop-shadow(0 0 4px #b9664a) drop-shadow(0 0 12px #b9664a) drop-shadow(0 0 16px #b9664a);
   }
 }
 
-.animate-glow-green {
-  animation: glow-green 1.5s ease-in-out infinite;
+.animate-glow-warm {
+  animation: glow-warm 2s ease-in-out infinite;
 }
 
 /* Inline Edit Diff Styling */

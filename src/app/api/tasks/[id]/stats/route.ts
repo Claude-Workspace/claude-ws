@@ -25,12 +25,26 @@ export async function GET(
     let totalDeletions = 0;
     let filesChanged = 0;
 
-    // Context usage: Use LATEST attempt only (most recent)
-    // Each attempt is a separate session - context doesn't accumulate across attempts
+    // Context usage: Use LATEST attempt with actual context data
+    // When a new turn starts, the latest attempt may have 0 context (not yet updated)
+    // In that case, fall back to the previous completed attempt's context
     const latestAttempt = attempts[0]; // Already ordered by createdAt DESC
-    const contextUsed = latestAttempt?.contextUsed || 0;
-    const contextLimit = latestAttempt?.contextLimit || 200000;
-    const contextPercentage = latestAttempt?.contextPercentage || 0;
+
+    // If latest attempt is running and has no context data yet, use previous attempt's context
+    let contextUsed = latestAttempt?.contextUsed || 0;
+    let contextLimit = latestAttempt?.contextLimit || 200000;
+    let contextPercentage = latestAttempt?.contextPercentage || 0;
+
+    // Fallback to previous attempt if current is running with no context data
+    if (latestAttempt?.status === 'running' && contextPercentage === 0 && attempts.length > 1) {
+      const previousAttempt = attempts[1];
+      if (previousAttempt?.contextPercentage && previousAttempt.contextPercentage > 0) {
+        contextUsed = previousAttempt.contextUsed || 0;
+        contextLimit = previousAttempt.contextLimit || 200000;
+        contextPercentage = previousAttempt.contextPercentage;
+        console.log(`[Stats] Using previous attempt context: ${contextPercentage}% (current attempt is running with no data)`);
+      }
+    }
 
     // Calculate context health metrics (ClaudeKit formulas)
     // Note: We approximate input/output split since DB only stores total contextUsed

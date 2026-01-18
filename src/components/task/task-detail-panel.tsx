@@ -423,12 +423,15 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     <div
       ref={panelRef}
       className={cn(
-        'h-full bg-background border-l flex flex-col shrink-0 relative',
-        isMobile && 'fixed inset-0 z-50 w-full border-l-0',
+        'h-full bg-background border-l flex flex-col shrink-0 relative overflow-x-hidden',
+        isMobile && 'fixed inset-0 z-50 border-l-0 overflow-x-hidden',
         isResizing && 'select-none',
         className
       )}
-      style={{ width: isMobile ? undefined : `${width}px` }}
+      style={{
+        width: isMobile ? '100vw' : `${width}px`,
+        maxWidth: isMobile ? '100vw' : undefined,
+      }}
     >
       {/* Resize handle - left edge, hidden on mobile */}
       {!isMobile && (
@@ -439,8 +442,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         />
       )}
       {/* Header */}
-      <div className="px-3 sm:px-4 py-2 border-b">
-        <div className="flex items-center justify-between gap-2 mb-1">
+      <div className="px-3 sm:px-4 py-2 border-b w-full max-w-full overflow-hidden">
+        <div className="flex items-center justify-between gap-2 mb-1 w-full">
           <div className="flex items-center gap-2">
             <div className="relative">
               <button

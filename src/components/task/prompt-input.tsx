@@ -381,9 +381,9 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     <FileDropZone
       onFilesSelected={handleFilesSelected}
       disabled={disabled}
-      className={cn('relative flex flex-col', className)}
+      className={cn('relative flex flex-col overflow-x-hidden', className)}
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-full min-w-0">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-full min-w-0 overflow-x-hidden">
         {/* Command Selector */}
         <CommandSelector
           isOpen={showCommands}
@@ -426,7 +426,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
         )}
 
         {/* Input area */}
-        <div className="w-full min-w-0">
+        <div className="w-full min-w-0 max-w-full">
           {/* File Mention Dropdown */}
           <FileMentionDropdown
             query={fileMentionQuery}
@@ -437,10 +437,10 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
           {/* Textarea and buttons as a single block */}
           <div className={cn(
-            'rounded-md border overflow-hidden bg-background',
+            'rounded-md border overflow-hidden bg-background w-full max-w-full',
             selectedCommand ? 'border-primary' : 'border-input'
           )}>
-            <div className="relative">
+            <div className="relative w-full max-w-full">
               <Textarea
                 ref={textareaRef}
                 value={prompt}
@@ -455,9 +455,10 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 placeholder={placeholder}
                 disabled={disabled}
                 className={cn(
-                  'min-h-10 max-h-48 resize-none w-full break-words overflow-y-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0',
+                  'min-h-10 max-h-48 resize-none w-full break-words overflow-y-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base',
                   selectedCommand && 'border-primary'
                 )}
+                style={{ fontSize: '16px' }}
               />
               {selectedCommand && (
                 <div className="absolute top-2 right-2">

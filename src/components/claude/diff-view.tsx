@@ -118,11 +118,11 @@ export function DiffView({ oldText, newText, filePath, className }: DiffViewProp
   }, [diffLines]);
 
   return (
-    <div className={cn('rounded-md border border-border overflow-hidden text-xs font-mono', className)}>
+    <div className={cn('rounded-md border border-border overflow-hidden text-xs font-mono w-full max-w-full', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border">
-        <span className="text-muted-foreground truncate">{filePath || 'changes'}</span>
-        <div className="flex items-center gap-2 text-[11px]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border w-full">
+        <span className="text-muted-foreground truncate min-w-0 flex-1">{filePath || 'changes'}</span>
+        <div className="flex items-center gap-2 text-[11px] shrink-0">
           {stats.added > 0 && (
             <span className="text-green-600 dark:text-green-400">+{stats.added}</span>
           )}
@@ -133,7 +133,7 @@ export function DiffView({ oldText, newText, filePath, className }: DiffViewProp
       </div>
 
       {/* Diff content */}
-      <div className="overflow-x-auto max-h-64">
+      <div className="overflow-x-auto max-h-64 w-full max-w-full">
         <table className="w-full border-collapse">
           <tbody>
             {diffLines.map((line, idx) => (
@@ -163,7 +163,7 @@ export function DiffView({ oldText, newText, filePath, className }: DiffViewProp
 
                 {/* Content */}
                 <td className={cn(
-                  'px-2 py-0 whitespace-pre',
+                  'px-2 py-0 whitespace-pre-wrap break-all',
                   line.type === 'added' && 'text-green-700 dark:text-green-300',
                   line.type === 'removed' && 'text-red-700 dark:text-red-300'
                 )}>

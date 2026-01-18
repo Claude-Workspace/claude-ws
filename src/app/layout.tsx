@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -15,14 +15,17 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  interactiveWidget: 'resizes-content',
+};
+
 export const metadata: Metadata = {
   title: 'Claude Workspace',
   description: 'Workspace powered by Claude Code CLI',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    interactiveWidget: 'resizes-content',
-  },
   icons: {
     icon: '/favicon.ico',
     apple: '/logo.png',
