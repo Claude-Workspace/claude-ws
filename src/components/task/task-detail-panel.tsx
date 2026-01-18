@@ -41,10 +41,10 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; variant: 'default' | 's
 const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
 
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
-  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
+  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
   const { activeProjectId, selectedProjectIds } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
-  const { getPendingFiles } = useAttachmentStore();
+  const { getPendingFiles, clearFiles } = useAttachmentStore();
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -156,6 +156,11 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         setTaskChatInit(selectedTask.id, true);
         setHasSentFirstMessage(true);
       }
+      // Capture fileIds and pending files before clearing
+      const fileIds = pendingAutoStartFileIds || undefined;
+      const pendingFiles = getPendingFiles(selectedTask.id);
+      setCurrentAttemptFiles(pendingFiles);
+
       // Small delay to ensure component and socket are ready
       setTimeout(() => {
         // Double-check isRunning and hasAutoStartedRef to prevent duplicate starts
@@ -164,7 +169,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           // For regular messages: use the same for both
           const promptToSend = pendingAutoStartPrompt || selectedTask.description!;
           const promptToDisplay = pendingAutoStartPrompt ? selectedTask.description! : undefined;
-          startAttempt(selectedTask.id, promptToSend, promptToDisplay);
+          startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds);
+
+          // Clear files from attachment store after starting (they're now part of the attempt)
+          clearFiles(selectedTask.id);
         }
         setPendingAutoStartTask(null);
       }, 50);
@@ -173,7 +181,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     if (selectedTask?.id !== pendingAutoStartTask) {
       hasAutoStartedRef.current = false;
     }
-  }, [pendingAutoStartTask, pendingAutoStartPrompt, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress]);
+  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles]);
 
   // Reset state when selectedTask changes
   useEffect(() => {
@@ -308,7 +316,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               onCancel={cancelAttempt}
               disabled={isRunning}
               taskId={selectedTask.id}
-              initialValue={!selectedTask.chatInit && selectedTask.description ? selectedTask.description : undefined}
+              initialValue={!hasSentFirstMessage && !selectedTask.chatInit && selectedTask.description ? selectedTask.description : undefined}
             />
             <InteractiveCommandOverlay />
           </div>

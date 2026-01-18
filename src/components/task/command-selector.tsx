@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Command, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CommandInfo {
@@ -142,24 +142,18 @@ export function CommandSelector({
   return (
     <div
       className={cn(
-        'absolute bottom-full left-0 mb-2 w-full max-w-md bg-popover border rounded-lg shadow-lg overflow-hidden z-50',
+        'absolute bottom-full left-0 mb-1 w-72 bg-popover border rounded-md shadow-lg overflow-hidden z-[9999]',
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/50">
-        <Command className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Commands</span>
-      </div>
-
       {/* Command list */}
-      <div ref={listRef} className="max-h-64 overflow-y-auto">
+      <div ref={listRef} className="max-h-48 overflow-y-auto py-1">
         {loading ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Loading commands...
+          <div className="px-2 py-2 text-center text-xs text-muted-foreground">
+            Loading...
           </div>
         ) : filteredCommands.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
+          <div className="px-2 py-2 text-center text-xs text-muted-foreground">
             No commands found
           </div>
         ) : (
@@ -169,21 +163,21 @@ export function CommandSelector({
               onClick={() => onSelect(cmd.name, cmd.isInteractive)}
               onMouseEnter={() => setSelectedIndex(index)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors',
+                'w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-muted/50 transition-colors',
                 index === selectedIndex && 'bg-muted'
               )}
             >
-              <Zap className="size-4 text-primary shrink-0" />
+              <Zap className="size-3 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium">
                     /{highlightMatch(cmd.name, filter)}
                   </span>
                   {cmd.argumentHint && (
-                    <span className="text-xs text-muted-foreground">{cmd.argumentHint}</span>
+                    <span className="text-[10px] text-muted-foreground">{cmd.argumentHint}</span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{cmd.description}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{cmd.description}</p>
               </div>
             </button>
           ))
@@ -191,12 +185,12 @@ export function CommandSelector({
       </div>
 
       {/* Footer hint */}
-      <div className="px-3 py-1.5 border-t bg-muted/30 text-xs text-muted-foreground">
-        <kbd className="px-1 bg-muted rounded">↑↓</kbd> navigate
-        <span className="mx-2">·</span>
-        <kbd className="px-1 bg-muted rounded">Tab</kbd> select
-        <span className="mx-2">·</span>
-        <kbd className="px-1 bg-muted rounded">Esc</kbd> close
+      <div className="px-2 py-1 border-t bg-muted/30 text-[10px] text-muted-foreground">
+        <kbd className="px-0.5 bg-muted rounded">↑↓</kbd> navigate
+        <span className="mx-1">·</span>
+        <kbd className="px-0.5 bg-muted rounded">Tab</kbd> select
+        <span className="mx-1">·</span>
+        <kbd className="px-0.5 bg-muted rounded">Esc</kbd> close
       </div>
     </div>
   );

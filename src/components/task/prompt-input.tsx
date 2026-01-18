@@ -30,6 +30,7 @@ interface PromptInputProps {
   taskId?: string;
   hideSendButton?: boolean;
   disableSubmitShortcut?: boolean;
+  hideStats?: boolean;
   onChange?: (prompt: string) => void;
   initialValue?: string;
 }
@@ -38,11 +39,12 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   onSubmit,
   onCancel,
   disabled = false,
-  placeholder = 'Describe what you want Claude to do... (type / for commands)',
+  placeholder = 'Describe what you want Claude to do...',
   className,
   taskId,
   hideSendButton = false,
   disableSubmitShortcut = false,
+  hideStats = false,
   onChange,
   initialValue,
 }, ref) => {
@@ -171,11 +173,19 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
       setSelectedCommand(null);
     }
 
-    if (prompt.startsWith('/') && !selectedCommand) {
-      setShowCommands(true);
-      const filter = prompt.slice(1).split(' ')[0];
-      setCommandFilter(filter);
-    } else if (!prompt.startsWith('/')) {
+    if (prompt.startsWith('/')) {
+      // Show commands if not yet selected or if only "/" or still typing command name
+      const afterSlash = prompt.slice(1);
+      const hasSpace = afterSlash.includes(' ');
+
+      if (!hasSpace || !selectedCommand) {
+        setShowCommands(true);
+        const filter = afterSlash.split(' ')[0];
+        setCommandFilter(filter);
+      } else {
+        setShowCommands(false);
+      }
+    } else {
       setShowCommands(false);
       setCommandFilter('');
     }
@@ -381,17 +391,9 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     <FileDropZone
       onFilesSelected={handleFilesSelected}
       disabled={disabled}
-      className={cn('relative flex flex-col overflow-x-hidden', className)}
+      className={cn('relative flex flex-col overflow-visible', className)}
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-full min-w-0 overflow-x-hidden">
-        {/* Command Selector */}
-        <CommandSelector
-          isOpen={showCommands}
-          onSelect={handleCommandSelect}
-          onClose={handleCommandClose}
-          filter={commandFilter}
-        />
-
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-full min-w-0 overflow-visible">
         {/* Context Mentions Bar (files and line selections) */}
         {mentions.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1">
@@ -425,8 +427,28 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
           />
         )}
 
+        {/* Keyboard hints - above input */}
+        <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground px-1">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">/</kbd>
+            <span>commands</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">@</kbd>
+            <span>files</span>
+          </span>
+        </div>
+
         {/* Input area */}
-        <div className="w-full min-w-0 max-w-full">
+        <div className="relative w-full min-w-0 max-w-full overflow-visible">
+          {/* Command Selector */}
+          <CommandSelector
+            isOpen={showCommands}
+            onSelect={handleCommandSelect}
+            onClose={handleCommandClose}
+            filter={commandFilter}
+          />
+
           {/* File Mention Dropdown */}
           <FileMentionDropdown
             query={fileMentionQuery}
@@ -455,10 +477,10 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 placeholder={placeholder}
                 disabled={disabled}
                 className={cn(
-                  'min-h-10 max-h-48 resize-none w-full break-words overflow-y-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base',
+                  'h-24 resize-none w-full break-words overflow-y-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base',
                   selectedCommand && 'border-primary'
                 )}
-                style={{ fontSize: '16px' }}
+                style={{ fontSize: '16px', fieldSizing: 'fixed' } as React.CSSProperties}
               />
               {selectedCommand && (
                 <div className="absolute top-2 right-2">
@@ -521,27 +543,9 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
           </div>
         </div>
 
-        {/* Command hints and Task Stats - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-          {/* Command hints - Hide on mobile */}
-          <div className="hidden sm:flex flex-col gap-px">
-            <p className="text-[10px] text-muted-foreground">
-              <kbd className="px-0.5 bg-muted rounded text-[9px]">/</kbd> commands
-              <span className="mx-1">·</span>
-              <kbd className="px-0.5 bg-muted rounded text-[9px]">@</kbd> files
-            </p>
-            {!disableSubmitShortcut && (
-              <p className="text-[10px] text-muted-foreground">
-                <kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> to send
-                <span className="mx-1">·</span>
-                <kbd className="px-0.5 bg-muted rounded text-[9px]">Shift</kbd>+<kbd className="px-0.5 bg-muted rounded text-[9px]">Enter</kbd> for newline
-              </p>
-            )}
-          </div>
-
-          {/* Task Stats - Condensed on mobile, full on desktop */}
-          {taskId && (
-            <div className="flex items-center gap-2 sm:gap-3 text-[10px] text-muted-foreground">
+        {/* Task Stats - below input */}
+        {taskId && !hideStats && (
+          <div className="flex items-center justify-end gap-2 sm:gap-3 text-[10px] text-muted-foreground px-1">
               {/* Context Usage - Compact on mobile */}
               <div className="flex items-center gap-1">
                 <TrendingUp className="size-3 hidden sm:inline" />
@@ -595,9 +599,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 <span className="text-green-600 text-[9px] sm:text-[10px]">+{taskStats?.totalAdditions || 0}</span>
                 <span className="text-red-600 text-[9px] sm:text-[10px]">-{taskStats?.totalDeletions || 0}</span>
               </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </form>
 
       {/* Hidden file input for Paperclip button */}

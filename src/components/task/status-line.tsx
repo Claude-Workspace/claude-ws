@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, TrendingUp, GitBranch, Workflow } from 'lucide-react';
+import { Clock, TrendingUp, GitBranch, Workflow, Gauge } from 'lucide-react';
 import { useSocket } from '@/hooks/use-socket';
 import { cn } from '@/lib/utils';
 import type { UsageStats } from '@/lib/usage-tracker';
@@ -116,7 +116,43 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
         </div>
       )}
 
-      {/* Usage Section */}
+      {/* Context Usage Section (like /context in Claude Code) */}
+      {usage && usage.contextUsed > 0 && (
+        <div className="flex items-center gap-1.5">
+          <Gauge className={cn(
+            'size-3.5',
+            usage.contextHealth?.status === 'HEALTHY' && 'text-green-500',
+            usage.contextHealth?.status === 'WARNING' && 'text-yellow-500',
+            usage.contextHealth?.status === 'CRITICAL' && 'text-orange-500',
+            usage.contextHealth?.status === 'EMERGENCY' && 'text-red-500'
+          )} />
+          <span className={cn(
+            'font-medium',
+            usage.contextHealth?.status === 'HEALTHY' && 'text-green-600',
+            usage.contextHealth?.status === 'WARNING' && 'text-yellow-600',
+            usage.contextHealth?.status === 'CRITICAL' && 'text-orange-600',
+            usage.contextHealth?.status === 'EMERGENCY' && 'text-red-600'
+          )}>
+            {usage.contextPercentage.toFixed(1)}%
+          </span>
+          <span className="text-muted-foreground/70">
+            of {formatTokenCount(usage.contextLimit)}
+          </span>
+          {usage.contextHealth && (
+            <span className={cn(
+              'text-xs px-1.5 py-0.5 rounded',
+              usage.contextHealth.status === 'HEALTHY' && 'bg-green-500/10 text-green-600',
+              usage.contextHealth.status === 'WARNING' && 'bg-yellow-500/10 text-yellow-600',
+              usage.contextHealth.status === 'CRITICAL' && 'bg-orange-500/10 text-orange-600',
+              usage.contextHealth.status === 'EMERGENCY' && 'bg-red-500/10 text-red-600'
+            )}>
+              {usage.contextHealth.status}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Token Usage Section */}
       {usage && (
         <div className="flex items-center gap-1.5">
           <TrendingUp className="size-3.5" />
@@ -193,4 +229,17 @@ function formatDuration(ms: number): string {
   }
 
   return `${seconds}s`;
+}
+
+/**
+ * Format token count to human-readable string (e.g., 200K)
+ */
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) {
+    return `${Math.round(tokens / 1_000)}K`;
+  }
+  return tokens.toLocaleString();
 }

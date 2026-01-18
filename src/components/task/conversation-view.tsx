@@ -126,6 +126,9 @@ export function ConversationView({
   const [isLoading, setIsLoading] = useState(true);
   const [lastIsRunning, setLastIsRunning] = useState(isRunning);
   const statusVerb = useRandomStatusVerb();
+  // Track if user is manually scrolling (to pause auto-scroll)
+  const userScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if user is near bottom of scroll area (within threshold)
   const isNearBottom = () => {
@@ -240,12 +243,54 @@ export function ConversationView({
     setLastIsRunning(isRunning);
   }, [isRunning, lastIsRunning]);
 
-  // Auto-scroll to bottom on new messages (only if user is near bottom)
+  // Detect user scroll to pause auto-scroll
   useEffect(() => {
-    scrollToBottomIfNear();
+    const getScrollContainer = () => {
+      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+      if (detachedContainer) return detachedContainer;
+      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+    };
+
+    const handleScroll = () => {
+      // Mark user as scrolling
+      userScrollingRef.current = true;
+
+      // Clear previous timeout
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+      }
+
+      // Reset after user stops scrolling AND is near bottom
+      userScrollTimeoutRef.current = setTimeout(() => {
+        if (isNearBottom()) {
+          userScrollingRef.current = false;
+        }
+      }, 150);
+    };
+
+    const container = getScrollContainer();
+    if (container) {
+      container.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+      }
+    };
+  }, [isLoading]);
+
+  // Auto-scroll to bottom on new messages (only if user is near bottom and not manually scrolling)
+  useEffect(() => {
+    if (!userScrollingRef.current) {
+      scrollToBottomIfNear();
+    }
   }, [currentMessages, historicalTurns, isRunning]);
 
-  // Continuous auto-scroll during streaming
+  // Continuous auto-scroll during streaming (respects user scroll intent)
   // Uses requestAnimationFrame to smoothly scroll as content appears
   useEffect(() => {
     if (!isRunning) return;
@@ -253,7 +298,10 @@ export function ConversationView({
     let rafId: number;
 
     const autoScroll = () => {
-      scrollToBottomIfNear();
+      // Only auto-scroll if user is not manually scrolling
+      if (!userScrollingRef.current) {
+        scrollToBottomIfNear();
+      }
       rafId = requestAnimationFrame(autoScroll);
     };
 
