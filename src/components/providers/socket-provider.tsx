@@ -20,7 +20,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     socketInstance.on('connect', () => {
       console.log('[SocketProvider] Connected:', socketInstance.id);
-      setSocket(socketInstance);
+      // Defer setSocket to avoid setState during render
+      Promise.resolve().then(() => setSocket(socketInstance));
     });
 
     socketInstance.on('disconnect', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -24,8 +24,22 @@ interface BoardProps {
 }
 
 export function Board({ attempts = [], onCreateTask }: BoardProps) {
-  const { tasks, reorderTasks } = useTaskStore();
+  const { tasks, reorderTasks, selectTask, setPendingAutoStartTask } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [, startTransition] = useTransition();
+  const lastReorderRef = useRef<string>('');
+  const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
+
+  // Handle auto-start for newly created tasks moved to In Progress
+  useEffect(() => {
+    if (pendingNewTaskStart) {
+      const { taskId, description } = pendingNewTaskStart;
+      // Select the task and trigger auto-start
+      selectTask(taskId);
+      setPendingAutoStartTask(taskId, description);
+      setPendingNewTaskStart(null);
+    }
+  }, [pendingNewTaskStart, selectTask, setPendingAutoStartTask]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -94,39 +108,11 @@ export function Board({ attempts = [], onCreateTask }: BoardProps) {
     // Check if dropping over a column
     const overColumn = KANBAN_COLUMNS.find((col) => col.id === overId);
     if (overColumn) {
-      // Moving to a different column
-      if (activeTask.status !== overColumn.id) {
-        const targetTasks = tasksByStatus.get(overColumn.id) || [];
-        reorderTasks(activeTask.id, overColumn.id, targetTasks.length);
-      }
-    } else {
-      // Dropping over another task
-      const overTask = tasks.find((t) => t.id === overId);
-      if (overTask) {
-        const targetColumn = overTask.status;
-        const columnTasks = tasksByStatus.get(targetColumn) || [];
-
-        // Find current position in the active task's current column
-        const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
-
-        // Find position in target column
-        const newIndex = columnTasks.findIndex((t) => t.id === overId);
-
-        // If moving to different column or reordering within same column
-        if (activeTask.status !== targetColumn || oldIndex !== newIndex) {
-          // Handle the move in the target column
-          if (activeTask.status !== targetColumn) {
-            // Moving to different column - place at the position of overTask
-            reorderTasks(activeTask.id, targetColumn, newIndex);
-          } else if (oldIndex !== -1 && newIndex !== -1) {
-            // Reordering within same column
-            const reordered = arrayMove(columnTasks, oldIndex, newIndex);
-            const newPosition = reordered.findIndex((t) => t.id === activeId);
-            reorderTasks(activeTask.id, activeTask.status, newPosition);
-          }
-        }
-      }
+      // Moving to a different column - don't reorder during drag, just for visual
+      // The actual reorder happens in handleDragEnd
+      return;
     }
+    // Don't do anything during dragOver - let handleDragEnd handle the reordering
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -143,41 +129,70 @@ export function Board({ attempts = [], onCreateTask }: BoardProps) {
     const activeTask = tasks.find((t) => t.id === activeId);
     if (!activeTask) return;
 
-    // Check if dropping over a column
-    const overColumn = KANBAN_COLUMNS.find((col) => col.id === overId);
-    if (overColumn) {
-      if (activeTask.status !== overColumn.id) {
-        const targetTasks = tasksByStatus.get(overColumn.id) || [];
-        reorderTasks(activeTask.id, overColumn.id, targetTasks.length);
-      }
-    } else {
-      // Dropping over another task
-      const overTask = tasks.find((t) => t.id === overId);
-      if (overTask) {
-        const targetColumn = overTask.status;
-        const columnTasks = tasksByStatus.get(targetColumn) || [];
+    // Skip if we just processed this exact same reorder
+    if (lastReorderRef.current === `${activeId}-${overId}`) {
+      return;
+    }
 
-        // Find current position in the active task's current column
-        const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+    // Mark this reorder as in-progress
+    lastReorderRef.current = `${activeId}-${overId}`;
 
-        // Find position in target column
-        const newIndex = columnTasks.findIndex((t) => t.id === overId);
+    // Check if this is a newly created task moving to In Progress
+    const isNewTaskToInProgress = !activeTask.chatInit && activeTask.status === 'todo';
 
-        // If moving to different column or reordering within same column
-        if (activeTask.status !== targetColumn || oldIndex !== newIndex) {
-          // Handle the move in the target column
-          if (activeTask.status !== targetColumn) {
-            // Moving to different column - place at the position of overTask
-            reorderTasks(activeTask.id, targetColumn, newIndex);
-          } else if (oldIndex !== -1 && newIndex !== -1) {
-            // Reordering within same column
-            const reordered = arrayMove(columnTasks, oldIndex, newIndex);
-            const newPosition = reordered.findIndex((t) => t.id === activeId);
-            reorderTasks(activeTask.id, activeTask.status, newPosition);
+    // Wrap in startTransition to avoid blocking the UI during reordering
+    startTransition(async () => {
+      // Check if dropping over a column
+      const overColumn = KANBAN_COLUMNS.find((col) => col.id === overId);
+      if (overColumn) {
+        if (activeTask.status !== overColumn.id) {
+          const targetTasks = tasksByStatus.get(overColumn.id) || [];
+          await reorderTasks(activeTask.id, overColumn.id, targetTasks.length);
+
+          // If this is a newly created task moving to In Progress, trigger auto-start
+          if (isNewTaskToInProgress && overColumn.id === 'in_progress' && activeTask.description) {
+            setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
+          }
+        }
+      } else {
+        // Dropping over another task
+        const overTask = tasks.find((t) => t.id === overId);
+        if (overTask) {
+          const targetColumn = overTask.status;
+          const columnTasks = tasksByStatus.get(targetColumn) || [];
+
+          // Find current position in the active task's current column
+          const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+
+          // Find position in target column
+          const newIndex = columnTasks.findIndex((t) => t.id === overId);
+
+          // If moving to different column or reordering within same column
+          if (activeTask.status !== targetColumn || oldIndex !== newIndex) {
+            // Handle the move in the target column
+            if (activeTask.status !== targetColumn) {
+              // Moving to different column - place at the position of overTask
+              await reorderTasks(activeTask.id, targetColumn, newIndex);
+
+              // If this is a newly created task moving to In Progress, trigger auto-start
+              if (isNewTaskToInProgress && targetColumn === 'in_progress' && activeTask.description) {
+                setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
+              }
+            } else if (oldIndex !== -1 && newIndex !== -1) {
+              // Reordering within same column
+              const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+              const newPosition = reordered.findIndex((t) => t.id === activeId);
+              await reorderTasks(activeTask.id, activeTask.status, newPosition);
+            }
           }
         }
       }
-    }
+
+      // Reset the ref after a short delay to allow for rapid reordering of different tasks
+      setTimeout(() => {
+        lastReorderRef.current = '';
+      }, 100);
+    });
   };
 
   const handleDragCancel = () => {
