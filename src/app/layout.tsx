@@ -5,6 +5,10 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import './globals.css';
 
+// Force dynamic rendering to avoid Next.js 16 Turbopack bugs
+export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],

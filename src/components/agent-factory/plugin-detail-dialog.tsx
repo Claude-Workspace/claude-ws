@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Folder, FileText, File, ChevronRight, ChevronDown, Loader2, X, PackageSearch, Terminal, Copy, AlertTriangle, AlertCircle, RefreshCw, Edit3, Save, X as XIcon } from 'lucide-react';
 import hljs from 'highlight.js';
-import 'highlight.js/styles/github-dark.css';
+// Custom syntax highlighting theme in globals.css - no need for github-dark.css
 import { Plugin, DiscoveredPlugin } from '@/types/agent-factory';
 import { DependencyTree, type DependencyTreeNode, countPlugins } from './dependency-tree';
 import { Textarea } from '@/components/ui/textarea';
