@@ -127,6 +127,7 @@ export function DetachableWindow({
   const dragStartSize = useRef({ width: 0, height: 0 });
   const dragStartPosition = useRef({ x: 0, y: 0 });
   const windowRef = useRef<HTMLDivElement>(null);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   const [isOpenState, setIsOpenState] = useState(isOpen);
 
   // Sync isOpen prop with internal state
@@ -370,7 +371,7 @@ export function DetachableWindow({
 
       {/* Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto">
+        <div ref={contentScrollRef} className="flex-1 overflow-auto" data-detached-scroll-container>
           {children}
         </div>
         {footer && (

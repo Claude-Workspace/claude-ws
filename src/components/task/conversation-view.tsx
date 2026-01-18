@@ -128,6 +128,12 @@ export function ConversationView({
 
   // Check if user is near bottom of scroll area (within threshold)
   const isNearBottom = () => {
+    const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+    if (detachedContainer) {
+      const threshold = 150;
+      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < threshold;
+    }
+
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
     const threshold = 150; // pixels from bottom
@@ -137,6 +143,24 @@ export function ConversationView({
   // Scroll to bottom of scroll area viewport (only if user is near bottom)
   const scrollToBottomIfNear = () => {
     if (isNearBottom()) {
+      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+      if (detachedContainer) {
+        detachedContainer.scrollTop = detachedContainer.scrollHeight;
+      } else {
+        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      }
+    }
+  };
+
+  // Force scroll to bottom (bypasses isNearBottom check)
+  const scrollToBottom = () => {
+    const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+    if (detachedContainer) {
+      detachedContainer.scrollTop = detachedContainer.scrollHeight;
+    } else {
       const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
       if (viewport) {
         viewport.scrollTop = viewport.scrollHeight;
@@ -144,12 +168,39 @@ export function ConversationView({
     }
   };
 
-  // Force scroll to bottom (bypasses isNearBottom check)
-  const scrollToBottom = () => {
-    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
+  // Scroll to bottom with retry for better reliability (especially in detached mode)
+  const scrollToBottomWithRetry = (attempts = 3) => {
+    const attemptScroll = (remainingAttempts: number) => {
+      // Check if we're in a detached window
+      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+
+      if (detachedContainer) {
+        // In detached mode, scroll the detached container
+        detachedContainer.scrollTop = detachedContainer.scrollHeight;
+        requestAnimationFrame(() => {
+          const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10;
+          if (!isAtBottom && remainingAttempts > 0) {
+            setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+          }
+        });
+      } else {
+        // Normal mode, scroll the ScrollArea viewport
+        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+        if (viewport && viewport.scrollHeight > 0) {
+          viewport.scrollTop = viewport.scrollHeight;
+          requestAnimationFrame(() => {
+            const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
+            if (!isAtBottom && remainingAttempts > 0) {
+              setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+            }
+          });
+        } else if (remainingAttempts > 0) {
+          // Viewport not ready, retry
+          setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+        }
+      }
+    };
+    attemptScroll(attempts);
   };
 
   // Load historical conversation
@@ -174,9 +225,9 @@ export function ConversationView({
 
   // Auto-scroll to bottom when switching to a new task (after history loads)
   useEffect(() => {
-    if (!isLoading && historicalTurns.length > 0) {
-      // Small delay to ensure DOM is updated
-      setTimeout(scrollToBottom, 100);
+    if (!isLoading) {
+      // Use retry logic for better reliability in detached mode
+      scrollToBottomWithRetry(5);
     }
   }, [taskId, isLoading]);
 
@@ -408,7 +459,7 @@ export function ConversationView({
 
   return (
     <ScrollArea ref={scrollAreaRef} className={cn('h-full', className)}>
-      <div className="space-y-6 p-4 pb-24 max-w-full overflow-hidden">
+      <div className="space-y-6 p-4 pb-4 max-w-full overflow-hidden">
         {/* Historical turns */}
         {filteredHistoricalTurns.map(renderTurn)}
 
