@@ -154,16 +154,79 @@ function detectAskUserQuestion(
 }
 
 /**
+ * Common background/long-running command patterns
+ * These commands typically start servers or watchers that run indefinitely
+ */
+const BACKGROUND_COMMAND_PATTERNS = [
+  // Dev servers
+  /npm\s+run\s+(dev|start|serve|watch)/i,
+  /yarn\s+(dev|start|serve|watch)/i,
+  /pnpm\s+(dev|start|serve|watch)/i,
+  /bun\s+(run\s+)?(dev|start|serve|watch)/i,
+  // Direct node/python servers
+  /node\s+.*server/i,
+  /python\s+.*server/i,
+  /python\s+-m\s+http\.server/i,
+  // Framework CLIs
+  /next\s+dev/i,
+  /vite\s+(dev)?/i,
+  /nuxt\s+dev/i,
+  /remix\s+dev/i,
+  /astro\s+dev/i,
+  /ng\s+serve/i,
+  /vue-cli-service\s+serve/i,
+  // Other common patterns
+  /nodemon/i,
+  /ts-node-dev/i,
+  /webpack\s+(serve|watch)/i,
+  /live-server/i,
+  /http-server/i,
+  /serve\s+/i,
+];
+
+/**
+ * Check if a command matches common background/long-running patterns
+ */
+function isLikelyBackgroundCommand(command: string): boolean {
+  return BACKGROUND_COMMAND_PATTERNS.some(pattern => pattern.test(command));
+}
+
+/**
  * Detect background shell request from markdown code block or Bash tool_use
  *
- * Primary: ```background-shell\ncommand\n``` in text blocks
- * Fallback: Bash tool_use with run_in_background=true (deprecated, SDK will kill it)
+ * Detection methods (in order of priority):
+ * 1. Explicit: Bash tool_use with run_in_background=true
+ * 2. Markdown: ```background-shell\ncommand\n``` in text blocks
+ * 3. Heuristic: Bash tool_use with command matching common background patterns
  */
 function detectBackgroundShell(
   content: SDKContentBlock[]
 ): BackgroundShellInfo | undefined {
-  // Primary detection: markdown code block with background-shell language
-  // This avoids SDK executing the command (SDK ignores text blocks)
+  // Method 1: Explicit run_in_background=true from SDK
+  for (const block of content) {
+    if (block.type === 'tool_use' && block.name === 'Bash') {
+      const input = block.input as { command?: string; run_in_background?: boolean; description?: string } | undefined;
+
+      // Log all Bash tool_use for debugging
+      console.log(`[SDK Adapter] Bash tool_use detected:`, {
+        id: block.id,
+        command: input?.command?.substring(0, 100),
+        run_in_background: input?.run_in_background,
+        hasRunInBackground: 'run_in_background' in (input || {}),
+      });
+
+      if (input?.run_in_background === true && input?.command) {
+        console.log(`[SDK Adapter] Background shell detected via run_in_background=true: ${input.command.substring(0, 50)}`);
+        return {
+          toolUseId: block.id || '',
+          command: input.command,
+          description: input.description,
+        };
+      }
+    }
+  }
+
+  // Method 2: Markdown code block with background-shell language
   for (const block of content) {
     if (block.type === 'text' && block.text) {
       // Match: ```background-shell\ncommand\n``` (supports multiline commands)
@@ -173,8 +236,9 @@ function detectBackgroundShell(
       if (match) {
         const command = match[1].trim();
         if (command) {
+          console.log(`[SDK Adapter] Background shell detected via markdown block: ${command.substring(0, 50)}`);
           return {
-            toolUseId: `bg-shell-${Date.now()}`, // Generate ID (not from tool_use)
+            toolUseId: `bg-shell-${Date.now()}`,
             command,
             description: 'Background shell from markdown block',
           };
@@ -183,20 +247,24 @@ function detectBackgroundShell(
     }
   }
 
-  // Fallback: Bash tool_use with run_in_background=true
-  // Note: SDK will still execute this command, causing duplicate execution
+  // Method 3: Heuristic - detect common background command patterns
+  // This catches cases where SDK doesn't pass run_in_background but the command
+  // is clearly a long-running process (dev server, watch mode, etc.)
   for (const block of content) {
     if (block.type === 'tool_use' && block.name === 'Bash') {
-      const input = block.input as { command?: string; run_in_background?: boolean; description?: string } | undefined;
-      if (input?.run_in_background === true && input?.command) {
+      const input = block.input as { command?: string; description?: string } | undefined;
+
+      if (input?.command && isLikelyBackgroundCommand(input.command)) {
+        console.log(`[SDK Adapter] Background shell detected via heuristic pattern: ${input.command.substring(0, 50)}`);
         return {
           toolUseId: block.id || '',
           command: input.command,
-          description: input.description,
+          description: input.description || 'Dev server / background process',
         };
       }
     }
   }
+
   return undefined;
 }
 

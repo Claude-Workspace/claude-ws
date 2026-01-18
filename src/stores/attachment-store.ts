@@ -16,6 +16,7 @@ interface AttachmentState {
   getTotalSize: (taskId: string) => number;
   getUploadedFileIds: (taskId: string) => string[];
   hasUploadingFiles: (taskId: string) => boolean;
+  moveFiles: (fromTaskId: string, toTaskId: string) => void;
 }
 
 export const useAttachmentStore = create<AttachmentState>((set, get) => ({
@@ -139,6 +140,20 @@ export const useAttachmentStore = create<AttachmentState>((set, get) => ({
   hasUploadingFiles: (taskId) => {
     const files = get().pendingFilesByTask[taskId] || [];
     return files.some((f) => f.status === 'uploading' || f.status === 'pending');
+  },
+
+  moveFiles: (fromTaskId, toTaskId) => {
+    const files = get().pendingFilesByTask[fromTaskId] || [];
+    if (files.length === 0) return;
+
+    set((state) => {
+      const updated = { ...state.pendingFilesByTask };
+      // Move files to new task ID
+      updated[toTaskId] = [...(updated[toTaskId] || []), ...files];
+      // Clear old task ID
+      delete updated[fromTaskId];
+      return { pendingFilesByTask: updated };
+    });
   },
 }));
 

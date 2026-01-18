@@ -16,6 +16,9 @@ import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
 
+// Default model for agent queries
+export const DEFAULT_MODEL = 'opus' as const;
+
 interface AgentInstance {
   attemptId: string;
   controller: AbortController;
@@ -88,8 +91,14 @@ class AgentManager extends EventEmitter {
       console.log(`[AgentManager] Resuming session: ${sessionOptions.resume}`);
     }
 
-    // Build prompt with file references and formatting instructions
-    const formatInstructions = getSystemPrompt(projectPath);
+    // Build prompt with file references and task-aware system prompt
+    const isResume = !!(sessionOptions?.resume || sessionOptions?.resumeSessionAt);
+    const formatInstructions = getSystemPrompt({
+      projectPath,
+      prompt,
+      isResume,
+      attemptCount: 1, // TODO: Pass actual attempt count from caller
+    });
     let fullPrompt = prompt;
 
     // Add file references as @ syntax in prompt
@@ -98,7 +107,7 @@ class AgentManager extends EventEmitter {
       fullPrompt = `${fileRefs} ${prompt}`;
     }
 
-    fullPrompt += `\n\n<output-format-guidelines>\n${formatInstructions}\n</output-format-guidelines>`;
+    fullPrompt += `\n\n<system-guidelines>\n${formatInstructions}\n</system-guidelines>`;
 
     // Create abort controller for cancellation
     const controller = new AbortController();
@@ -135,7 +144,7 @@ class AgentManager extends EventEmitter {
       // resumeSessionAt: resume conversation at specific message UUID (for rewind)
       const queryOptions = {
         cwd: projectPath,
-        model: 'opus', // Default to Claude Opus 4.5
+        model: DEFAULT_MODEL, // 'opus' - proxy API will handle mapping
         permissionMode: 'bypassPermissions' as const,
         ...(sessionOptions?.resume ? { resume: sessionOptions.resume } : {}),
         ...(sessionOptions?.resumeSessionAt ? { resumeSessionAt: sessionOptions.resumeSessionAt } : {}),
