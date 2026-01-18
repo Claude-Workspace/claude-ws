@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: path.join(__dirname),
+  outputFileTracingIncludes: {
+    '/': ['./src/**/*'],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
+  staticPageGenerationTimeout: 120,
   images: {
     remotePatterns: [
       {

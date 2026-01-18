@@ -14,6 +14,12 @@ lerna-debug.log*
 *.tgz
 *.tsbuildinfo
 
+# Lock files - CRITICAL: prevent Next.js workspace root confusion
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lockb
+
 # Environment variables
 .env
 .env.local
