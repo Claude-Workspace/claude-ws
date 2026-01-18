@@ -34,6 +34,57 @@ async function startServer() {
   console.log('');
 
   const serverPath = path.join(packageRoot, 'server.ts');
+  const nextBuildDir = path.join(packageRoot, '.next');
+
+  // Check if .next directory exists, if not, build it first
+  if (!fs.existsSync(nextBuildDir)) {
+    console.log('[Claude Workspace] First run detected - building production bundle...');
+    console.log('[Claude Workspace] This may take a minute...');
+    console.log('');
+
+    const { execSync } = require('child_process');
+    try {
+      // Use local next binary directly to avoid module singleton conflicts
+      // when running via npx (which fetches from registry)
+      const nextBin = path.join(packageRoot, 'node_modules', '.bin', 'next');
+
+      if (!fs.existsSync(nextBin)) {
+        // Dependencies not installed, install them first
+        console.log('[Claude Workspace] Installing dependencies...');
+        let installCmd = 'npm install --production=false';
+        try {
+          execSync('which pnpm', { stdio: 'ignore' });
+          installCmd = 'pnpm install';
+        } catch {
+          // pnpm not found, use npm
+        }
+        execSync(installCmd, {
+          cwd: packageRoot,
+          stdio: 'inherit',
+          env: { ...process.env }
+        });
+      }
+
+      // Run next build using local binary directly
+      execSync(`"${nextBin}" build`, {
+        cwd: packageRoot,
+        stdio: 'inherit',
+        shell: true,
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+        }
+      });
+
+      console.log('');
+      console.log('[Claude Workspace] ✓ Build completed successfully!');
+      console.log('');
+    } catch (error) {
+      console.error('[Claude Workspace] Build failed:', error.message);
+      console.error('[Claude Workspace] Please ensure all dependencies are installed');
+      process.exit(1);
+    }
+  }
 
   // Try to find tsx binary in different possible locations
   let tsxCmd;
