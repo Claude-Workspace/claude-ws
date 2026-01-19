@@ -1,6 +1,6 @@
 {
   "name": "claude-ws",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": false,
   "description": "A beautifully crafted workspace interface for Claude Code with real-time streaming and local SQLite database",
   "keywords": [
