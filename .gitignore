@@ -48,7 +48,6 @@ next-env.d.ts
 /data/
 /plans/
 /uploads/
-/docs/
 
 # database files
 *.db

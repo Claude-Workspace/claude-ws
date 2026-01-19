@@ -67,6 +67,7 @@
     "version:major": "npm version major --no-git-tag-version",
     "postinstall": "npm run build 2>/dev/null || true",
     "prepublishOnly": "npm run build",
+    "test:package": "./scripts/test-package.sh",
     "publish:npm": "npm publish --access public"
   },
   "dependencies": {
