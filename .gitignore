@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# claude
+.claude
+.plans
+
 # vercel
 .vercel
 
@@ -44,6 +48,7 @@ next-env.d.ts
 /data/
 /plans/
 /uploads/
+/docs/
 
 # database files
 *.db
