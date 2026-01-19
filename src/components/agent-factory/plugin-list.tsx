@@ -28,6 +28,7 @@ export function PluginList() {
   }, [fetchPlugins]);
 
   const filteredPlugins = plugins.filter((p) => {
+    if (!p) return false;
     const matchesStorage = p.storageType === 'imported' || p.storageType === 'local';
     const matchesFilter = filter === 'all' || p.type === filter;
     const matchesSearch =

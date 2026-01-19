@@ -382,7 +382,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
                 </div>
                 {discovered.map((plugin) => (
                   <DiscoveredItem
-                    key={`${plugin.type}-${plugin.name}`}
+                    key={`${plugin.type}-${plugin.name}-${plugin.sourcePath}`}
                     plugin={plugin}
                     isSelected={isSelected(plugin)}
                     isProcessing={isProcessing(plugin)}
