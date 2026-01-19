@@ -90,9 +90,26 @@ async function startServer() {
 
   // Check if .next directory has valid build (check BUILD_ID file)
   const buildIdPath = path.join(nextBuildDir, 'BUILD_ID');
-  const hasValidBuild = fs.existsSync(buildIdPath);
+  const versionPath = path.join(nextBuildDir, 'package.version');
+  const pkg = require(path.join(packageRoot, 'package.json'));
 
-  if (!hasValidBuild) {
+  let needsRebuild = false;
+
+  if (!fs.existsSync(buildIdPath)) {
+    needsRebuild = true;
+  } else if (fs.existsSync(versionPath)) {
+    // Check if package version changed (indicates update)
+    const cachedVersion = fs.readFileSync(versionPath, 'utf-8').trim();
+    if (cachedVersion !== pkg.version) {
+      console.log('[Claude Workspace] Package updated from', cachedVersion, 'to', pkg.version);
+      needsRebuild = true;
+    }
+  } else {
+    // No version file, mark for rebuild to be safe
+    needsRebuild = true;
+  }
+
+  if (needsRebuild) {
     console.log('[Claude Workspace] Building production bundle...');
     console.log('[Claude Workspace] This may take a minute...');
     console.log('');
@@ -115,6 +132,9 @@ async function startServer() {
       console.log('');
       console.log('[Claude Workspace] ✓ Build completed successfully!');
       console.log('');
+
+      // Save current version for future checks
+      fs.writeFileSync(versionPath, pkg.version);
     } catch (error) {
       console.error('[Claude Workspace] Build failed:', error.message);
       console.error('[Claude Workspace] Please ensure all dependencies are installed');
