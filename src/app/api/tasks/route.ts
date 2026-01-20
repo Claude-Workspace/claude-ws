@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/tasks - Create a new task or update existing if title matches
+// POST /api/tasks - Create a new task
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -69,35 +69,6 @@ export async function POST(request: NextRequest) {
         { error: 'projectId and title are required' },
         { status: 400 }
       );
-    }
-
-    // Check if task with same title already exists in this project
-    const existingTasks = await db
-      .select()
-      .from(schema.tasks)
-      .where(
-        and(
-          eq(schema.tasks.projectId, projectId),
-          eq(schema.tasks.title, title)
-        )
-      )
-      .limit(1);
-
-    // If existing task found, update its description
-    if (existingTasks.length > 0) {
-      const existingTask = existingTasks[0];
-      const updatedTask = {
-        ...existingTask,
-        description: description || null,
-        updatedAt: Date.now(),
-      };
-
-      await db
-        .update(schema.tasks)
-        .set({ description: updatedTask.description, updatedAt: updatedTask.updatedAt })
-        .where(eq(schema.tasks.id, existingTask.id));
-
-      return NextResponse.json({ ...updatedTask, updated: true }, { status: 200 });
     }
 
     // Validate status if provided
@@ -132,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     await db.insert(schema.tasks).values(newTask);
 
-    return NextResponse.json({ ...newTask, updated: false }, { status: 201 });
+    return NextResponse.json(newTask, { status: 201 });
   } catch (error: any) {
     console.error('Failed to create task:', error);
 

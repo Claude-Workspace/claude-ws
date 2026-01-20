@@ -155,13 +155,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       if (!res.ok) throw new Error('Failed to create task');
       const task = await res.json();
 
-      // If task was updated (existing task with same title), update it in store
-      if (task.updated) {
-        get().updateTask(task.id, { description: task.description });
-      } else {
-        get().addTask(task);
-      }
-
+      get().addTask(task);
       get().setCreatingTask(false);
       return task;
     } catch (error) {
