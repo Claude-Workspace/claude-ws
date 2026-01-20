@@ -1,5 +1,7 @@
 # Claude Workspace
 
+> ⚠️ **DISCLAIMER:** This software is provided "AS IS" without warranty. The owners and contributors accept **no liability** for any damages or claims arising from its use. [Read full disclaimer](./DISCLAIMER.md).
+
 **Visual workspace for Claude Code with Kanban board, code editor, and Git integration.**
 
 Local-first SQLite database. Real-time streaming. Plugin system for custom agents and skills.
