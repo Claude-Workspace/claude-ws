@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, Copy, Check, FileIcon, FilePlus, FileMinus, ArrowLeft } from 'lucide-react';
+import { Loader2, Copy, Check, FileIcon, FilePlus, FileMinus, ArrowLeft, GitBranch, GitCommit, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,9 @@ export function CommitDetailsModal({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [showBranchDialog, setShowBranchDialog] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const fetchDetails = useCallback(async () => {
     if (!commitHash) return;
@@ -92,7 +95,44 @@ export function CommitDetailsModal({
     }
   }
 
+  async function handleCheckout() {
+    if (!commitHash) return;
+
+    setCheckoutLoading(true);
+    setActionMessage(null);
+
+    try {
+      const res = await fetch('/api/git/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath,
+          commitish: commitHash,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Checkout failed');
+
+      setActionMessage({ type: 'success', text: data.message });
+
+      // Trigger a git status refresh by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('git-status-refresh'));
+
+      // Auto-dismiss success message after 3 seconds
+      setTimeout(() => setActionMessage(null), 3000);
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to checkout'
+      });
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col gap-0 p-0">
         {selectedFile ? (
@@ -145,21 +185,69 @@ export function CommitDetailsModal({
 
             {details && (
               <div className="flex-1 overflow-y-auto px-6 pb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                    {details.shortHash}
-                  </code>
-                  <button
-                    onClick={copyHash}
-                    className="p-1 hover:bg-accent rounded transition-colors"
-                    title="Copy full hash"
-                  >
-                    {copied ? (
-                      <Check className="size-3.5 text-green-500" />
+                {/* Action message */}
+                {actionMessage && (
+                  <div className={cn(
+                    'mb-4 p-3 rounded-lg flex items-start gap-2',
+                    actionMessage.type === 'success'
+                      ? 'bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400'
+                      : 'bg-destructive/10 border border-destructive/20 text-destructive'
+                  )}>
+                    {actionMessage.type === 'success' ? (
+                      <Check className="size-4 shrink-0 mt-0.5" />
                     ) : (
-                      <Copy className="size-3.5 text-muted-foreground" />
+                      <AlertCircle className="size-4 shrink-0 mt-0.5" />
                     )}
-                  </button>
+                    <span className="text-sm">{actionMessage.text}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                      {details.shortHash}
+                    </code>
+                    <button
+                      onClick={copyHash}
+                      className="p-1 hover:bg-accent rounded transition-colors"
+                      title="Copy full hash"
+                    >
+                      {copied ? (
+                        <Check className="size-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="size-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={handleCheckout}
+                      disabled={checkoutLoading}
+                      title="Checkout this commit (detached HEAD state)"
+                    >
+                      {checkoutLoading ? (
+                        <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <GitCommit className="size-3.5 mr-1.5" />
+                      )}
+                      Checkout
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setShowBranchDialog(true)}
+                      title="Create a new branch from this commit"
+                    >
+                      <GitBranch className="size-3.5 mr-1.5" />
+                      New Branch
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-1 mb-4">
@@ -211,6 +299,23 @@ export function CommitDetailsModal({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Create Branch Dialog */}
+    <CreateBranchDialog
+      open={showBranchDialog}
+      onOpenChange={setShowBranchDialog}
+      projectPath={projectPath}
+      startPoint={commitHash!}
+      onSuccess={() => {
+        // Show success message after branch is created
+        setActionMessage({
+          type: 'success',
+          text: 'Branch created and checked out successfully'
+        });
+        setTimeout(() => setActionMessage(null), 3000);
+      }}
+    />
+    </>
   );
 }
 
@@ -245,5 +350,123 @@ function FileItem({
         </div>
       )}
     </div>
+  );
+}
+
+interface CreateBranchDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectPath: string;
+  startPoint: string;
+  onSuccess?: () => void;
+}
+
+function CreateBranchDialog({
+  open,
+  onOpenChange,
+  projectPath,
+  startPoint,
+  onSuccess,
+}: CreateBranchDialogProps) {
+  const [branchName, setBranchName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchName.trim()) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/git/branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath,
+          branchName: branchName.trim(),
+          startPoint,
+          checkout: true, // Checkout the new branch after creation
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create branch');
+
+      // Trigger a git status refresh
+      window.dispatchEvent(new CustomEvent('git-status-refresh'));
+
+      onSuccess?.();
+      onOpenChange(false);
+      setBranchName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create branch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Create New Branch</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="branch-name" className="text-sm font-medium">
+              Branch Name
+            </label>
+            <input
+              id="branch-name"
+              type="text"
+              value={branchName}
+              onChange={(e) => setBranchName(e.target.value)}
+              placeholder="feature/my-new-feature"
+              className="w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              autoFocus
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              From commit: {startPoint.slice(0, 7)}
+            </p>
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!branchName.trim() || loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                  Creating...
+                </>
+              ) : (
+                'Create & Checkout'
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
