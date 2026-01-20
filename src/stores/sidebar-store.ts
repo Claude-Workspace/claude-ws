@@ -28,6 +28,8 @@ interface SidebarState {
   sidebarWidth: number;
   // Editor position for search result navigation
   editorPosition: { lineNumber?: number; column?: number; matchLength?: number } | null;
+  // Pending editor position to be set after file loads
+  pendingEditorPosition: { filePath: string; lineNumber: number; column?: number; matchLength?: number } | null;
   // Git diff state - deprecated, use diffTabs instead
   diffFile: string | null;
   diffStaged: boolean;
@@ -52,6 +54,8 @@ interface SidebarActions {
   updateTabDirty: (tabId: string, isDirty: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setEditorPosition: (position: { lineNumber?: number; column?: number; matchLength?: number } | null) => void;
+  setPendingEditorPosition: (pending: { filePath: string; lineNumber: number; column?: number; matchLength?: number } | null) => void;
+  clearPendingEditorPosition: () => void;
   // Git diff actions (deprecated - use openDiffTab instead)
   setDiffFile: (path: string | null, staged?: boolean) => void;
   closeDiff: () => void;
@@ -77,6 +81,7 @@ export const useSidebarStore = create<SidebarStore>()(
       activeTabId: null,
       sidebarWidth: 280,
       editorPosition: null,
+      pendingEditorPosition: null,
       diffFile: null,
       diffStaged: false,
       diffTabs: [],
@@ -162,6 +167,10 @@ export const useSidebarStore = create<SidebarStore>()(
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
 
       setEditorPosition: (editorPosition) => set({ editorPosition }),
+
+      setPendingEditorPosition: (pendingEditorPosition) => set({ pendingEditorPosition }),
+
+      clearPendingEditorPosition: () => set({ pendingEditorPosition: null }),
 
       setDiffFile: (diffFile, staged = false) => set({ diffFile, diffStaged: staged }),
 

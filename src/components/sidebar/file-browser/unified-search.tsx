@@ -207,7 +207,7 @@ interface SearchResultsViewProps {
 }
 
 export function SearchResultsView({ results, onFileSelect }: SearchResultsViewProps) {
-  const { setSelectedFile, openTab } = useSidebarStore();
+  const { setSelectedFile, openTab, setPendingEditorPosition } = useSidebarStore();
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
   // Auto-expand first few content results
@@ -226,8 +226,17 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
   const handleLineClick = useCallback((path: string, lineNumber: number, column: number, matchLength: number) => {
     setSelectedFile(path);
     openTab(path);
+
+    // Set pending editor position to be applied after file loads
+    setPendingEditorPosition({
+      filePath: path,
+      lineNumber,
+      column,
+      matchLength
+    });
+
     onFileSelect(path, lineNumber, column, matchLength);
-  }, [setSelectedFile, openTab, onFileSelect]);
+  }, [setSelectedFile, openTab, setPendingEditorPosition, onFileSelect]);
 
   const toggleContentFile = useCallback((file: string) => {
     setExpandedFiles(prev => {

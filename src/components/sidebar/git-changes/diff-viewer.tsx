@@ -74,7 +74,7 @@ interface DiffLine {
 
 export function DiffViewer({ filePath, staged, onClose }: DiffViewerProps) {
   const activeProject = useActiveProject();
-  const { openTab, setEditorPosition } = useSidebarStore();
+  const { openTab, setPendingEditorPosition } = useSidebarStore();
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,11 +164,12 @@ export function DiffViewer({ filePath, staged, onClose }: DiffViewerProps) {
     // Open the file in a new tab
     openTab(filePath);
 
-    // Set the editor position to the clicked line
+    // Set pending editor position to be applied after file loads
     // Prefer the new line number for additions, fall back to old for deletions
     const lineNumber = line.lineNumber.new || line.lineNumber.old;
     if (lineNumber) {
-      setEditorPosition({
+      setPendingEditorPosition({
+        filePath,
         lineNumber,
         column: 0,
         matchLength: 0

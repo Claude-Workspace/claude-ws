@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign } from 'lucide-react';
+import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CodeEditorWithInlineEdit } from '@/components/editor/code-editor-with-inline-edit';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
@@ -26,7 +26,7 @@ interface FileTabContentProps {
 
 export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const activeProject = useActiveProject();
-  const { editorPosition, setEditorPosition, updateTabDirty } = useSidebarStore();
+  const { editorPosition, setEditorPosition, updateTabDirty, pendingEditorPosition, clearPendingEditorPosition } = useSidebarStore();
   const { selectedTask, tasks, createTask, selectTask, setSelectedTask } = useTaskStore();
   const { addFileMention, addLineMention } = useContextMentionStore();
   const { selectedProjectIds } = useProjectStore();
@@ -119,6 +119,24 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   useEffect(() => {
     setEditorPosition(null);
   }, [filePath, setEditorPosition]);
+
+  // Check for pending editor position after file loads
+  useEffect(() => {
+    // Only apply if there's a pending position for this file and file has finished loading
+    if (pendingEditorPosition && pendingEditorPosition.filePath === filePath && !loading && content) {
+      // Small delay to ensure editor has rendered
+      const timer = setTimeout(() => {
+        setEditorPosition({
+          lineNumber: pendingEditorPosition.lineNumber,
+          column: pendingEditorPosition.column || 0,
+          matchLength: pendingEditorPosition.matchLength || 0
+        });
+        clearPendingEditorPosition();
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [pendingEditorPosition, filePath, loading, content, setEditorPosition, clearPendingEditorPosition]);
 
   // Save handler
   const handleSave = useCallback(async () => {
@@ -365,17 +383,17 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between px-2 sm:px-3 py-2 border-b shrink-0 gap-1 overflow-visible">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-sm font-medium truncate">{fileName}</span>
           {isDirty && (
-            <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded hidden sm:inline-block">
               Modified
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          {/* Save status */}
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 relative">
+          {/* Save status - always visible */}
           {saveStatus === 'saving' && (
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
           )}
@@ -385,125 +403,231 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
           {saveStatus === 'error' && (
             <AlertCircle className="size-4 text-destructive" />
           )}
-          {/* Search button */}
-          {!content?.isBinary && content?.content !== null && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setSearchVisible(!searchVisible)}
-              title="Search in file (⌘F)"
-              className={searchVisible ? 'bg-accent' : ''}
-            >
-              <Search className="size-4" />
-            </Button>
-          )}
-          {/* Undo/Redo */}
-          {!content?.isBinary && content?.content !== null && (
-            <>
+
+          {/* Desktop: All buttons visible */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            {/* Search button */}
+            {!content?.isBinary && content?.content !== null && (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={handleUndo}
-                disabled={!canUndo}
-                title="Undo (⌘Z)"
+                onClick={() => setSearchVisible(!searchVisible)}
+                title="Search in file (⌘F)"
+                className={searchVisible ? 'bg-accent' : ''}
               >
-                <Undo className="size-4" />
+                <Search className="size-4" />
               </Button>
+            )}
+            {/* Undo/Redo */}
+            {!content?.isBinary && content?.content !== null && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  title="Undo (⌘Z)"
+                >
+                  <Undo className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  title="Redo (⌘⇧Z)"
+                >
+                  <Redo className="size-4" />
+                </Button>
+              </>
+            )}
+            {/* Save */}
+            {!content?.isBinary && content?.content !== null && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSave}
+                disabled={!isDirty || saveStatus === 'saving'}
+                title="Save (⌘S)"
+                className="text-xs gap-1"
+              >
+                <Save className="size-3" />
+                Save
+              </Button>
+            )}
+            {/* Attach to chat (@) button */}
+            {!content?.isBinary && content?.content !== null && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title={selection ? `Add lines L${selection.startLine}-${selection.endLine} to chat` : "Add file to chat"}
+                    className="relative"
+                  >
+                    <AtSign className="size-4" />
+                    {selection && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-primary text-[8px] text-primary-foreground items-center justify-center">
+                          {selection.endLine - selection.startLine + 1}
+                        </span>
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {selectedTask ? (
+                    <>
+                      <DropdownMenuItem onClick={() => handleAttachToChat(false)}>
+                        <span className="text-sm">
+                          {selection
+                            ? `Add lines L${selection.startLine}-${selection.endLine} to current chat`
+                            : 'Add file to current chat'
+                          }
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAttachToChat(true)}>
+                        <span className="text-sm">Create new chat</span>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <DropdownMenuItem onClick={() => handleAttachToChat(true)}>
+                      <span className="text-sm">
+                        {selection
+                          ? `Create chat with lines L${selection.startLine}-${selection.endLine}`
+                          : 'Create new chat'
+                        }
+                      </span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {/* File size */}
+            {content && (
+              <span className="text-xs text-muted-foreground">
+                {formatFileSize(content.size)}
+              </span>
+            )}
+            {/* Copy */}
+            {content?.content && (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={handleRedo}
-                disabled={!canRedo}
-                title="Redo (⌘⇧Z)"
+                onClick={handleCopy}
+                title="Copy content"
               >
-                <Redo className="size-4" />
+                {copied ? (
+                  <Check className="size-4 text-green-500" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
               </Button>
-            </>
-          )}
-          {/* Save */}
-          {!content?.isBinary && content?.content !== null && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSave}
-              disabled={!isDirty || saveStatus === 'saving'}
-              title="Save (⌘S)"
-              className="text-xs gap-1"
-            >
-              <Save className="size-3" />
-              Save
-            </Button>
-          )}
-          {/* Attach to chat (@) button */}
-          {!content?.isBinary && content?.content !== null && (
+            )}
+          </div>
+
+          {/* Mobile: Kebab menu with all actions */}
+          <div className="sm:hidden flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
-                  title={selection ? `Add lines L${selection.startLine}-${selection.endLine} to chat` : "Add file to chat"}
-                  className="relative"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 p-0 flex items-center justify-center"
+                  title="More options"
                 >
-                  <AtSign className="size-4" />
-                  {selection && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-primary text-[8px] text-primary-foreground items-center justify-center">
-                        {selection.endLine - selection.startLine + 1}
-                      </span>
-                    </span>
-                  )}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="12" cy="5" r="1"></circle>
+                    <circle cx="12" cy="19" r="1"></circle>
+                  </svg>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {selectedTask ? (
-                  <>
-                    <DropdownMenuItem onClick={() => handleAttachToChat(false)}>
-                      <span className="text-sm">
-                        {selection
-                          ? `Add lines L${selection.startLine}-${selection.endLine} to current chat`
-                          : 'Add file to current chat'
-                        }
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleAttachToChat(true)}>
-                      <span className="text-sm">Create new chat</span>
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem onClick={() => handleAttachToChat(true)}>
-                    <span className="text-sm">
-                      {selection
-                        ? `Create chat with lines L${selection.startLine}-${selection.endLine}`
-                        : 'Create new chat'
-                      }
-                    </span>
+              <DropdownMenuContent align="end" className="w-52">
+                {/* Save */}
+                {!content?.isBinary && content?.content !== null && (
+                  <DropdownMenuItem
+                    onClick={handleSave}
+                    disabled={!isDirty || saveStatus === 'saving'}
+                  >
+                    <Save className="size-4 mr-2" />
+                    Save {isDirty && '*'}
                   </DropdownMenuItem>
+                )}
+                {/* Search */}
+                {!content?.isBinary && content?.content !== null && (
+                  <DropdownMenuItem onClick={() => setSearchVisible(!searchVisible)}>
+                    <Search className="size-4 mr-2" />
+                    Search
+                  </DropdownMenuItem>
+                )}
+                {/* Undo */}
+                {!content?.isBinary && content?.content !== null && (
+                  <DropdownMenuItem
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                  >
+                    <Undo className="size-4 mr-2" />
+                    Undo
+                  </DropdownMenuItem>
+                )}
+                {/* Redo */}
+                {!content?.isBinary && content?.content !== null && (
+                  <DropdownMenuItem
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                  >
+                    <Redo className="size-4 mr-2" />
+                    Redo
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {/* Add to chat */}
+                {!content?.isBinary && content?.content !== null && selectedTask && (
+                  <DropdownMenuItem onClick={() => handleAttachToChat(false)}>
+                    <AtSign className="size-4 mr-2" />
+                    {selection
+                      ? `Add lines L${selection.startLine}-${selection.endLine}`
+                      : 'Add file'
+                    } to current chat
+                  </DropdownMenuItem>
+                )}
+                {!content?.isBinary && content?.content !== null && (
+                  <DropdownMenuItem onClick={() => handleAttachToChat(true)}>
+                    <AtSign className="size-4 mr-2" />
+                    {selection
+                      ? `Create chat with lines L${selection.startLine}-${selection.endLine}`
+                      : 'Create new chat'
+                    }
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {/* Copy */}
+                {content?.content && (
+                  <DropdownMenuItem onClick={handleCopy}>
+                    {copied ? (
+                      <>
+                        <Check className="size-4 mr-2 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-4 mr-2" />
+                        Copy content
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                )}
+                {/* File size */}
+                {content && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground text-right">
+                    {formatFileSize(content.size)}
+                  </div>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-          {/* File size */}
-          {content && (
-            <span className="text-xs text-muted-foreground">
-              {formatFileSize(content.size)}
-            </span>
-          )}
-          {/* Copy */}
-          {content?.content && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleCopy}
-              title="Copy content"
-            >
-              {copied ? (
-                <Check className="size-4 text-green-500" />
-              ) : (
-                <Copy className="size-4" />
-              )}
-            </Button>
-          )}
+          </div>
         </div>
       </div>
 
