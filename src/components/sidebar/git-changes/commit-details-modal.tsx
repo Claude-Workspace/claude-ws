@@ -374,7 +374,7 @@ function CreateBranchDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!branchName.trim()) return;
+    if (!branchName.trim() || !startPoint) return;
 
     setLoading(true);
     setError(null);
@@ -429,9 +429,11 @@ function CreateBranchDialog({
               autoFocus
               disabled={loading}
             />
-            <p className="text-xs text-muted-foreground">
-              From commit: {startPoint.slice(0, 7)}
-            </p>
+            {startPoint && (
+              <p className="text-xs text-muted-foreground">
+                From commit: {startPoint.slice(0, 7)}
+              </p>
+            )}
           </div>
 
           {error && (

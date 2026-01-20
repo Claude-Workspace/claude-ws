@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitSection } from './git-section';
 import { GitGraph } from './git-graph';
 import { GitFileItem } from './git-file-item';
+import { BranchCheckoutModal } from './branch-checkout-modal';
 import { useActiveProject } from '@/hooks/use-active-project';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ export function GitPanel() {
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [branchModalOpen, setBranchModalOpen] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!activeProject?.path) {
@@ -249,6 +251,30 @@ export function GitPanel() {
     }
   }, [activeProject?.path, fetchStatus]);
 
+  const handleBranchCheckout = useCallback(async (branch: string) => {
+    if (!activeProject?.path) return;
+
+    try {
+      const res = await fetch('/api/git/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath: activeProject.path,
+          commitish: branch,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to checkout branch');
+      }
+
+      await fetchStatus();
+    } catch (err) {
+      throw err;
+    }
+  }, [activeProject?.path, fetchStatus]);
+
   // Combine unstaged and untracked into single "Changes" section
   const changes: GitFileStatus[] = useMemo(() => {
     if (!status) return [];
@@ -291,7 +317,11 @@ export function GitPanel() {
       {/* Header with branch info */}
       <div className="px-2 py-1.5 border-b">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            className="flex items-center gap-1.5 min-w-0 hover:bg-accent/50 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer"
+            onClick={() => setBranchModalOpen(true)}
+            title="Click to switch branches"
+          >
             <GitBranch className="size-4 shrink-0 text-muted-foreground" />
             <span className="text-sm font-medium truncate">
               {status?.branch || 'No branch'}
@@ -312,7 +342,7 @@ export function GitPanel() {
                 )}
               </div>
             )}
-          </div>
+          </button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -540,6 +570,17 @@ export function GitPanel() {
           <GitGraph />
         </div>
       </ScrollArea>
+
+      {/* Branch checkout modal */}
+      {activeProject && status && (
+        <BranchCheckoutModal
+          open={branchModalOpen}
+          onOpenChange={setBranchModalOpen}
+          projectPath={activeProject.path}
+          currentBranch={status.branch || 'No branch'}
+          onCheckout={handleBranchCheckout}
+        />
+      )}
     </div>
   );
 }
