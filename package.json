@@ -29,6 +29,7 @@
   "files": [
     "bin",
     "drizzle",
+    "scripts",
     "src",
     "public",
     "server.ts",
@@ -62,7 +63,8 @@
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:fix": "tsx scripts/db-fix-columns.ts",
+    "db:migrate": "tsx scripts/db-fix-columns.ts && drizzle-kit migrate",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop claude-ws",
     "pm2:restart": "pm2 restart claude-ws",

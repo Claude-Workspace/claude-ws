@@ -158,6 +158,29 @@ export function initDb() {
     // Column already exists, ignore error
   }
 
+  // Migration: Add usage tracking columns to attempts
+  const usageColumns = [
+    { name: 'total_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'input_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'output_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'cache_creation_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'cache_read_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'total_cost_usd', type: "TEXT NOT NULL DEFAULT '0'" },
+    { name: 'num_turns', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'duration_ms', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'context_used', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'context_limit', type: 'INTEGER NOT NULL DEFAULT 200000' },
+    { name: 'context_percentage', type: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'baseline_context', type: 'INTEGER NOT NULL DEFAULT 0' },
+  ];
+  for (const col of usageColumns) {
+    try {
+      sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
+    } catch {
+      // Column already exists, ignore error
+    }
+  }
+
   // Agent Factory tables
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS agent_factory_plugins (
