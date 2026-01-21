@@ -13,7 +13,7 @@ module.exports = {
     {
       name: 'claude-ws',
       script: 'server.ts',
-      interpreter: 'tsx',
+      interpreter: './node_modules/.bin/tsx',
       cwd: __dirname,
 
       // Environment
