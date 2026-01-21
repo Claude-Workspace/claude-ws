@@ -104,6 +104,62 @@ Open [http://localhost:8556](http://localhost:8556)
 
 ---
 
+## Configuration
+
+### API Authentication (Optional)
+
+For secure deployments, you can enable API authentication by setting an `API_ACCESS_KEY`:
+
+1. Create a `.env` file in your project directory (or use the global one in `~/.claude-ws/.env`)
+2. Add your API access key:
+
+```bash
+# .env
+API_ACCESS_KEY=your-secret-key-here
+```
+
+3. All API requests must include the key in the `x-api-key` header:
+
+```bash
+curl -H "x-api-key: your-secret-key-here" http://localhost:8556/api/conversations
+```
+
+**Note:** Leave `API_ACCESS_KEY` empty to disable authentication (default for local development).
+
+### Claude Code CLI Path
+
+Claude Workspace requires the Claude Code CLI to be installed. Set the `CLAUDE_PATH` environment variable to point to your Claude executable:
+
+**Linux/Ubuntu:**
+```bash
+CLAUDE_PATH=/home/$(whoami)/.local/bin/claude
+```
+
+**macOS (Homebrew):**
+```bash
+CLAUDE_PATH=/opt/homebrew/bin/claude
+```
+
+**Windows:**
+```bash
+CLAUDE_PATH=%USERPROFILE%\.local\bin\claude.exe
+```
+
+Add this to your `.env` file in the project directory, or the global `.env` at `~/.claude-ws/.env`.
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CLAUDE_PATH` | Path to Claude Code CLI executable | Auto-detected |
+| `PORT` | Server port | `3000` |
+| `NODE_ENV` | Environment mode | `development` |
+| `API_ACCESS_KEY` | API authentication key | (empty, no auth) |
+| `DATABASE_URL` | SQLite database path | `./data.db` |
+| `AGENT_FACTORY_DIR` | Agent Factory plugins directory | `~/.claude/agentfactory` |
+
+---
+
 ## Work Everywhere with Cloudflare Tunnel
 
 Access Claude Workspace securely from anywhere using Cloudflare Tunnel + Access.
