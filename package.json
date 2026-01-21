@@ -58,25 +58,11 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "dev:next": "next dev",
     "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production tsx server.ts",
-    "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:fix": "tsx scripts/db-fix-columns.ts",
-    "db:migrate:fresh": "drizzle-kit migrate",
-    "pm2:start": "pnpm build && pm2 start ecosystem.config.cjs",
-    "pm2:stop": "pm2 stop claude-ws",
-    "pm2:restart": "pm2 restart claude-ws",
-    "pm2:delete": "pm2 delete claude-ws",
-    "pm2:logs": "pm2 logs claude-ws",
-    "pm2:monit": "pm2 monit",
-    "version:patch": "npm version patch --no-git-tag-version",
-    "version:minor": "npm version minor --no-git-tag-version",
-    "version:major": "npm version major --no-git-tag-version",
-    "prepublishOnly": "npm run build",
-    "test:package": "./scripts/test-package.sh",
-    "publish:npm": "npm publish --access public"
+        "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.5",

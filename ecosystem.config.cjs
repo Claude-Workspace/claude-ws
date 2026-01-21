@@ -8,17 +8,31 @@
  * Monitor: pm2 monit
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env file
+const envPath = path.join(__dirname, '.env');
+const envResult = dotenv.config({ path: envPath });
+const envConfig = envResult.parsed || {};
+
+// Debug: log loaded env variables (without sensitive values)
+console.log('[PM2 Config] Loading .env from:', envPath);
+console.log('[PM2 Config] Loaded env variables:', Object.keys(envConfig));
+
 module.exports = {
   apps: [
     {
       name: 'claude-ws',
-      script: 'server.ts',
-      interpreter: './node_modules/.bin/tsx',
+      script: 'pnpm install && pnpm build && ./node_modules/.bin/tsx server.ts',
+      shell: true,
       cwd: __dirname,
 
-      // Environment
+      // Environment - merge .env file with production settings
       env: {
         NODE_ENV: 'production',
+        ...envConfig,
       },
 
       // Process management

@@ -38,6 +38,40 @@ Dont try start run dev when finish a conversation only when you are asked to.
 
 **Why:** When users install this package via npm, devDependencies are not installed. Any production code importing from devDependencies will fail at runtime.
 
+## Database Schema Changes
+
+**CRITICAL: When modifying database schema, update BOTH locations:**
+
+1. **`src/lib/db/schema.ts`** - Drizzle ORM schema (source of truth)
+2. **`src/lib/db/index.ts`** - Runtime `initDb()` function
+
+### Why Both?
+
+- `initDb()` runs at app startup and creates/migrates tables for existing users
+- Drizzle schema is used for type safety and generating migrations
+- If you only update schema.ts without initDb(), existing databases will fail with "no such column" errors
+
+### Steps for Schema Changes
+
+1. Update `src/lib/db/schema.ts` with new columns/tables
+2. Add corresponding `ALTER TABLE` or `CREATE TABLE IF NOT EXISTS` in `initDb()` (with try-catch for existing columns)
+3. Run `pnpm db:generate` to generate drizzle migration files
+4. Test with both fresh and existing databases
+
+### Example: Adding a new column
+
+```typescript
+// 1. In schema.ts
+myNewColumn: integer('my_new_column').notNull().default(0),
+
+// 2. In index.ts initDb()
+try {
+  sqlite.exec(`ALTER TABLE my_table ADD COLUMN my_new_column INTEGER NOT NULL DEFAULT 0`);
+} catch {
+  // Column already exists
+}
+```
+
 ## Language Rule
 
 **Always respond in English, regardless of the user's input language.**
