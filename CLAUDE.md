@@ -2,6 +2,14 @@
 
 Project-specific instructions for Claude Code.
 
+## Language Rule
+
+**Always respond in English, regardless of the user's input language.**
+
+- All responses must be in English
+- All code changes, comments, and documentation must be in English
+- Even if the user communicates in another language, respond in English
+
 ## Plugins
 
 **MUST use `agent-sdk-dev` plugin** when working with Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`).
