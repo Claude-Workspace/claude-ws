@@ -194,7 +194,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4 w-full max-w-full overflow-hidden">
+        <div className="space-y-4 mt-4 w-full max-w-full">
           {/* Project selector - show when multi-project mode */}
           {isMultiProject && (
             <div className="space-y-2">

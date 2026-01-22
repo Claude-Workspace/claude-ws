@@ -376,7 +376,7 @@ export function GitPanel() {
               <span className="flex-1">Changes</span>
 
               {/* Section action buttons */}
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-0.5">
                 <button
                   className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
                   onClick={(e) => {
@@ -474,14 +474,22 @@ export function GitPanel() {
                       disabled={generatingMessage || totalChanges === 0}
                     >
                       {generatingMessage ? (
-                        <Loader2 className="size-5 animate-spin" />
+                        <Image
+                          src="/logo.svg"
+                          alt="Generate"
+                          width={20}
+                          height={20}
+                          className="opacity-80 animate-spin"
+                          unoptimized
+                        />
                       ) : (
                         <Image
-                          src="/logo.png"
+                          src="/logo.svg"
                           alt="Generate"
                           width={20}
                           height={20}
                           className="opacity-80"
+                          unoptimized
                         />
                       )}
                     </Button>

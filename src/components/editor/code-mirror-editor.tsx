@@ -98,6 +98,8 @@ export function CodeMirrorEditor({
   const extensions = useMemo(() => {
     const langExtension = language ? languages[language] : null;
     return [
+      // Enable line wrapping
+      EditorView.lineWrapping,
       // Always override background to transparent
       EditorView.theme({
         '&': { backgroundColor: 'transparent !important' },

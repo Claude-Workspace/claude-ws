@@ -208,6 +208,8 @@ export function CodeEditorWithDefinitions({
     const langExtension = language ? languages[language] : null;
 
     const baseExtensions = [
+      // Enable line wrapping
+      EditorView.lineWrapping,
       // Always override background to transparent
       EditorView.theme({
         '&': { backgroundColor: 'transparent !important' },

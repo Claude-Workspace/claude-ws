@@ -70,10 +70,11 @@ export function FileTabsPanel() {
     <div
       ref={panelRef}
       className={cn(
-        'h-full bg-background border-r flex flex-col relative shrink-0',
+        'h-full bg-background border-r flex flex-col relative',
+        'w-full md:shrink-0', // Full width on mobile, shrink-0 on desktop
         isResizing && 'select-none'
       )}
-      style={{ width: `${width}px` }}
+      style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${width}px` : undefined }}
     >
       {/* Tab bar */}
       <div className="flex items-center border-b bg-muted/30 shrink-0">
@@ -153,12 +154,14 @@ export function FileTabsPanel() {
         )}
       </div>
 
-      {/* Resize handle */}
-      <ResizeHandle
-        position="right"
-        onMouseDown={handleMouseDown}
-        isResizing={isResizing}
-      />
+      {/* Resize handle - hidden on mobile */}
+      <div className="hidden md:block">
+        <ResizeHandle
+          position="right"
+          onMouseDown={handleMouseDown}
+          isResizing={isResizing}
+        />
+      </div>
     </div>
   );
 }

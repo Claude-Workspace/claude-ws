@@ -142,9 +142,10 @@ export function CommandSelector({
   return (
     <div
       className={cn(
-        'absolute bottom-full left-0 mb-1 w-72 bg-popover border rounded-md shadow-lg overflow-hidden z-[9999]',
+        'absolute bottom-full left-0 mb-1 w-72 bg-popover border rounded-md shadow-lg overflow-hidden',
         className
       )}
+      style={{ zIndex: 9999 }}
     >
       {/* Command list */}
       <div ref={listRef} className="max-h-48 overflow-y-auto py-1">

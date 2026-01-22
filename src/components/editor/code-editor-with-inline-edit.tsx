@@ -384,6 +384,8 @@ export function CodeEditorWithInlineEdit({
     const langExtension = language ? languages[language] : null;
 
     const baseExtensions = [
+      // Enable line wrapping
+      EditorView.lineWrapping,
       EditorView.theme({
         '&': { backgroundColor: 'transparent !important' },
         '.cm-scroller': { backgroundColor: 'transparent !important' },

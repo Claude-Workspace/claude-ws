@@ -265,7 +265,11 @@ export function TaskShellIndicator({ projectId, className }: TaskShellIndicatorP
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
 
-      if (e.key === 'ArrowDown' && isTyping && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Only handle ArrowDown if the input is within the toggle bar's context
+      // Find the closest parent with projectId attribute or check if it's in the same project context
+      const isInContext = target.closest(`[data-project-id="${projectId}"]`) || target.closest('.task-detail-panel');
+
+      if (e.key === 'ArrowDown' && isTyping && !e.shiftKey && !e.ctrlKey && !e.metaKey && isInContext) {
         const input = target as HTMLTextAreaElement | HTMLInputElement;
         const isAtEnd = input.selectionStart === input.value.length;
 
@@ -278,7 +282,7 @@ export function TaskShellIndicator({ projectId, className }: TaskShellIndicatorP
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isExpanded]);
+  }, [isExpanded, projectId]);
 
   return (
     <div className={className}>

@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   title: 'Claude Workspace',
   description: 'Workspace powered by Claude Code CLI',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/logo.png',
+    icon: '/logo.svg',
+    apple: '/logo.svg',
   },
 };
 

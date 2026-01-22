@@ -56,6 +56,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
+  const [userHasTyped, setUserHasTyped] = useState(false);
   // File mention state (for @ dropdown)
   const [showFileMention, setShowFileMention] = useState(false);
   const [fileMentionQuery, setFileMentionQuery] = useState('');
@@ -177,12 +178,19 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
       setSelectedCommand(null);
     }
 
+    // Only show command selector if user has typed, not for initial values
+    if (!userHasTyped) {
+      setShowCommands(false);
+      return;
+    }
+
     if (prompt.startsWith('/')) {
       // Show commands if not yet selected or if only "/" or still typing command name
       const afterSlash = prompt.slice(1);
       const hasSpace = afterSlash.includes(' ');
 
-      if (!hasSpace || !selectedCommand) {
+      // Only show selector if there's no space (still typing command name)
+      if (!hasSpace) {
         setShowCommands(true);
         const filter = afterSlash.split(' ')[0];
         setCommandFilter(filter);
@@ -193,7 +201,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
       setShowCommands(false);
       setCommandFilter('');
     }
-  }, [prompt, selectedCommand]);
+  }, [prompt, selectedCommand, userHasTyped]);
 
   // Fetch task stats when taskId changes
   useEffect(() => {
@@ -353,6 +361,11 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     updatePrompt(newValue);
+
+    // Mark that user has started typing
+    if (!userHasTyped) {
+      setUserHasTyped(true);
+    }
 
     // Check for file mention
     const cursorPos = e.target.selectionStart || 0;

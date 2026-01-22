@@ -320,7 +320,7 @@ export function DetachableWindow({
       ref={windowRef}
       className={cn(
         'fixed bg-background border shadow-lg rounded-lg overflow-hidden flex flex-col',
-        'z-40',
+        'z-[60]',
         isDragging && 'cursor-grabbing',
         className
       )}

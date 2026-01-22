@@ -214,7 +214,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
 
-      if (e.key === 'ArrowDown' && isTyping && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Only handle ArrowDown if the input is within this panel
+      const isWithinPanel = panelRef.current?.contains(target);
+
+      if (e.key === 'ArrowDown' && isTyping && !e.shiftKey && !e.ctrlKey && !e.metaKey && isWithinPanel) {
         const input = target as HTMLTextAreaElement | HTMLInputElement;
         const isAtEnd = input.selectionStart === input.value.length;
 
