@@ -474,14 +474,22 @@ export function GitPanel() {
                       disabled={generatingMessage || totalChanges === 0}
                     >
                       {generatingMessage ? (
-                        <Loader2 className="size-5 animate-spin" />
+                        <Image
+                          src="/logo.svg"
+                          alt="Generate"
+                          width={20}
+                          height={20}
+                          className="opacity-80 animate-spin"
+                          unoptimized
+                        />
                       ) : (
                         <Image
-                          src="/logo.png"
+                          src="/logo.svg"
                           alt="Generate"
                           width={20}
                           height={20}
                           className="opacity-80"
+                          unoptimized
                         />
                       )}
                     </Button>
