@@ -376,7 +376,7 @@ export function GitPanel() {
               <span className="flex-1">Changes</span>
 
               {/* Section action buttons */}
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-0.5">
                 <button
                   className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
                   onClick={(e) => {
