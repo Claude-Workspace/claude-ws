@@ -225,6 +225,27 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     return () => clearInterval(interval);
   }, [taskId]);
 
+  // Check for rewind prompt in localStorage and pre-fill input
+  useEffect(() => {
+    if (!taskId) return;
+
+    const storageKey = `rewind-prompt-${taskId}`;
+    const rewindPrompt = localStorage.getItem(storageKey);
+
+    if (rewindPrompt) {
+      // Pre-fill the input with the rewind prompt
+      updatePrompt(rewindPrompt);
+      // Clear the stored prompt so it doesn't persist
+      localStorage.removeItem(storageKey);
+      // Focus the textarea
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        // Select all text so user can easily modify or replace
+        textareaRef.current?.select();
+      }, 100);
+    }
+  }, [taskId]);
+
   const handleFilesSelected = async (files: File[]) => {
     if (!taskId) return;
     try {

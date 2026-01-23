@@ -5,6 +5,9 @@
  * Provides streaming output, file checkpointing, and session management.
  */
 
+// Ensure file checkpointing is always enabled
+process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
+
 import { EventEmitter } from 'events';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

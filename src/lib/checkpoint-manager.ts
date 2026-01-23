@@ -22,7 +22,11 @@ export interface CheckpointData {
 
 /**
  * In-memory storage for checkpoint UUIDs during active attempts
- * Maps attemptId -> latest checkpoint UUID
+ * Maps attemptId -> FIRST user message UUID (for file checkpoint restore point)
+ *
+ * IMPORTANT: File checkpoints are created BEFORE file modifications occur.
+ * The FIRST user message UUID is the restore point for rewinding files,
+ * because that's when the SDK captures the pre-modification file state.
  */
 const activeCheckpoints = new Map<string, string>();
 
@@ -30,10 +34,19 @@ export class CheckpointManager {
   /**
    * Capture a checkpoint UUID from a user message
    * Called when SDK emits user message with uuid
+   *
+   * IMPORTANT: Only captures the FIRST UUID per attempt.
+   * File checkpoints are created before file modifications, so the
+   * first user message UUID is the correct restore point.
    */
   captureCheckpointUuid(attemptId: string, uuid: string): void {
-    activeCheckpoints.set(attemptId, uuid);
-    console.log(`[CheckpointManager] Captured checkpoint UUID for ${attemptId}: ${uuid}`);
+    // Only capture the FIRST UUID - don't overwrite with subsequent ones
+    if (!activeCheckpoints.has(attemptId)) {
+      activeCheckpoints.set(attemptId, uuid);
+      console.log(`[CheckpointManager] Captured FIRST checkpoint UUID for ${attemptId}: ${uuid}`);
+    } else {
+      console.log(`[CheckpointManager] Skipping subsequent UUID for ${attemptId}: ${uuid} (keeping first: ${activeCheckpoints.get(attemptId)})`);
+    }
   }
 
   /**
