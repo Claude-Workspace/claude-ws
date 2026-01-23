@@ -15,9 +15,10 @@ interface ColumnProps {
   tasks: Task[];
   attemptCounts?: Map<string, number>;
   onCreateTask?: () => void;
+  searchQuery?: string;
 }
 
-export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask }: ColumnProps) {
+export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '' }: ColumnProps) {
   const { deleteTasksByStatus } = useTaskStore();
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -90,6 +91,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
                 key={task.id}
                 task={task}
                 attemptCount={attemptCounts.get(task.id) || 0}
+                searchQuery={searchQuery}
               />
             ))}
           </div>

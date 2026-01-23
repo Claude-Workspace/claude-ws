@@ -21,14 +21,27 @@ import { useTaskStore } from '@/stores/task-store';
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
   onCreateTask?: () => void;
+  searchQuery?: string;
 }
 
-export function Board({ attempts = [], onCreateTask }: BoardProps) {
+export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardProps) {
   const { tasks, reorderTasks, selectTask, setPendingAutoStartTask } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [, startTransition] = useTransition();
   const lastReorderRef = useRef<string>('');
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
+
+  // Filter tasks based on search query
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery.trim()) return tasks;
+
+    const query = searchQuery.toLowerCase();
+    return tasks.filter((task) => {
+      const title = task.title?.toLowerCase() || '';
+      const description = task.description?.toLowerCase() || '';
+      return title.includes(query) || description.includes(query);
+    });
+  }, [tasks, searchQuery]);
 
   // Handle auto-start for newly created tasks moved to In Progress
   useEffect(() => {
@@ -62,7 +75,7 @@ export function Board({ attempts = [], onCreateTask }: BoardProps) {
       grouped.set(col.id, []);
     });
 
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       const statusTasks = grouped.get(task.status) || [];
       statusTasks.push(task);
       grouped.set(task.status, statusTasks);
@@ -74,7 +87,7 @@ export function Board({ attempts = [], onCreateTask }: BoardProps) {
     });
 
     return grouped;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   // Count attempts per task
   const attemptCounts = useMemo(() => {
@@ -216,6 +229,7 @@ export function Board({ attempts = [], onCreateTask }: BoardProps) {
             tasks={tasksByStatus.get(column.id) || []}
             attemptCounts={attemptCounts}
             onCreateTask={onCreateTask}
+            searchQuery={searchQuery}
           />
         ))}
       </div>

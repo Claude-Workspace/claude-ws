@@ -375,7 +375,7 @@ function HighlightedText({ text, matches }: { text: string; matches: number[] })
     <>
       {segments.map((seg, i) =>
         seg.isMatch ? (
-          <span key={i} className="bg-blue-500/30 text-blue-600 dark:text-blue-400 font-semibold px-0.5 rounded">{seg.text}</span>
+          <span key={i} className="text-[#d87756] font-semibold">{seg.text}</span>
         ) : (
           <span key={i}>{seg.text}</span>
         )
@@ -392,9 +392,9 @@ function HighlightedLine({ line, column, matchLength }: { line: string; column: 
 
   return (
     <>
-      <span className="text-muted-foreground">{before}</span>
-      <span className="bg-blue-500/30 text-blue-600 dark:text-blue-400 font-semibold px-0.5 rounded">{match}</span>
-      <span className="text-muted-foreground">{after}</span>
+      <span>{before}</span>
+      <span className="text-[#d87756] font-semibold">{match}</span>
+      <span>{after}</span>
     </>
   );
 }

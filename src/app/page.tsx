@@ -24,6 +24,7 @@ function KanbanApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [apiKeyRefresh, setApiKeyRefresh] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { needsApiKey } = useApiKeyCheck(apiKeyRefresh);
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
@@ -180,6 +181,8 @@ function KanbanApp() {
         onCreateTask={() => setCreateTaskOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onAddProject={() => setSetupOpen(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -195,7 +198,7 @@ function KanbanApp() {
         {/* Main content - Kanban board (fills remaining space) */}
         <main className="flex-1 overflow-auto min-w-0">
           {projects.length > 0 ? (
-            <Board onCreateTask={() => setCreateTaskOpen(true)} />
+            <Board onCreateTask={() => setCreateTaskOpen(true)} searchQuery={searchQuery} />
           ) : (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
