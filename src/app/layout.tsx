@@ -32,7 +32,13 @@ export const metadata: Metadata = {
   description: 'Workspace powered by Claude Code CLI',
   icons: {
     icon: '/logo.svg',
-    apple: '/logo.svg',
+    apple: '/logo.png',
+  },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Claude Workspace',
   },
 };
 

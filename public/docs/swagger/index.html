@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Workspace API - Documentation Index</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .card-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .card-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+        }
+
+        .card-links {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #e0e7ff;
+            color: #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #c7d2fe;
+        }
+
+        .quick-links {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .quick-links h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .link-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .link-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .link-item a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .link-item a:hover {
+            color: #5568d3;
+        }
+
+        .category-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .category {
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #495057;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            .stats {
+                flex-direction: column;
+            }
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Claude Workspace API</h1>
+            <p>Complete API Documentation for Claude Code Workspace Interface</p>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">67</span>
+                    <span class="stat-label">API Endpoints</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">15</span>
+                    <span class="stat-label">Categories</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">3</span>
+                    <span class="stat-label">Doc Formats</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="cards">
+            <!-- Card 1: Interactive Docs -->
+            <div class="card">
+                <div class="card-icon">📖</div>
+                <span class="card-badge">Recommended</span>
+                <h2>Interactive API Docs</h2>
+                <p>Beautiful Swagger UI with "Try it out" functionality. Test all 67 endpoints directly from your browser.</p>
+                <div class="card-links">
+                    <a href="api-docs.html" class="btn btn-primary" target="_blank">
+                        Open Swagger UI →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Card 2: Complete Guide -->
+            <div class="card">
+                <div class="card-icon">📚</div>
+                <span class="card-badge">Start Here</span>
+                <h2>Complete API Guide</h2>
+                <p>Comprehensive documentation with examples for all endpoints, data models, and usage patterns.</p>
+                <div class="card-links">
+                    <a href="COMPLETE_API_LIST.md" class="btn btn-primary">
+                        View Guide →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Card 3: OpenAPI Spec -->
+            <div class="card">
+                <div class="card-icon">📄</div>
+                <h2>OpenAPI Specification</h2>
+                <p>Standard OpenAPI 3.0 YAML format. Use with Swagger UI, Redoc, or generate client SDKs.</p>
+                <div class="card-links">
+                    <a href="swagger.yaml" class="btn btn-primary" download>
+                        Download YAML ⬇
+                    </a>
+                    <a href="https://editor.swagger.io/" target="_blank" class="btn btn-secondary">
+                        View Online ↗
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-links">
+            <h2>🔗 Quick Links by Category</h2>
+            <div class="links-grid">
+                <div class="link-item">
+                    <a href="#agent-factory">
+                        <span>🤖</span>
+                        <span>Agent Factory (24 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#git">
+                        <span>📦</span>
+                        <span>Git Operations (16 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#tasks">
+                        <span>✅</span>
+                        <span>Tasks (11 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#projects">
+                        <span>📁</span>
+                        <span>Projects (7 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#attempts">
+                        <span>🔄</span>
+                        <span>Attempts (5 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#files">
+                        <span>📄</span>
+                        <span>Files (4 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#uploads">
+                        <span>⬆️</span>
+                        <span>Uploads (3 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#checkpoints">
+                        <span>⏪</span>
+                        <span>Checkpoints (3 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#commands">
+                        <span>💬</span>
+                        <span>Commands (3 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#code">
+                        <span>✏️</span>
+                        <span>Code Editing (2 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#search">
+                        <span>🔍</span>
+                        <span>Search (2 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#language">
+                        <span>🌐</span>
+                        <span>Language Services (2 endpoints)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#filesystem">
+                        <span>📂</span>
+                        <span>Filesystem (1 endpoint)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#shells">
+                        <span>🐚</span>
+                        <span>Shells (1 endpoint)</span>
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="#auth">
+                        <span>🔐</span>
+                        <span>Auth (1 endpoint)</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <h2 style="color: #333; margin-bottom: 20px;">📖 Documentation Files</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <h3 style="margin-bottom: 8px; color: #667eea;">swagger.yaml</h3>
+                    <p style="font-size: 0.9em; color: #666;">OpenAPI 3.0 specification (2,102 lines)</p>
+                </div>
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <h3 style="margin-bottom: 8px; color: #667eea;">api-docs.html</h3>
+                    <p style="font-size: 0.9em; color: #666;">Interactive Swagger UI viewer</p>
+                </div>
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <h3 style="margin-bottom: 8px; color: #667eea;">COMPLETE_API_LIST.md</h3>
+                    <p style="font-size: 0.9em; color: #666;">Comprehensive API guide with examples</p>
+                </div>
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <h3 style="margin-bottom: 8px; color: #667eea;">SWAGGER_README.md</h3>
+                    <p style="font-size: 0.9em; color: #666;">Documentation overview and quick start</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; color: white; opacity: 0.9;">
+            <p>Version 0.1.25 | OpenAPI 3.0.3 | Last updated: 2025-01-22</p>
+            <p style="margin-top: 10px;">
+                <a href="https://github.com/Claude-Workspace/claude-ws" style="color: white;">GitHub</a> •
+                <a href="https://github.com/Claude-Workspace/claude-ws/issues" style="color: white;">Issues</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Add animation delay to cards
+        document.querySelectorAll('.card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+        });
+
+        // Console easter egg
+        console.log('%c🚀 Claude Workspace API', 'font-size: 24px; font-weight: bold; color: #667eea;');
+        console.log('%c67 endpoints across 15 categories', 'font-size: 14px; color: #666;');
+        console.log('%cReady to integrate!', 'font-size: 12px; color: #999;');
+    </script>
+</body>
+</html>

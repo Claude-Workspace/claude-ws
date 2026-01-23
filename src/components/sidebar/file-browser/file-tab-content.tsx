@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical } from 'lucide-react';
+import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CodeEditorWithInlineEdit } from '@/components/editor/code-editor-with-inline-edit';
@@ -35,6 +35,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [selection, setSelection] = useState<{ startLine: number; endLine: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -328,7 +329,24 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
     if (content?.content) {
       await navigator.clipboard.writeText(content.content);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => {
+        setCopied(false);
+        setExportOpen(false);
+      }, 500);
+    }
+  };
+
+  const handleDownload = () => {
+    if (content?.content) {
+      const blob = new Blob([content.content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   };
 
@@ -500,20 +518,35 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               {formatFileSize(content.size)}
             </span>
           )}
-          {/* Copy */}
+          {/* Export */}
           {content?.content && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleCopy}
-              title="Copy content"
-            >
-              {copied ? (
-                <Check className="size-4 text-green-500" />
-              ) : (
-                <Copy className="size-4" />
-              )}
-            </Button>
+            <DropdownMenu open={exportOpen} onOpenChange={setExportOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Export"
+                >
+                  <Download className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCopy}>
+                  {copied ? (
+                    <Check className="size-4 mr-2 text-green-500" />
+                  ) : (
+                    <Copy className="size-4 mr-2" />
+                  )}
+                  <span className="text-sm">
+                    {copied ? 'Copied!' : 'Copy to Clipboard'}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownload}>
+                  <Download className="size-4 mr-2" />
+                  <span className="text-sm">Download</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
         <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">

@@ -181,6 +181,19 @@ export function initDb() {
     }
   }
 
+  // Migration: Add output_format and output_schema columns for custom output formatting
+  const outputFormatColumns = [
+    { name: 'output_format', type: 'TEXT' },
+    { name: 'output_schema', type: 'TEXT' },
+  ];
+  for (const col of outputFormatColumns) {
+    try {
+      sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
+    } catch {
+      // Column already exists, ignore error
+    }
+  }
+
   // Agent Factory tables
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS agent_factory_plugins (

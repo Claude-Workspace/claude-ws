@@ -1,0 +1,134 @@
+Claude Workspace API Documentation - Files Summary
+===================================================
+
+Location: docs/swagger/
+
+Files Created (5 files total):
+------------------------------
+
+1. swagger.yaml (57,740 bytes)
+   - OpenAPI 3.0 specification
+   - Complete API documentation for all 67 endpoints
+   - Includes schemas, parameters, responses
+   - Main source of truth for API docs
+
+2. api-docs.html (3,590 bytes)
+   - Interactive Swagger UI viewer
+   - Dark-themed interface
+   - "Try it out" functionality for testing APIs
+   - Loads swagger.yaml dynamically
+   - Path configured to: docs/swagger/swagger.yaml
+
+3. INDEX.html (15,156 bytes)
+   - Beautiful visual landing page
+   - Navigation to all documentation
+   - API statistics overview
+   - Quick links by category
+   - Responsive design with animations
+
+4. COMPLETE_API_LIST.md (16,080 bytes)
+   - Comprehensive API guide
+   - All 67 endpoints documented
+   - Organized by 15 categories
+   - Usage examples (cURL, JavaScript)
+   - Data models and authentication details
+
+5. SWAGGER_README.md (6,717 bytes)
+   - Quick start guide
+   - File descriptions
+   - Usage instructions
+   - Development workflow
+   - Troubleshooting tips
+
+Root Files:
+-----------
+
+6. README.md (in project root)
+   - Points to docs/swagger/ directory
+   - Quick access links
+   - API overview table
+   - Usage examples
+
+API Coverage:
+-------------
+
+Total Endpoints: 67
+Categories: 15
+
+Breakdown:
+- Agent Factory: 24 endpoints
+- Git: 16 endpoints
+- Tasks: 11 endpoints
+- Projects: 7 endpoints
+- Attempts: 5 endpoints
+- Files: 4 endpoints
+- Uploads: 3 endpoints
+- Checkpoints: 3 endpoints
+- Commands: 3 endpoints
+- Code: 2 endpoints
+- Search: 2 endpoints
+- Language: 2 endpoints
+- Filesystem: 1 endpoint
+- Shells: 1 endpoint
+- Auth: 1 endpoint
+
+Quick Start:
+-----------
+
+Option 1 - Visual Index:
+  open docs/swagger/INDEX.html
+
+Option 2 - Interactive Swagger UI:
+  npm run dev
+  open docs/swagger/api-docs.html
+
+Option 3 - Read Complete Guide:
+  cat docs/swagger/COMPLETE_API_LIST.md
+
+File Relationships:
+------------------
+
+INDEX.html → Navigation hub
+  ├─→ api-docs.html (Swagger UI)
+  ├─→ COMPLETE_API_LIST.md (Full guide)
+  ├─→ SWAGGER_README.md (Quick start)
+  └─→ swagger.yaml (OpenAPI spec)
+
+swagger.yaml ──→ api-docs.html loads this dynamically
+
+All documentation files reference each other with relative paths.
+
+Testing:
+--------
+
+1. Open INDEX.html in browser
+2. Navigate to Swagger UI
+3. Test endpoints directly
+4. View schemas and examples
+
+Alternatively:
+- Use https://editor.swagger.io/
+- Copy swagger.yaml contents
+- Paste and validate
+
+Maintenance:
+-----------
+
+When adding new API endpoints:
+1. Update src/app/api/ route files
+2. Edit docs/swagger/swagger.yaml
+3. Test in docs/swagger/api-docs.html
+4. Update COMPLETE_API_LIST.md if needed
+
+Notes:
+------
+
+- All YAML paths updated for docs/swagger/ location
+- api-docs.html loads swagger.yaml from docs/swagger/
+- Relative links work correctly
+- No external dependencies for viewing
+- Swagger UI loaded from CDN (unpkg.com)
+
+Generated: 2025-01-22
+Version: 0.1.25
+OpenAPI: 3.0.3
