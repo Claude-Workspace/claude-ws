@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
-import { eq, asc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { formatOutput } from '@/lib/output-formatter';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
 import type { ClaudeOutput, OutputFormat } from '@/types';
 
 // GET /api/attempts/[id] - Get attempt with logs
@@ -11,6 +14,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
 
     // Fetch the attempt
     const attempt = await db
@@ -28,6 +32,104 @@ export async function GET(
 
     const attemptData = attempt[0];
 
+    // Check if ?output_format query param is present
+    const wantsFormatted = searchParams.has('output_format');
+    const storedFormat = attemptData.outputFormat;
+
+    // If ?output_format is present and attempt has a format, return the generated file
+    if (wantsFormatted && storedFormat) {
+      // Use DATA_DIR for output file location
+      const dataDir = process.env.DATA_DIR || join(process.cwd(), 'data');
+      const filePath = join(dataDir, 'tmp', `${id}.${storedFormat}`);
+
+      if (existsSync(filePath)) {
+        try {
+          const content = await readFile(filePath, 'utf-8');
+
+          // Map common extensions to MIME types
+          const contentTypes: Record<string, string> = {
+            // Data formats
+            json: 'application/json',
+            xml: 'application/xml',
+            yaml: 'text/yaml',
+            yml: 'text/yaml',
+            csv: 'text/csv',
+            tsv: 'text/tab-separated-values',
+            txt: 'text/plain',
+
+            // Web formats
+            html: 'text/html',
+            css: 'text/css',
+            js: 'application/javascript',
+            ts: 'application/typescript',
+            md: 'text/markdown',
+
+            // Office documents
+            xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            xls: 'application/vnd.ms-excel',
+            docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            doc: 'application/msword',
+            pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            ppt: 'application/vnd.ms-powerpoint',
+
+            // Archives
+            zip: 'application/zip',
+            rar: 'application/vnd.rar',
+            '7z': 'application/x-7z-compressed',
+            tar: 'application/x-tar',
+            gz: 'application/gzip',
+
+            // Executables
+            exe: 'application/vnd.microsoft.portable-executable',
+            dll: 'application/vnd.microsoft.portable-executable',
+            app: 'application/octet-stream',
+
+            // Images
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            gif: 'image/gif',
+            svg: 'image/svg+xml',
+            webp: 'image/webp',
+            ico: 'image/x-icon',
+
+            // Video
+            mp4: 'video/mp4',
+            webm: 'video/webm',
+            avi: 'video/x-msvideo',
+            mov: 'video/quicktime',
+
+            // Audio
+            mp3: 'audio/mpeg',
+            wav: 'audio/wav',
+            ogg: 'audio/ogg',
+
+            // PDF
+            pdf: 'application/pdf',
+          };
+
+          const contentType = contentTypes[storedFormat.toLowerCase()] || 'application/octet-stream';
+
+          return new NextResponse(content, {
+            headers: {
+              'Content-Type': contentType,
+            },
+          });
+        } catch (readError) {
+          return NextResponse.json(
+            { error: 'Failed to read output file' },
+            { status: 500 }
+          );
+        }
+      }
+
+      // File doesn't exist yet
+      return NextResponse.json(
+        { error: 'Output file not found', filePath },
+        { status: 404 }
+      );
+    }
+
     // Fetch logs for this attempt
     const logs = await db
       .select()
@@ -35,15 +137,15 @@ export async function GET(
       .where(eq(schema.attemptLogs.attemptId, id))
       .orderBy(schema.attemptLogs.createdAt);
 
-    // If no outputFormat specified or it's 'json', return original structure (backward compatible)
-    if (!attemptData.outputFormat || attemptData.outputFormat === 'json') {
+    // Default: return original JSON structure with logs
+    if (!storedFormat || storedFormat === 'json') {
       return NextResponse.json({
         ...attemptData,
         logs,
       });
     }
 
-    // Parse JSON logs into ClaudeOutput messages
+    // Format according to the stored outputFormat
     const messages: ClaudeOutput[] = logs
       .filter(log => log.type === 'json')
       .map(log => {
@@ -55,10 +157,9 @@ export async function GET(
       })
       .filter(Boolean) as ClaudeOutput[];
 
-    // Format according to the stored outputFormat
     const formatted = formatOutput(
       messages,
-      attemptData.outputFormat as OutputFormat,
+      storedFormat as OutputFormat,
       attemptData.outputSchema,
       {
         id: attemptData.id,
@@ -72,7 +173,6 @@ export async function GET(
 
     return NextResponse.json(formatted);
   } catch (error) {
-    console.error('Failed to fetch attempt:', error);
     return NextResponse.json(
       { error: 'Failed to fetch attempt' },
       { status: 500 }

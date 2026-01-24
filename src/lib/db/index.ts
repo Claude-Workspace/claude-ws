@@ -14,6 +14,12 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Ensure data/tmp directory exists for formatted output files
+const tmpDir = path.join(dataDir, 'tmp');
+if (!fs.existsSync(tmpDir)) {
+  fs.mkdirSync(tmpDir, { recursive: true });
+}
+
 // Create SQLite connection
 const sqlite = new Database(DB_PATH);
 

@@ -7,10 +7,12 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { formatOutput } from '@/lib/output-formatter';
 import { waitForAttemptCompletion, AttemptTimeoutError } from '@/lib/attempt-waiter';
+import { agentManager } from '@/lib/agent-manager';
+import { sessionManager } from '@/lib/session-manager';
 import type { ClaudeOutput, OutputFormat, RequestMethod } from '@/types';
 
-// POST /api/attempts - Create a new attempt (only creates record)
-// Actual execution happens via WebSocket
+// POST /api/attempts - Create a new attempt and start agent execution
+// WebSocket also supports attempt:start for backward compatibility
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -28,18 +30,6 @@ export async function POST(request: NextRequest) {
       timeout
     } = body;
 
-    console.log('POST /api/attempts received:', {
-      taskId,
-      prompt,
-      force_create,
-      projectId,
-      projectName,
-      taskTitle,
-      projectRootPath,
-      request_method,
-      output_format,
-      timeout
-    });
 
     // Validate request_method
     if (request_method && request_method !== 'sync' && request_method !== 'queue') {
@@ -49,19 +39,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate output_format
-    const validFormats: OutputFormat[] = ['json', 'html', 'markdown', 'yaml', 'raw', 'custom'];
-    if (output_format && !validFormats.includes(output_format)) {
+    // Note: output_schema is optional but recommended for defining output structure
+    // If provided, it will be included in the format instructions sent to the agent
+    if (output_format && typeof output_format !== 'string') {
       return NextResponse.json(
-        { error: `Invalid output_format. Must be one of: ${validFormats.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // For custom format, output_schema is required
-    if (output_format === 'custom' && !output_schema) {
-      return NextResponse.json(
-        { error: 'output_schema is required when output_format is "custom"' },
+        { error: 'output_format must be a string' },
         { status: 400 }
       );
     }
@@ -137,28 +119,17 @@ export async function POST(request: NextRequest) {
         where: eq(schema.projects.id, projectId)
       });
     } catch (dbError) {
-      console.error('Database error checking project:', dbError);
       return NextResponse.json(
         { error: 'Database error checking project' },
         { status: 500 }
       );
     }
 
-    console.log('Project exists?', !!existingProject);
-
     let finalProjectId = projectId;
 
     if (!existingProject) {
-      console.log('Project does not exist, checking projectName...');
-      console.log('projectName value:', projectName);
-      console.log('projectName type:', typeof projectName);
-      console.log('projectName === undefined:', projectName === undefined);
-      console.log('projectName === null:', projectName === null);
-      console.log('projectName === "":', projectName === "");
-
       // Project doesn't exist, check if projectName provided
       if (!projectName || projectName.trim() === '') {
-        console.log('Project name required but not provided');
         return NextResponse.json(
           { error: 'projectName required' },
           { status: 400 }
@@ -177,7 +148,6 @@ export async function POST(request: NextRequest) {
       } catch (mkdirError: any) {
         // If folder already exists, that's okay
         if (mkdirError?.code !== 'EEXIST') {
-          console.error('Failed to create project folder:', mkdirError);
           return NextResponse.json(
             { error: 'Failed to create project folder: ' + mkdirError.message },
             { status: 500 }
@@ -196,7 +166,6 @@ export async function POST(request: NextRequest) {
       try {
         await db.insert(schema.projects).values(newProject);
       } catch (error) {
-        console.error('Failed to create project:', error);
         return NextResponse.json(
           { error: 'Failed to create project' },
           { status: 500 }
@@ -207,7 +176,6 @@ export async function POST(request: NextRequest) {
     // Step 5: At this point, project exists (either was existing or was just created)
     // Check if taskTitle is provided
     if (!taskTitle || taskTitle.trim() === '') {
-      console.log('Task title required but not provided');
       return NextResponse.json(
         { error: 'taskTitle required' },
         { status: 400 }
@@ -235,14 +203,8 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error: any) {
-    console.error('Failed to create attempt:', error);
-    console.error('Error code:', error?.code);
-    console.error('Error message:', error?.message);
-    console.error('Error stack:', error?.stack);
-
     // Handle foreign key constraint (invalid taskId)
     if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-      console.error('Foreign key constraint violation');
       return NextResponse.json(
         { error: 'Task not found' },
         { status: 404 }
@@ -265,6 +227,18 @@ async function createAttempt(
   outputSchema?: string,
   timeout?: number
 ) {
+  // Get project for agent execution
+  const project = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, task.projectId),
+  });
+
+  if (!project) {
+    return NextResponse.json(
+      { error: 'Project not found' },
+      { status: 404 }
+    );
+  }
+
   const newAttempt = {
     id: nanoid(),
     taskId: task.id,
@@ -280,6 +254,28 @@ async function createAttempt(
   };
 
   await db.insert(schema.attempts).values(newAttempt);
+
+  // Get session options for conversation continuation
+  const sessionOptions = await sessionManager.getSessionOptions(task.id);
+
+  // Update task status to in_progress if it was todo
+  if (task.status === 'todo') {
+    await db
+      .update(schema.tasks)
+      .set({ status: 'in_progress', updatedAt: Date.now() })
+      .where(eq(schema.tasks.id, task.id));
+  }
+
+  // Start the agent execution
+  // Note: agentManager.start() will add system guidelines internally
+  agentManager.start({
+    attemptId: newAttempt.id,
+    projectPath: project.path,
+    prompt,
+    sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
+    outputFormat: outputFormat || undefined,
+    outputSchema: outputSchema || undefined,
+  });
 
   // Queue mode: return attempt ID immediately (existing behavior)
   if (requestMethod === 'queue') {
@@ -397,7 +393,6 @@ async function createNewTask(taskId: string, projectId: string, taskTitle: strin
     await db.insert(schema.tasks).values(newTask);
     return newTask;
   } catch (error) {
-    console.error('Failed to create task:', error);
     return null;
   }
 }

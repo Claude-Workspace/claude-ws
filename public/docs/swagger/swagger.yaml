@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Claude Workspace API
+  title: Claude Kanban API
   description: |
-    A beautifully crafted workspace interface for Claude Code with real-time streaming and local SQLite database.
+    Complete API documentation for the Claude Kanban application including Projects, Tasks, Attempts, Checkpoints, Git operations, Files, Search, Uploads, Authentication, Commands, Language, Shells, and Agent Factory.
 
-    This API provides endpoints for task management, git operations, file browsing, search, and AI-powered code assistance.
+    **Note:** The default server port is **33333** (not 3000). Set `API_BASE` environment variable to override.
   version: 0.1.25
   contact:
     name: Claude Workspace
@@ -14,14 +14,14 @@ info:
     url: https://github.com/Claude-Workspace/claude-ws/blob/main/LICENSE
 
 servers:
-  - url: http://localhost:3000
-    description: Local development server (default)
+  - url: http://localhost:33333
+    description: Local development server (default port 33333)
   - url: http://{server}
     description: Custom HTTP server address
     variables:
       server:
-        default: "localhost:3000"
-        description: Full server address (e.g., localhost:3000, 192.168.1.100:3000)
+        default: "localhost:33333"
+        description: Full server address (e.g., localhost:33333, 192.168.1.100:33333)
   - url: https://{server}
     description: Custom HTTPS server address
     variables:
@@ -55,17 +55,175 @@ tags:
     description: Authentication and authorization
   - name: Shells
     description: Shell process tracking
+  - name: Agent Factory
+    description: Plugin and agent management
 
 security:
   - ApiKeyAuth: []
 
 paths:
+  /api/attempts:
+    post:
+      tags:
+        - Attempts
+      summary: Create attempt
+      description: |
+        Create a new attempt and start agent execution. Supports both queue mode (returns immediately) and sync mode (waits for completion).
+
+        Can optionally create project and task if they don't exist (when force_create=true).
+
+        **Output Format:**
+        When `output_format` is specified, the agent will write results to a file at `{DATA_DIR}/tmp/{attemptId}.{ext}`.
+        The agent is instructed to:
+        1. Write generated content directly to the file (not wrapped in metadata)
+        2. Validate the file by reading it back after writing
+        3. Follow the format specification provided in `output_schema` (if provided)
+
+        Supported formats include: json, yaml, xml, html, md, csv, tsv, txt, css, js, pdf, xlsx, docx, pptx, zip, and more.
+        Any file extension can be used - the SDK agent understands common format conventions.
+      operationId: createAttempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+                - prompt
+              properties:
+                taskId:
+                  type: string
+                  description: Task ID to create attempt for
+                prompt:
+                  type: string
+                  description: User prompt/message
+                force_create:
+                  type: boolean
+                  description: "Create task/project if they don't exist (default: false)"
+                  default: false
+                projectId:
+                  type: string
+                  description: "Project ID (required if force_create=true and task doesn't exist)"
+                projectName:
+                  type: string
+                  description: Project name (required if creating new project)
+                taskTitle:
+                  type: string
+                  description: Task title (required if creating new task)
+                projectRootPath:
+                  type: string
+                  description: Root path for project creation
+                request_method:
+                  type: string
+                  enum: [queue, sync]
+                  description: "Queue mode: return immediately (default). Sync mode: wait for completion."
+                  default: queue
+                output_format:
+                  type: string
+                  description: |
+                    File extension for output format (e.g., json, xml, html, md, csv, tsv, txt, yaml, pdf, xlsx, docx, pptx, zip).
+                    The agent will write results to `{DATA_DIR}/tmp/{attemptId}.{output_format}`.
+                    Any file extension is supported - the SDK agent understands common format conventions.
+                  examples:
+                    - json
+                    - xml
+                    - html
+                    - md
+                    - csv
+                    - yaml
+                    - pdf
+                    - xlsx
+                output_schema:
+                  type: string
+                  description: |
+                    Format specification for the output (not a JSON schema).
+                    Provides structure guidance to the agent (e.g., "name,age,email" for CSV, or XML element structure).
+                    This is included in the instructions sent to the agent.
+                  example: "<users><user name=\"...\" email=\"...\"/></users>"
+                timeout:
+                  type: integer
+                  description: "Timeout in milliseconds for sync mode (default: 300000)"
+                  default: 300000
+      responses:
+        "201":
+          description: Attempt created successfully (queue mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Attempt ID
+                  taskId:
+                    type: string
+                    description: Task ID
+                  prompt:
+                    type: string
+                    description: User prompt
+                  status:
+                    type: string
+                    enum: [running, completed, failed, cancelled]
+                    description: Attempt status
+                  createdAt:
+                    type: integer
+                    description: Creation timestamp
+        "200":
+          description: Attempt completed successfully (sync mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Formatted output based on output_format parameter
+        "400":
+          description: Bad request (missing required fields, invalid parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "408":
+          description: Attempt timed out (sync mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                  attemptId:
+                    type: string
+                    description: Attempt ID for polling results
+                  retryUrl:
+                    type: string
+                    description: URL to fetch attempt results
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/attempts/{id}:
     get:
       tags:
         - Attempts
       summary: Get attempt
-      description: Get a single attempt with its logs
+      description: |
+        Get a single attempt with its logs.
+
+        **Output Format Mode**: When `?output_format=true` query parameter is present and the attempt has an `outputFormat` set, returns the generated output file with appropriate Content-Type header.
+
+        The output file is located at `{DATA_DIR}/tmp/{attemptId}.{outputFormat}` where `outputFormat` is the file extension (e.g., json, xml, html, md, csv, pdf, xlsx, etc.).
+
+        **Default Mode**: Without `?output_format`, returns the attempt data as JSON with logs.
       operationId: getAttempt
       parameters:
         - name: id
@@ -74,11 +232,35 @@ paths:
           description: Attempt ID
           schema:
             type: string
+        - name: output_format
+          in: query
+          required: false
+          description: |
+            Flag to retrieve the generated output file. When present (value=true), returns the file content directly
+            with appropriate Content-Type header instead of JSON response.
+
+            The file location is `{DATA_DIR}/tmp/{attemptId}.{ext}` where `ext` is the outputFormat specified during attempt creation.
+
+            Supports any file extension with proper MIME type mapping:
+            - Data: json, xml, yaml, csv, tsv, txt
+            - Web: html, css, js, md
+            - Office: xlsx, docx, pptx, xls, doc, ppt
+            - Archives: zip, rar, 7z, tar, gz
+            - Images: png, jpg, jpeg, gif, svg, webp, ico
+            - Video: mp4, webm, avi, mov
+            - Audio: mp3, wav, ogg
+            - Other: pdf, exe, dll
+          schema:
+            type: boolean
+            example: true
       responses:
         "200":
-          description: Attempt retrieved successfully
+          description: |
+            - **Default mode**: Attempt retrieved successfully as JSON
+            - **Output format mode**: Formatted output file with appropriate content-type
           content:
             application/json:
+              description: Default response (without ?output_format)
               schema:
                 type: object
                 properties:
@@ -95,7 +277,7 @@ paths:
                     enum: ["running", "success", "error", "cancelled"]
                   outputFormat:
                     type: string
-                    enum: ["json", "markdown", "text"]
+                    enum: ["json", "html", "markdown", "yaml", "raw", "custom"]
                   outputSchema:
                     type: object
                   createdAt:
@@ -118,6 +300,26 @@ paths:
                           type: string
                         createdAt:
                           type: integer
+            text/html:
+              description: HTML formatted output (with ?output_format when outputFormat=html)
+              schema:
+                type: string
+                example: "<!DOCTYPE html>...</html>"
+            text/markdown:
+              description: Markdown formatted output (with ?output_format when outputFormat=markdown)
+              schema:
+                type: string
+                example: "# Summary\n\n..."
+            text/yaml:
+              description: YAML formatted output (with ?output_format when outputFormat=yaml)
+              schema:
+                type: string
+                example: "summary: ...\nfiles_changed:\n  - ..."
+            text/plain:
+              description: Plain text formatted output (with ?output_format when outputFormat=raw)
+              schema:
+                type: string
+                example: "Summary: ...\n\nFiles Changed:\n- ..."
         "404":
           description: Attempt not found
           content:
@@ -1009,6 +1211,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Projects
+      summary: Create project
+      description: Create a new project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - path
+              properties:
+                name:
+                  type: string
+                  description: Project name
+                path:
+                  type: string
+                  description: Project file system path
+      responses:
+        "201":
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Project with this path already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/projects/{id}:
     get:
@@ -1308,6 +1557,68 @@ paths:
                     type: string
         "400":
           description: Missing parameters or invalid regex
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Search
+      summary: Search file contents
+      description: Grep-like content search in files
+      operationId: searchContentPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - basePath
+              properties:
+                query:
+                  type: string
+                  description: Search term
+                basePath:
+                  type: string
+                  description: Project root path
+                limit:
+                  type: integer
+                  description: "Max results (default: 50)"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    file:
+                      type: string
+                    matches:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          lineNumber:
+                            type: integer
+                          line:
+                            type: string
+                          column:
+                            type: integer
+                          matchLength:
+                            type: integer
+        "400":
+          description: Missing parameters
           content:
             application/json:
               schema:
@@ -2263,35 +2574,46 @@ paths:
     get:
       tags:
         - Language
-      summary: Check definition support
-      description: Check if definition resolution is available for a file type
-      operationId: checkDefinitionSupport
+      summary: Get language definition
+      description: Get language definition for code blocks
+      operationId: getLanguageDefinition
       parameters:
-        - name: filePath
+        - name: language
           in: query
-          description: File path to check
+          required: true
+          description: Language name (e.g., typescript)
           schema:
             type: string
       responses:
         "200":
-          description: Support status
+          description: Language definition retrieved
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  supported:
-                    type: boolean
                   language:
                     type: string
-                    nullable: true
-                  adapter:
-                    type: string
-                    nullable: true
-                  supportedExtensions:
+                  extensions:
                     type: array
                     items:
                       type: string
+                  aliases:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: Missing language parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags:
         - Language
@@ -2357,16 +2679,357 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-                
+
+  /api/files/content:
+    post:
+      tags:
+        - Files
+      summary: Get file content
+      description: Read the content of a file
+      operationId: getFileContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Absolute path to the file
+      responses:
+        "200":
+          description: File content retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: File content
+        "400":
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/filesystem:
+    get:
+      tags:
+        - Files
+      summary: List filesystem directories
+      description: Browse any directory on the filesystem (for project selection)
+      operationId: listFilesystem
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: Directory path to browse
+          schema:
+            type: string
+        - name: showHidden
+          in: query
+          required: false
+          description: "Show hidden files (default: false)"
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Directories retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentPath:
+                    type: string
+                  parentPath:
+                    type: string
+                  directories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        path:
+                          type: string
+                        isDirectory:
+                          type: boolean
+                  homePath:
+                    type: string
+        "400":
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/commit:
+    post:
+      tags:
+        - Git
+      summary: Commit changes
+      description: Create a git commit with staged changes
+      operationId: gitCommit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+                - message
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+                message:
+                  type: string
+                  description: Commit message
+      responses:
+        "200":
+          description: Commit created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  hash:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          description: Nothing to commit or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/generate-message:
+    post:
+      tags:
+        - Git
+      summary: Generate commit message (AI)
+      description: Generates a conventional commit message based on staged changes using Claude
+      operationId: generateCommitMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Commit message generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  diff:
+                    type: object
+                    properties:
+                      additions:
+                        type: integer
+                      deletions:
+                        type: integer
+        "400":
+          description: Missing projectPath, invalid path, not a git repository, or no staged files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "401":
+          description: API authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "504":
+          description: Git command timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/push:
+    post:
+      tags:
+        - Git
+      summary: Push to remote
+      description: Push changes to remote repository
+      operationId: gitPush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Push successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: No upstream branch or invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Push rejected (pull first)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Push failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{id}/running-attempt:
+    get:
+      tags:
+        - Tasks
+      summary: Get running attempt
+      description: Get the currently running attempt for a task
+      operationId: getRunningAttempt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Running attempt retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+        "404":
+          description: Task not found or no running attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/auth/verify:
     get:
+      tags:
+        - Auth
+      summary: Check auth status
+      description: Check if authentication is required
+      operationId: checkAuthStatus
+      responses:
+        '200':
+          description: Auth status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authRequired:
+                    type: boolean
+                    example: true
+    post:
       tags:
         - Auth
       summary: Verify API key
       description: Verify if an API key is valid
       operationId: verifyApiKey
-      security:
-        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+                  description: API key to verify
       responses:
         '200':
           description: API key is valid
@@ -2376,6 +3039,8 @@ paths:
                 type: object
                 properties:
                   valid:
+                    type: boolean
+                  authRequired:
                     type: boolean
         '401':
           description: Invalid or missing API key
@@ -3405,19 +4070,60 @@ components:
     ProjectSettings:
       type: object
       properties:
-        selectedComponents:
+        selectedPlugins:
           type: array
           items:
             type: string
-          description: Selected component IDs
+          description: Selected plugin IDs
         selectedAgentSets:
           type: array
           items:
             type: string
           description: Selected agent set IDs
+
+    Plugin:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique plugin identifier
+        type:
+          type: string
+          enum: [skill, command, agent, agent_set]
+          description: Plugin type
+        name:
+          type: string
+          description: Plugin name
+        description:
+          type: string
+          description: Plugin description
+        sourcePath:
+          type: string
+          description: Source file path
+        storageType:
+          type: string
+          enum: [local, imported, external]
+          description: Storage location type
+        agentSetPath:
+          type: string
+          nullable: true
+          description: Agent set path (if applicable)
+        metadata:
+          type: object
+          description: Additional metadata (JSON object)
+        createdAt:
+          type: integer
+          description: Creation timestamp
+        updatedAt:
+          type: integer
+          description: Last update timestamp
       required:
-        - selectedComponents
-        - selectedAgentSets
+        - id
+        - type
+        - name
+        - storageType
+        - createdAt
+        - updatedAt
 
     ContentMatch:
       type: object

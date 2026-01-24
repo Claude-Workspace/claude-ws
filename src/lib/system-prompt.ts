@@ -115,6 +115,10 @@ export interface SystemPromptOptions {
   prompt?: string;
   isResume?: boolean;
   attemptCount?: number;
+  outputFormat?: string;  // File extension: json, html, md, csv, tsv, txt, xml, etc.
+  outputSchema?: string;
+  attemptId?: string;
+  outputFilePath?: string; // Absolute path to output file (without extension)
 }
 
 /**
@@ -129,10 +133,16 @@ export function getSystemPrompt(options: SystemPromptOptions | string = {}): str
     return ENGINEERING_SYSTEM_PROMPT;
   }
 
-  const { prompt, isResume = false, attemptCount = 1 } = options;
+  const { prompt, isResume = false, attemptCount = 1, outputFormat, outputSchema, attemptId, outputFilePath } = options;
 
   // Base prompt is always included
   let finalPrompt = ENGINEERING_SYSTEM_PROMPT;
+
+  // Add output format instructions if specified
+  if (outputFormat && attemptId) {
+    const formatInstructions = getOutputFormatInstructions(outputFormat, outputSchema, attemptId, outputFilePath);
+    finalPrompt += '\n' + formatInstructions;
+  }
 
   // Add task-specific hints if we can detect task type
   if (prompt) {
@@ -149,4 +159,45 @@ export function getSystemPrompt(options: SystemPromptOptions | string = {}): str
   }
 
   return finalPrompt;
+}
+
+/**
+ * Get output format instructions for Claude
+ */
+function getOutputFormatInstructions(
+  format: string,
+  schema: string | undefined,
+  attemptId: string,
+  outputFilePath?: string // Absolute path to output file (without extension)
+): string {
+  // Use absolute path if provided, otherwise fall back to relative path
+  const filePath = outputFilePath || `data/tmp/${attemptId}`;
+
+  // Schema provided - include format specification in instructions
+  if (schema) {
+    return `## OUTPUT FORMAT: ${format.toUpperCase()}
+You MUST save your work results to a ${format.toUpperCase()} file at \`${filePath}.${format}\`.
+
+Format specification:
+${schema}
+
+CRITICAL: Your task is INCOMPLETE until you:
+1. Write your generated results to the file using the Write tool
+2. Read back the file to verify it matches the format specification
+
+The file MUST contain your actual work output - not empty, not placeholders.`;
+  }
+
+  // Generic output format - use the format string as file extension
+  // SDK agent understands common formats: csv, tsv, txt, xml, log, etc.
+  return `## OUTPUT FORMAT: ${format.toUpperCase()}
+You MUST save your work results to a ${format.toUpperCase()} file at \`${filePath}.${format}\`.
+Write valid ${format.toUpperCase()} format that follows standard conventions for this file type.
+Include your work summary, files changed, and results in the file.
+
+CRITICAL: Your task is INCOMPLETE until you:
+1. Write your generated results to the file using the Write tool
+2. Read back the file to verify it is valid ${format.toUpperCase()}
+
+The file MUST contain your actual work output - not empty, not placeholders.`;
 }

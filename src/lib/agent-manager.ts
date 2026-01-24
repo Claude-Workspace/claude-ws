@@ -11,7 +11,6 @@ import type { ClaudeOutput } from '@/types';
 import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo, type SDKResultMessage } from './sdk-event-adapter';
 import { sessionManager } from './session-manager';
 import { checkpointManager } from './checkpoint-manager';
-import { getSystemPrompt } from './system-prompt';
 import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
@@ -39,6 +38,7 @@ interface QuestionAnswer {
 }
 
 interface AgentEvents {
+  started: (data: { attemptId: string; taskId: string }) => void;
   json: (data: { attemptId: string; data: ClaudeOutput }) => void;
   stderr: (data: { attemptId: string; content: string }) => void;
   exit: (data: { attemptId: string; code: number | null }) => void;
@@ -56,6 +56,8 @@ export interface AgentStartOptions {
     resumeSessionAt?: string;  // Message UUID to resume conversation at
   };
   filePaths?: string[];
+  outputFormat?: string;  // File extension: json, html, md, csv, tsv, txt, xml, etc.
+  outputSchema?: string;
 }
 
 /**
@@ -78,30 +80,20 @@ class AgentManager extends EventEmitter {
    * Start a new Claude Agent SDK query
    */
   async start(options: AgentStartOptions): Promise<void> {
-    const { attemptId, projectPath, prompt, sessionOptions, filePaths } = options;
+    const { attemptId, projectPath, prompt, sessionOptions, filePaths, outputFormat, outputSchema } = options;
 
     if (this.agents.has(attemptId)) {
-      console.warn(`[AgentManager] Agent ${attemptId} already exists`);
       return;
-    }
-
-    console.log(`[AgentManager] Starting agent for attempt ${attemptId}`);
-    console.log(`[AgentManager] Project path: ${projectPath}`);
-    console.log(`[AgentManager] Prompt: ${prompt.substring(0, 100)}...`);
-    if (sessionOptions?.resumeSessionAt) {
-      console.log(`[AgentManager] Resuming at message: ${sessionOptions.resumeSessionAt}`);
-    } else if (sessionOptions?.resume) {
-      console.log(`[AgentManager] Resuming session: ${sessionOptions.resume}`);
     }
 
     // Build prompt with file references and task-aware system prompt
     const isResume = !!(sessionOptions?.resume || sessionOptions?.resumeSessionAt);
-    const formatInstructions = getSystemPrompt({
-      projectPath,
-      prompt,
-      isResume,
-      attemptCount: 1, // TODO: Pass actual attempt count from caller
-    });
+
+    // Use DATA_DIR environment variable for output files (writes to ${DATA_DIR}/tmp/{attemptId}.{ext})
+    // Falls back to tmp/{attemptId} if DATA_DIR not set
+    const dataDir = process.env.DATA_DIR || '.';
+    const outputFilePath = `${dataDir}/tmp/${attemptId}`;
+
     let fullPrompt = prompt;
 
     // Add file references as @ syntax in prompt
@@ -110,10 +102,66 @@ class AgentManager extends EventEmitter {
       fullPrompt = `${fileRefs} ${prompt}`;
     }
 
-    // Only add system guidelines on first turn (not resume) to prevent context bloat
-    // Resume sessions already have system prompt in conversation history
-    if (!isResume) {
-      fullPrompt += `\n\n<system-guidelines>\n${formatInstructions}\n</system-guidelines>`;
+    // Add output format instructions to user prompt
+    // Works for both new and resumed sessions
+    if (outputFormat) {
+      const dataDir = process.env.DATA_DIR || '.';
+      const outputFilePath = `${dataDir}/tmp/${attemptId}`;
+
+      // Build example based on format
+      let example = '';
+      switch (outputFormat.toLowerCase()) {
+        case 'json':
+          example = `Example: Write:\n["Max", "Bella", "Charlie"]\n\nNOT:\n{Max, Bella, Charlie} (unquoted strings - invalid JSON)\nNOT:\n{"file_path":"...", "content":["Max"]} (don't wrap in metadata)`;
+          break;
+        case 'yaml':
+        case 'yml':
+          example = `Example: Write:\n- Max\n- Bella\n- Charlie\n\nNOT:\n["Max", "Bella", "Charlie"] (that's JSON, not YAML)`;
+          break;
+        case 'html':
+        case 'htm':
+          example = `Example: Write:\n<div class="container">\n  <h1>Results</h1>\n</div>\n\nNOT:\n{"html": "<div>..."} (don't wrap in metadata)`;
+          break;
+        case 'css':
+          example = `Example: Write:\n.container { color: red; }\n\nNOT:\n{"css": ".container {...}"} (don't wrap in metadata)`;
+          break;
+        case 'js':
+          example = `Example: Write:\nconst result = ["Max", "Bella"];\nconsole.log(result);\n\nNOT:\n{"javascript": "const..."} (don't wrap in metadata)`;
+          break;
+        case 'md':
+        case 'markdown':
+          example = `Example: Write:\n# Results\n\n- Max\n- Bella\n- Charlie\n\nNOT:\n{"markdown": "# Results"} (don't wrap in metadata)`;
+          break;
+        case 'csv':
+          example = `Example: Write:\nMax,Bella,Charlie\n\nNOT:\n["Max","Bella","Charlie"] (that's JSON, not CSV)`;
+          break;
+        case 'tsv':
+          example = `Example: Write:\nMax\tBella\tCharlie\n\nNOT:\n["Max","Bella","Charlie"] (that's JSON, not TSV)`;
+          break;
+        case 'txt':
+          example = `Example: Write:\nMax\nBella\nCharlie\n\nNOT:\n{"content": "Max\\nBella"} (don't wrap in metadata)`;
+          break;
+        case 'xml':
+          example = `Example: Write:\n<?xml version="1.0"?>\n<root>\n  <item>Max</item>\n</root>\n\nNOT:\n{"xml": "<?xml...>"} (don't wrap in metadata)`;
+          break;
+        default:
+          example = `Example: Write the actual ${outputFormat.toUpperCase()} content directly, not wrapped in any metadata or JSON object.`;
+      }
+
+      fullPrompt += `\n\n=== REQUIRED OUTPUT ===\nYou MUST write your WORK RESULTS to a ${outputFormat.toUpperCase()} file at: ${outputFilePath}.${outputFormat}`;
+      if (outputSchema) {
+        fullPrompt += `\n\nFormat:\n${outputSchema}`;
+      }
+      fullPrompt += `\n\nCRITICAL INSTRUCTIONS:
+1. Use Write tool with PARAMETER 1 (file path) and PARAMETER 2 (your content)
+2. DO NOT wrap content in metadata like {"file_path": ..., "content": ...}
+3. The file should contain ONLY the actual ${outputFormat.toUpperCase()} data
+4. MANDATORY: After writing, you MUST use Read tool to verify the file was written correctly
+5. If the file content is invalid, fix it and rewrite
+
+${example}
+
+Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have Read it back to verify\n========================`;
     }
 
     // Create abort controller for cancellation
@@ -163,7 +211,6 @@ class AgentManager extends EventEmitter {
           if (toolName === 'AskUserQuestion') {
             // Prevent duplicate questions for same attempt
             if (this.pendingQuestions.has(attemptId)) {
-              console.warn(`[AgentManager] Duplicate question for ${attemptId}, rejecting`);
               return { behavior: 'deny' as const, message: 'Duplicate question' };
             }
 
@@ -204,14 +251,12 @@ class AgentManager extends EventEmitter {
       // The SDK's internal partial-json-parser can throw on incomplete JSON
       for await (const message of response) {
         if (controller.signal.aborted) {
-          console.log(`[AgentManager] Query aborted for ${attemptId}`);
           break;
         }
 
         try {
           // Validate SDK message structure
           if (!isValidSDKMessage(message)) {
-            console.error(`[AgentManager] Invalid SDK message:`, message);
             continue;
           }
 
@@ -238,7 +283,6 @@ class AgentManager extends EventEmitter {
               if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
                 const taskInput = (block as { input?: { subagent_type?: string } }).input;
                 const subagentType = taskInput?.subagent_type || 'unknown';
-                console.log(`[AgentManager] Tracking subagent start: ${subagentType} (${block.id})`);
                 workflowTracker.trackSubagentStart(
                   attemptId,
                   block.id,
@@ -278,7 +322,6 @@ class AgentManager extends EventEmitter {
                   // Try to extract log file path from command
                   const logMatch = command.match(/>\s*([^\s]+\.log)/);
                   const logFile = logMatch ? logMatch[1] : undefined;
-                  console.log(`[AgentManager] Background process detected: PID ${pid}, command: ${command.substring(0, 50)}...`);
                   this.emit('trackedProcess', { attemptId, pid, command, logFile });
                   // Clean up
                   this.pendingBashCommands.delete(block.tool_use_id);
@@ -290,7 +333,6 @@ class AgentManager extends EventEmitter {
           // Track usage stats from result messages
           if (message.type === 'result') {
             const resultMsg = message as SDKResultMessage;
-            console.log(`[AgentManager] Tracking usage for ${attemptId}:`, resultMsg);
             usageTracker.trackResult(attemptId, resultMsg);
           }
 
@@ -311,37 +353,29 @@ class AgentManager extends EventEmitter {
           // Handle per-message errors (e.g., SDK's partial-json-parser failures)
           // Log but continue streaming - don't let one bad message kill the stream
           const errorMsg = messageError instanceof Error ? messageError.message : 'Unknown message error';
-          console.warn(`[AgentManager] Error processing message for ${attemptId}:`, errorMsg);
 
           // Only emit if it's a significant error (not just parsing issues)
-          if (errorMsg.includes('Unexpected end of JSON')) {
-            // This is a common streaming artifact - log but don't spam stderr
-            console.debug(`[AgentManager] Partial JSON received, continuing...`);
-          } else {
+          if (!errorMsg.includes('Unexpected end of JSON')) {
             this.emit('stderr', { attemptId, content: `Warning: ${errorMsg}` });
           }
         }
       }
 
       // Query completed successfully
-      console.log(`[AgentManager] Query completed for ${attemptId}`);
 
       // Collect git stats snapshot on completion
       try {
         const gitStats = await collectGitStats(projectPath);
         if (gitStats) {
           gitStatsCache.set(attemptId, gitStats);
-          console.log(`[AgentManager] Git stats collected: +${gitStats.additions} -${gitStats.deletions}`);
         }
       } catch (gitError) {
-        console.warn(`[AgentManager] Failed to collect git stats:`, gitError);
+        // Git stats collection failed - continue without it
       }
 
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
-      console.error(`[AgentManager] Query error for ${attemptId}:`, error);
-
       // Emit error as stderr
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.emit('stderr', { attemptId, content: errorMessage });
@@ -361,14 +395,12 @@ class AgentManager extends EventEmitter {
   answerQuestion(attemptId: string, questions: unknown[], answers: Record<string, string>): boolean {
     const pending = this.pendingQuestions.get(attemptId);
     if (!pending) {
-      console.warn(`[AgentManager] No pending question for ${attemptId}`);
       return false;
     }
 
     // Resolve the pending Promise - SDK will resume streaming
     pending.resolve({ questions, answers });
     this.pendingQuestions.delete(attemptId);
-    console.log(`[AgentManager] Answered question for ${attemptId}`);
     return true;
   }
 
@@ -386,7 +418,6 @@ class AgentManager extends EventEmitter {
     // canUseTool callback will return { behavior: 'deny' }
     pending.resolve(null);
     this.pendingQuestions.delete(attemptId);
-    console.log(`[AgentManager] Cancelled question for ${attemptId}`);
     return true;
   }
 
@@ -494,4 +525,18 @@ class AgentManager extends EventEmitter {
 }
 
 // Export singleton instance
-export const agentManager = new AgentManager();
+// Use globalThis to ensure the same instance is shared across module contexts
+// (e.g., between server.ts and Next.js API routes)
+const globalKey = '__claude_agent_manager__' as const;
+
+declare global {
+  var __claude_agent_manager__: AgentManager | undefined;
+}
+
+export const agentManager: AgentManager =
+  (globalThis as any)[globalKey] ?? new AgentManager();
+
+// Store in global for cross-module access
+if (!(globalThis as any)[globalKey]) {
+  (globalThis as any)[globalKey] = agentManager;
+}

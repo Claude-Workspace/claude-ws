@@ -198,6 +198,22 @@ function isLikelyBackgroundCommand(command: string): boolean {
 }
 
 /**
+ * Log Write tool calls for debugging output format feature
+ */
+function logWriteToolUse(content: SDKContentBlock[]): void {
+  for (const block of content) {
+    if (block.type === 'tool_use' && block.name === 'Write') {
+      const input = block.input as { file_path?: string; content?: string } | undefined;
+      console.log(`[SDK Adapter] Write tool_use detected:`, {
+        id: block.id,
+        file_path: input?.file_path,
+        content_length: input?.content?.length || 0,
+      });
+    }
+  }
+}
+
+/**
  * Detect background shell request from markdown code block or Bash tool_use
  *
  * Detection methods (in order of priority):
@@ -300,6 +316,8 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
     case 'assistant': {
       const asst = message as SDKAssistantMessage;
       const content = asst.message.content.map(adaptContentBlock);
+      // Log Write tool calls for debugging
+      logWriteToolUse(asst.message.content);
       result.output = {
         type: 'assistant',
         message: {
