@@ -209,6 +209,9 @@ export function gotoDefinitionExtension(config: GotoDefinitionConfig): Extension
   // Event handlers
   const eventHandlers = EditorView.domEventHandlers({
     mousemove(event, view) {
+      // Only show clickable when Ctrl/Cmd is held
+      const isModifierKey = event.ctrlKey || event.metaKey;
+
       // Get position under cursor
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
 
@@ -230,8 +233,8 @@ export function gotoDefinitionExtension(config: GotoDefinitionConfig): Extension
       const symbol = extractSymbolAtPosition(view, pos);
       const currentSymbol = view.state.field(hoverSymbolState);
 
-      if (!symbol) {
-        // Not over a symbol
+      if (!symbol || !isModifierKey) {
+        // Not over a symbol or modifier key not held
         if (hoverTimer) {
           clearTimeout(hoverTimer);
           hoverTimer = null;
@@ -252,7 +255,7 @@ export function gotoDefinitionExtension(config: GotoDefinitionConfig): Extension
         return false;
       }
 
-      // New symbol - update decoration immediately
+      // New symbol - update decoration immediately (only when modifier key is held)
       view.dispatch({ effects: setHoverSymbol.of(symbol) });
 
       // Hide previous preview
