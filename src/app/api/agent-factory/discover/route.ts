@@ -4,7 +4,7 @@ import { readdir, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { getClaudeHomeDir } from '@/lib/agent-factory-dir';
+import { getGlobalClaudeDir } from '@/lib/agent-factory-dir';
 
 interface DiscoverResult {
   discovered: Array<{
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const discovered: DiscoverResult['discovered'] = [];
-    const claudeHomeDir = getClaudeHomeDir();
+    const claudeHomeDir = getGlobalClaudeDir();
 
     // Scan from home directory for component directories
     await scanDirectoryForComponents(homedir(), claudeHomeDir, discovered);

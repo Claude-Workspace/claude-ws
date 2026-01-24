@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { getClaudeHomeDir } from '@/lib/agent-factory-dir';
+import { getGlobalClaudeDir } from '@/lib/agent-factory-dir';
 
 interface CommandInfo {
   name: string;
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const projectPath = searchParams.get('projectPath');
 
-    const claudeHomeDir = getClaudeHomeDir();
+    const claudeHomeDir = getGlobalClaudeDir();
 
     // Scan commands directory
     const commandsDir = join(homedir(), '.claude', 'commands');
