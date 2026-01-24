@@ -129,6 +129,8 @@ export function ConversationView({
   // Track if user is manually scrolling (to pause auto-scroll)
   const userScrollingRef = useRef(false);
   const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track last prompt to detect new prompt submission
+  const lastPromptRef = useRef<string | undefined>(currentPrompt);
 
   // Check if user is near bottom of scroll area (within threshold)
   const isNearBottom = () => {
@@ -180,7 +182,14 @@ export function ConversationView({
 
       if (detachedContainer) {
         // In detached mode, scroll the detached container
+        const beforeScroll = detachedContainer.scrollTop;
         detachedContainer.scrollTop = detachedContainer.scrollHeight;
+        console.log('[scrollToBottomWithRetry] detached mode', {
+          beforeScroll,
+          afterScroll: detachedContainer.scrollTop,
+          scrollHeight: detachedContainer.scrollHeight,
+          remaining: remainingAttempts,
+        });
         requestAnimationFrame(() => {
           const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10;
           if (!isAtBottom && remainingAttempts > 0) {
@@ -191,7 +200,15 @@ export function ConversationView({
         // Normal mode, scroll the ScrollArea viewport
         const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
         if (viewport && viewport.scrollHeight > 0) {
+          const beforeScroll = viewport.scrollTop;
           viewport.scrollTop = viewport.scrollHeight;
+          console.log('[scrollToBottomWithRetry] normal mode', {
+            beforeScroll,
+            afterScroll: viewport.scrollTop,
+            scrollHeight: viewport.scrollHeight,
+            clientHeight: viewport.clientHeight,
+            remaining: remainingAttempts,
+          });
           requestAnimationFrame(() => {
             const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
             if (!isAtBottom && remainingAttempts > 0) {
@@ -200,6 +217,7 @@ export function ConversationView({
           });
         } else if (remainingAttempts > 0) {
           // Viewport not ready, retry
+          console.log('[scrollToBottomWithRetry] viewport not ready, retrying...', remainingAttempts);
           setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
         }
       }
@@ -242,13 +260,96 @@ export function ConversationView({
       // New attempt started - scroll to bottom to show the new user prompt
       // Reset user scrolling flag so auto-scroll works during streaming
       userScrollingRef.current = false;
-      scrollToBottomWithRetry(3);
+
+      // Use multiple delayed attempts to ensure DOM is fully rendered
+      setTimeout(() => {
+        scrollToBottomWithRetry(3);
+      }, 50);
+
+      setTimeout(() => {
+        scrollToBottomWithRetry(3);
+      }, 150);
+
+      setTimeout(() => {
+        scrollToBottomWithRetry(3);
+      }, 300);
     } else if (lastIsRunning && !isRunning) {
       // Attempt finished - refresh history
       setTimeout(() => loadHistory(), 500);
     }
     setLastIsRunning(isRunning);
   }, [isRunning, lastIsRunning]);
+
+  // Use MutationObserver to detect content changes and scroll to bottom
+  // This is more reliable than timing-based approaches
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const getScrollContainer = () => {
+      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+      if (detachedContainer) return detachedContainer;
+      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+    };
+
+    const container = getScrollContainer();
+    const contentContainer = scrollAreaRef.current;
+
+    if (!container || !contentContainer) return;
+
+    const observer = new MutationObserver(() => {
+      // Only scroll if user is not manually scrolling
+      if (!userScrollingRef.current) {
+        // Small delay to let DOM settle
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      }
+    });
+
+    observer.observe(contentContainer, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => observer.disconnect();
+  }, [isRunning]);
+
+  // Scroll to bottom when new prompt is submitted (currentPrompt changes to a new value)
+  useEffect(() => {
+    // Detect when prompt changes to a new non-empty value (indicating new user input)
+    const promptChanged = currentPrompt && currentPrompt !== lastPromptRef.current;
+
+    if (promptChanged) {
+      // New prompt submitted - force scroll to bottom after DOM updates
+      userScrollingRef.current = false;
+
+      console.log('[ConversationView] Prompt changed, scheduling scroll...', {
+        newPrompt: currentPrompt?.substring(0, 50),
+        oldPrompt: lastPromptRef.current?.substring(0, 50),
+      });
+
+      // Use multiple delayed attempts to ensure DOM is fully rendered
+      // First attempt after a short delay
+      setTimeout(() => {
+        console.log('[ConversationView] Scroll attempt 1 (50ms)');
+        scrollToBottomWithRetry(3);
+      }, 50);
+
+      // Second attempt after content should be rendered
+      setTimeout(() => {
+        console.log('[ConversationView] Scroll attempt 2 (150ms)');
+        scrollToBottomWithRetry(3);
+      }, 150);
+
+      // Third attempt as a safety net
+      setTimeout(() => {
+        console.log('[ConversationView] Scroll attempt 3 (300ms)');
+        scrollToBottomWithRetry(3);
+      }, 300);
+    }
+    lastPromptRef.current = currentPrompt;
+  }, [currentPrompt]);
 
   // Detect user scroll to pause auto-scroll
   useEffect(() => {

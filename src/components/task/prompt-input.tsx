@@ -28,6 +28,7 @@ interface PromptInputProps {
   placeholder?: string;
   className?: string;
   taskId?: string;
+  projectPath?: string;  // Project path for loading project-level commands/skills
   hideSendButton?: boolean;
   disableSubmitShortcut?: boolean;
   hideStats?: boolean;
@@ -44,6 +45,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   placeholder = 'Describe what you want Claude to do...',
   className,
   taskId,
+  projectPath,
   hideSendButton = false,
   disableSubmitShortcut = false,
   hideStats = false,
@@ -225,8 +227,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     return () => clearInterval(interval);
   }, [taskId]);
 
-  // Check for rewind prompt in localStorage and pre-fill input
-  useEffect(() => {
+  // Helper to check and apply rewind prompt from localStorage
+  const applyRewindPrompt = useCallback(() => {
     if (!taskId) return;
 
     const storageKey = `rewind-prompt-${taskId}`;
@@ -244,7 +246,23 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
         textareaRef.current?.select();
       }, 100);
     }
-  }, [taskId]);
+  }, [taskId, updatePrompt]);
+
+  // Check for rewind prompt on mount and taskId change
+  useEffect(() => {
+    applyRewindPrompt();
+  }, [taskId, applyRewindPrompt]);
+
+  // Listen for rewind-complete event to re-check localStorage
+  useEffect(() => {
+    const handleRewindComplete = () => {
+      // Small delay to ensure localStorage is updated
+      setTimeout(applyRewindPrompt, 50);
+    };
+
+    window.addEventListener('rewind-complete', handleRewindComplete);
+    return () => window.removeEventListener('rewind-complete', handleRewindComplete);
+  }, [applyRewindPrompt]);
 
   const handleFilesSelected = async (files: File[]) => {
     if (!taskId) return;
@@ -500,6 +518,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
             onSelect={handleCommandSelect}
             onClose={handleCommandClose}
             filter={commandFilter}
+            projectPath={projectPath}
           />
 
           {/* File Mention Dropdown */}

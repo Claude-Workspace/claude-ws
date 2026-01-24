@@ -233,6 +233,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
               hideSendButton
               hideStats
               taskId={tempTaskId}
+              projectPath={projects.find(p => p.id === selectedProjectId)?.path}
               minRows={2}
               maxRows={4}
             />

@@ -132,7 +132,7 @@ function scanSkillsDir(dir: string): CommandInfo[] {
 }
 
 // GET /api/commands - List available Claude commands (flat list)
-// Query params: projectPath - optional project path to scan for project-level skills
+// Query params: projectPath - optional project path to scan for project-level commands/skills
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -140,13 +140,34 @@ export async function GET(request: Request) {
 
     const claudeHomeDir = getGlobalClaudeDir();
 
-    // Scan commands directory
-    const commandsDir = join(homedir(), '.claude', 'commands');
-    const userCommands = scanCommandsDir(commandsDir);
+    // Scan commands directories (global + project-level)
+    const commandsDirs = [
+      join(homedir(), '.claude', 'commands'),  // ~/.claude/commands/ (global)
+    ];
 
-    // Scan skills directories (user-level)
+    // Add project-level commands if projectPath provided
+    if (projectPath) {
+      commandsDirs.push(join(projectPath, '.claude', 'commands')); // {project}/.claude/commands/
+    }
+
+    const userCommands: CommandInfo[] = [];
+    for (const commandsDir of commandsDirs) {
+      const dirCommands = scanCommandsDir(commandsDir);
+      // Avoid duplicates by name (project-level takes precedence if added last)
+      for (const cmd of dirCommands) {
+        const existingIndex = userCommands.findIndex(c => c.name === cmd.name);
+        if (existingIndex >= 0) {
+          // Replace with newer (project-level)
+          userCommands[existingIndex] = cmd;
+        } else {
+          userCommands.push(cmd);
+        }
+      }
+    }
+
+    // Scan skills directories (global + project-level)
     const skillsDirs = [
-      join(claudeHomeDir, 'skills'),           // ~/.claude/skills/
+      join(claudeHomeDir, 'skills'),                  // ~/.claude/skills/
       join(claudeHomeDir, 'agent-factory', 'skills'), // ~/.claude/agent-factory/skills/
     ];
 

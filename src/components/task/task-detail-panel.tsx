@@ -42,7 +42,7 @@ const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'can
 
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
-  const { activeProjectId, selectedProjectIds } = useProjectStore();
+  const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
   const [conversationKey, setConversationKey] = useState(0);
@@ -200,8 +200,26 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     }, 100);
   }, [selectedTask?.id]);
 
-  // Get current project ID and check for shells
-  const currentProjectId = activeProjectId || selectedProjectIds[0];
+  // Listen for rewind-complete event to soft refresh conversation
+  useEffect(() => {
+    const handleRewindComplete = () => {
+      // Increment key to force ConversationView re-mount and reload history
+      setConversationKey(prev => prev + 1);
+      // Focus on input after rewind
+      setTimeout(() => {
+        promptInputRef.current?.focus();
+      }, 100);
+    };
+
+    window.addEventListener('rewind-complete', handleRewindComplete);
+    return () => window.removeEventListener('rewind-complete', handleRewindComplete);
+  }, []);
+
+  // Get current project ID and path for commands/skills loading
+  const currentProjectId = activeProjectId || selectedProjectIds[0] || selectedTask?.projectId;
+  const currentProjectPath = currentProjectId
+    ? projects.find(p => p.id === currentProjectId)?.path
+    : undefined;
   const hasShells = currentProjectId
     ? Array.from(shells.values()).some((s) => s.projectId === currentProjectId)
     : false;
@@ -315,6 +333,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               onCancel={cancelAttempt}
               disabled={isRunning}
               taskId={selectedTask.id}
+              projectPath={currentProjectPath}
               initialValue={!hasSentFirstMessage && !selectedTask.chatInit && !pendingAutoStartTask && selectedTask.description ? selectedTask.description : undefined}
             />
             <InteractiveCommandOverlay />

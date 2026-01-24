@@ -19,6 +19,7 @@ interface CommandSelectorProps {
   onClose: () => void;
   filter?: string;
   className?: string;
+  projectPath?: string;  // Explicit project path (takes priority over store)
 }
 
 // Helper to highlight matched text
@@ -46,6 +47,7 @@ export function CommandSelector({
   onClose,
   filter = '',
   className,
+  projectPath: explicitProjectPath,
 }: CommandSelectorProps) {
   const [commands, setCommands] = useState<CommandInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,14 +55,15 @@ export function CommandSelector({
   const listRef = useRef<HTMLDivElement>(null);
   const { getActiveProject } = useProjectStore();
 
-  // Fetch commands (including project-level skills)
+  // Fetch commands (including project-level commands/skills)
   useEffect(() => {
     async function fetchCommands() {
       try {
-        const activeProject = getActiveProject();
+        // Use explicit projectPath if provided, fallback to active project from store
+        const projectPath = explicitProjectPath || getActiveProject()?.path;
         const params = new URLSearchParams();
-        if (activeProject?.path) {
-          params.set('projectPath', activeProject.path);
+        if (projectPath) {
+          params.set('projectPath', projectPath);
         }
         const url = `/api/commands${params.toString() ? `?${params.toString()}` : ''}`;
         const res = await fetch(url);
@@ -79,7 +82,7 @@ export function CommandSelector({
       setLoading(true); // Reset loading state when reopening
       fetchCommands();
     }
-  }, [isOpen, getActiveProject]);
+  }, [isOpen, explicitProjectPath, getActiveProject]);
 
   // Filter and sort commands based on input
   const filteredCommands = useMemo(() => {

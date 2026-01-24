@@ -105,9 +105,9 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
         localStorage.setItem(`rewind-prompt-${data.taskId}`, data.attemptPrompt);
       }
 
-      // Success - close and refresh
+      // Success - close overlay and soft refresh conversation (no hard reload)
       closeCommand();
-      window.location.reload();
+      window.dispatchEvent(new CustomEvent('rewind-complete'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rewind');
     } finally {
