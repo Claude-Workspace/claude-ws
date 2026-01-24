@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { readdirSync, readFileSync, statSync } from 'fs';
+import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { getClaudeHomeDir } from '@/lib/agent-factory-dir';
 
 interface CommandInfo {
   name: string;
@@ -36,18 +37,21 @@ const BUILTIN_COMMANDS: CommandInfo[] = [
 ];
 
 // Parse frontmatter from markdown file
-function parseFrontmatter(content: string): { description?: string; argumentHint?: string } {
+function parseFrontmatter(content: string): { description?: string; argumentHint?: string; name?: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return {};
 
   const frontmatter = match[1];
-  const result: { description?: string; argumentHint?: string } = {};
+  const result: { description?: string; argumentHint?: string; name?: string } = {};
 
   const descMatch = frontmatter.match(/description:\s*(.+)/);
-  if (descMatch) result.description = descMatch[1].trim();
+  if (descMatch) result.description = descMatch[1].trim().replace(/^["']|["']$/g, '');
 
   const argMatch = frontmatter.match(/argument-hint:\s*(.+)/);
-  if (argMatch) result.argumentHint = argMatch[1].trim();
+  if (argMatch) result.argumentHint = argMatch[1].trim().replace(/^["']|["']$/g, '');
+
+  const nameMatch = frontmatter.match(/name:\s*(.+)/);
+  if (nameMatch) result.name = nameMatch[1].trim().replace(/^["']|["']$/g, '');
 
   return result;
 }
@@ -88,14 +92,86 @@ function scanCommandsDir(dir: string, prefix: string = ''): CommandInfo[] {
   return commands;
 }
 
-// GET /api/commands - List available Claude commands (flat list)
-export async function GET() {
+// Scan skills directory for SKILL.md files
+function scanSkillsDir(dir: string): CommandInfo[] {
+  const skills: CommandInfo[] = [];
+
   try {
+    if (!existsSync(dir)) return skills;
+
+    const items = readdirSync(dir);
+
+    for (const item of items) {
+      const itemPath = join(dir, item);
+      const stat = statSync(itemPath);
+
+      if (stat.isDirectory()) {
+        // Check for SKILL.md in this directory
+        const skillFile = join(itemPath, 'SKILL.md');
+        if (existsSync(skillFile)) {
+          const content = readFileSync(skillFile, 'utf-8');
+          const { description, argumentHint, name } = parseFrontmatter(content);
+
+          skills.push({
+            name: name || item,
+            description: description || `Run /${item} skill`,
+            argumentHint,
+          });
+        } else {
+          // Recursively scan subdirectory
+          const subSkills = scanSkillsDir(itemPath);
+          skills.push(...subSkills);
+        }
+      }
+    }
+  } catch {
+    // Directory doesn't exist or can't be read
+  }
+
+  return skills;
+}
+
+// GET /api/commands - List available Claude commands (flat list)
+// Query params: projectPath - optional project path to scan for project-level skills
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const projectPath = searchParams.get('projectPath');
+
+    const claudeHomeDir = getClaudeHomeDir();
+
+    // Scan commands directory
     const commandsDir = join(homedir(), '.claude', 'commands');
     const userCommands = scanCommandsDir(commandsDir);
 
-    // Combine built-in and user commands
-    const commands = [...BUILTIN_COMMANDS, ...userCommands];
+    // Scan skills directories (user-level)
+    const skillsDirs = [
+      join(claudeHomeDir, 'skills'),           // ~/.claude/skills/
+      join(claudeHomeDir, 'agent-factory', 'skills'), // ~/.claude/agent-factory/skills/
+    ];
+
+    // Add project-level skills if projectPath provided
+    if (projectPath) {
+      skillsDirs.push(join(projectPath, '.claude', 'skills')); // {project}/.claude/skills/
+    }
+
+    const skills: CommandInfo[] = [];
+    for (const skillsDir of skillsDirs) {
+      const dirSkills = scanSkillsDir(skillsDir);
+      // Avoid duplicates by name (project-level takes precedence if added last)
+      for (const skill of dirSkills) {
+        const existingIndex = skills.findIndex(s => s.name === skill.name);
+        if (existingIndex >= 0) {
+          // Replace with newer (project-level)
+          skills[existingIndex] = skill;
+        } else {
+          skills.push(skill);
+        }
+      }
+    }
+
+    // Combine built-in commands, user commands, and skills
+    const commands = [...BUILTIN_COMMANDS, ...userCommands, ...skills];
 
     // Sort by name
     commands.sort((a, b) => a.name.localeCompare(b.name));

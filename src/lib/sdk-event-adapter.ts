@@ -9,12 +9,19 @@ import type { ClaudeOutput, ClaudeContentBlock, ClaudeOutputType } from '@/types
 
 // SDK message types (from @anthropic-ai/claude-agent-sdk)
 // These are the actual types emitted by the SDK query() iterator
+export interface MCPServerStatus {
+  name: string;
+  status: 'connected' | 'failed' | 'connecting';
+  error?: string;
+  tools?: string[];
+}
+
 export interface SDKSystemMessage {
   type: 'system';
   subtype: 'init' | string;
   session_id?: string;
   tools?: unknown[];
-  mcp_servers?: unknown[];
+  mcp_servers?: MCPServerStatus[];
 }
 
 export interface SDKAssistantMessage {
@@ -309,6 +316,19 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
       // Extract session ID from init message
       if (sys.subtype === 'init' && sys.session_id) {
         result.sessionId = sys.session_id;
+      }
+      // Log MCP server connection status
+      if (sys.subtype === 'init' && sys.mcp_servers && sys.mcp_servers.length > 0) {
+        console.log(`[SDK Adapter] MCP servers status:`);
+        for (const server of sys.mcp_servers) {
+          if (server.status === 'connected') {
+            console.log(`  ✓ ${server.name}: connected (${server.tools?.length || 0} tools)`);
+          } else if (server.status === 'failed') {
+            console.error(`  ✗ ${server.name}: failed - ${server.error || 'Unknown error'}`);
+          } else {
+            console.log(`  ○ ${server.name}: ${server.status}`);
+          }
+        }
       }
       break;
     }

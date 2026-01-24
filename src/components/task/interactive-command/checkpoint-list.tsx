@@ -79,18 +79,31 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
 
       // Show success message with details
       const hasFileRewind = data.sdkRewind?.success;
-      toast.success(
-        hasFileRewind
-          ? `Rewound conversation & files to checkpoint`
-          : `Rewound conversation to checkpoint`,
-        {
-          description: hasFileRewind
-            ? `Files restored via SDK checkpointing`
-            : selectedCheckpoint?.gitCommitHash
-              ? 'File rewind failed, conversation only'
-              : 'No file checkpoint for this attempt'
-        }
-      );
+      const fileRewindError = data.sdkRewind?.error;
+
+      // Determine toast type and message based on result
+      if (hasFileRewind) {
+        toast.success('Rewound conversation & files to checkpoint', {
+          description: 'Files restored via SDK checkpointing'
+        });
+      } else if (selectedCheckpoint?.gitCommitHash && fileRewindError) {
+        // File checkpoint exists but rewind failed
+        toast.warning('Rewound conversation only', {
+          description: fileRewindError,
+          duration: 6000, // Show longer for error details
+        });
+      } else {
+        toast.success('Rewound conversation to checkpoint', {
+          description: selectedCheckpoint?.gitCommitHash
+            ? 'File rewind unavailable'
+            : 'No file checkpoint for this attempt'
+        });
+      }
+
+      // Store the prompt in localStorage so it can be pre-filled after reload
+      if (data.attemptPrompt && data.taskId) {
+        localStorage.setItem(`rewind-prompt-${data.taskId}`, data.attemptPrompt);
+      }
 
       // Success - close and refresh
       closeCommand();

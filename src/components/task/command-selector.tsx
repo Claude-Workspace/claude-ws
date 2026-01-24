@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProjectStore } from '@/stores/project-store';
 
 interface CommandInfo {
   name: string;
@@ -50,12 +51,19 @@ export function CommandSelector({
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const { getActiveProject } = useProjectStore();
 
-  // Fetch commands
+  // Fetch commands (including project-level skills)
   useEffect(() => {
     async function fetchCommands() {
       try {
-        const res = await fetch('/api/commands');
+        const activeProject = getActiveProject();
+        const params = new URLSearchParams();
+        if (activeProject?.path) {
+          params.set('projectPath', activeProject.path);
+        }
+        const url = `/api/commands${params.toString() ? `?${params.toString()}` : ''}`;
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setCommands(data);
@@ -68,9 +76,10 @@ export function CommandSelector({
     }
 
     if (isOpen) {
+      setLoading(true); // Reset loading state when reopening
       fetchCommands();
     }
-  }, [isOpen]);
+  }, [isOpen, getActiveProject]);
 
   // Filter and sort commands based on input
   const filteredCommands = useMemo(() => {

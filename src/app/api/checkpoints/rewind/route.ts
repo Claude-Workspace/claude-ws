@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { db, schema } from '@/lib/db';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, gte } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
 import { sessionManager } from '@/lib/session-manager';
+
+// Ensure file checkpointing is enabled (in case API route runs in separate process)
+process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
 
 // POST /api/checkpoints/rewind
 // Body: { checkpointId: string, rewindFiles?: boolean }
@@ -32,6 +35,11 @@ export async function POST(request: Request) {
       where: eq(schema.tasks.id, checkpoint.taskId),
     });
 
+    // Get the attempt to retrieve its prompt for pre-filling input after rewind
+    const attempt = await db.query.attempts.findFirst({
+      where: eq(schema.attempts.id, checkpoint.attemptId),
+    });
+
     let sdkRewindResult: { success: boolean; error?: string } | null = null;
 
     // Rewind files using SDK if requested and checkpoint UUID exists
@@ -43,26 +51,44 @@ export async function POST(request: Request) {
 
       if (project) {
         try {
+          console.log(`[Rewind] Attempting SDK file rewind for project: ${project.path}`);
+          console.log(`[Rewind] Session: ${checkpoint.sessionId}, Message UUID: ${checkpoint.gitCommitHash}`);
+
           // Get checkpointing options
           const checkpointOptions = checkpointManager.getCheckpointingOptions();
 
-          // Resume the session with empty prompt to rewind files
+          // Resume the session WITHOUT resumeSessionAt - let rewindFiles handle positioning
+          // resumeSessionAt can interfere with file checkpoint access
           const rewindQuery = query({
-            prompt: '', // Empty prompt to open connection
+            prompt: '', // Empty prompt - just need to open session for rewind
             options: {
               cwd: project.path,
-              resume: checkpoint.sessionId,
+              resume: checkpoint.sessionId, // Only resume session, don't position
               ...checkpointOptions,
             },
           });
 
-          // Call rewindFiles with checkpoint UUID
-          // We need to iterate to open the connection first
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          for await (const _msg of rewindQuery) {
-            await rewindQuery.rewindFiles(checkpoint.gitCommitHash);
-            break;
+          // Wait for SDK initialization before calling rewindFiles
+          // supportedCommands() awaits the initialization promise internally
+          await rewindQuery.supportedCommands();
+
+          // List available checkpoints first for debugging
+          const checkpointsList = await rewindQuery.listCheckpoints?.();
+          console.log(`[Rewind] Available checkpoints:`, checkpointsList || 'listCheckpoints not available');
+
+          // Call rewindFiles with the message UUID
+          const rewindResult = await rewindQuery.rewindFiles(checkpoint.gitCommitHash);
+
+          if (!rewindResult.canRewind) {
+            // Provide more context about why rewind might fail
+            const baseError = rewindResult.error || 'Cannot rewind files';
+            const contextualError = baseError.includes('No file checkpoint')
+              ? `${baseError}. Note: SDK only tracks files within the project directory (${project.path}). Files created at absolute paths outside this directory are not tracked.`
+              : baseError;
+            throw new Error(contextualError);
           }
+
+          console.log(`[Rewind] Files changed: ${rewindResult.filesChanged?.length || 0}, +${rewindResult.insertions || 0} -${rewindResult.deletions || 0}`);
 
           sdkRewindResult = { success: true };
           console.log(`[Rewind] SDK rewind successful for checkpoint ${checkpointId}`);
@@ -75,26 +101,42 @@ export async function POST(request: Request) {
       }
     }
 
-    // Get all attempts after this checkpoint for the same task
+    // Get the checkpoint's own attempt + all attempts after this checkpoint
+    // When rewinding to a checkpoint, we DELETE that attempt so user can re-run it
+    // This is the expected UX: "rewind to X" means go back BEFORE X happened
     const laterAttempts = await db.query.attempts.findMany({
       where: and(
         eq(schema.attempts.taskId, checkpoint.taskId),
-        gt(schema.attempts.createdAt, checkpoint.createdAt)
+        gte(schema.attempts.createdAt, checkpoint.createdAt)
       ),
     });
 
-    // Delete later attempts (cascades to logs and checkpoints)
-    for (const attempt of laterAttempts) {
-      await db.delete(schema.attempts).where(eq(schema.attempts.id, attempt.id));
+    // Also ensure we include the checkpoint's own attempt (in case timing differs)
+    const attemptIdsToDelete = new Set(laterAttempts.map(a => a.id));
+    attemptIdsToDelete.add(checkpoint.attemptId);
+
+    console.log(`[Rewind] Found ${attemptIdsToDelete.size} attempts to delete (checkpoint's attempt + later ones)`);
+
+    // Delete attempts and their logs
+    for (const attemptId of attemptIdsToDelete) {
+      console.log(`[Rewind] Deleting attempt ${attemptId} and its logs`);
+      // Explicitly delete logs first (in case CASCADE doesn't work)
+      await db.delete(schema.attemptLogs).where(eq(schema.attemptLogs.attemptId, attemptId));
+      // Delete attempt files
+      await db.delete(schema.attemptFiles).where(eq(schema.attemptFiles.attemptId, attemptId));
+      // Delete the attempt
+      await db.delete(schema.attempts).where(eq(schema.attempts.id, attemptId));
     }
 
-    // Delete checkpoints after this one (same task)
-    await db.delete(schema.checkpoints).where(
+    // Delete this checkpoint and all after it (same task)
+    const deletedCheckpoints = await db.delete(schema.checkpoints).where(
       and(
         eq(schema.checkpoints.taskId, checkpoint.taskId),
-        gt(schema.checkpoints.createdAt, checkpoint.createdAt)
+        gte(schema.checkpoints.createdAt, checkpoint.createdAt)
       )
-    );
+    ).returning();
+
+    console.log(`[Rewind] Deleted ${deletedCheckpoints.length} checkpoints (this one + later ones)`);
 
     // Set rewind state on task so next attempt resumes at this checkpoint's message
     // This ensures conversation context is rewound to checkpoint point
@@ -113,6 +155,7 @@ export async function POST(request: Request) {
       messageUuid: checkpoint.gitCommitHash,
       taskId: checkpoint.taskId,
       attemptId: checkpoint.attemptId,
+      attemptPrompt: attempt?.prompt || null, // Include prompt for pre-filling input
       sdkRewind: sdkRewindResult,
       conversationRewound: !!checkpoint.gitCommitHash,
     });

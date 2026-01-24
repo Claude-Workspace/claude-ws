@@ -209,7 +209,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a project..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]" position="popper" side="bottom">
                   {availableProjects.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}

@@ -235,9 +235,16 @@ export function ConversationView({
     }
   }, [taskId, isLoading]);
 
-  // Refresh history when an attempt finishes
+  // Scroll to bottom when a new attempt starts (isRunning: false → true)
+  // And refresh history when an attempt finishes (isRunning: true → false)
   useEffect(() => {
-    if (lastIsRunning && !isRunning) {
+    if (!lastIsRunning && isRunning) {
+      // New attempt started - scroll to bottom to show the new user prompt
+      // Reset user scrolling flag so auto-scroll works during streaming
+      userScrollingRef.current = false;
+      scrollToBottomWithRetry(3);
+    } else if (lastIsRunning && !isRunning) {
+      // Attempt finished - refresh history
       setTimeout(() => loadHistory(), 500);
     }
     setLastIsRunning(isRunning);

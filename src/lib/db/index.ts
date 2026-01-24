@@ -30,6 +30,9 @@ const sqlite = new Database(DB_PATH);
 // Enable WAL mode for better concurrency
 sqlite.pragma('journal_mode = WAL');
 
+// Enable foreign key constraints (required for CASCADE deletes to work)
+sqlite.pragma('foreign_keys = ON');
+
 // Create Drizzle ORM instance
 export const db = drizzle(sqlite, { schema });
 

@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "directus": {
+      "command": "npx",
+      "args": ["-y", "@directus/mcp-server-directus"],
+      "env": {
+        "DIRECTUS_URL": "${DIRECTUS_URL}",
+        "DIRECTUS_TOKEN": "${DIRECTUS_TOKEN}"
+      }
+    },
+    "directus-http": {
+      "type": "http",
+      "url": "https://your-directus.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${DIRECTUS_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "${DATABASE_URL}"
+      }
+    }
+  }
+}

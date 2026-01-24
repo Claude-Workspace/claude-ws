@@ -225,6 +225,27 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     return () => clearInterval(interval);
   }, [taskId]);
 
+  // Check for rewind prompt in localStorage and pre-fill input
+  useEffect(() => {
+    if (!taskId) return;
+
+    const storageKey = `rewind-prompt-${taskId}`;
+    const rewindPrompt = localStorage.getItem(storageKey);
+
+    if (rewindPrompt) {
+      // Pre-fill the input with the rewind prompt
+      updatePrompt(rewindPrompt);
+      // Clear the stored prompt so it doesn't persist
+      localStorage.removeItem(storageKey);
+      // Focus the textarea
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        // Select all text so user can easily modify or replace
+        textareaRef.current?.select();
+      }, 100);
+    }
+  }, [taskId]);
+
   const handleFilesSelected = async (files: File[]) => {
     if (!taskId) return;
     try {
@@ -507,7 +528,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 placeholder={placeholder}
                 disabled={disabled}
                 rows={minRows}
-                className="resize-none w-full min-w-0 break-words overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                className="resize-none w-full min-w-0 max-w-full break-words break-all overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:break-word]"
                 style={{
                   fontSize: '14px',
                   // Only use fieldSizing when minRows is 1 (auto-sizing from 1 row)

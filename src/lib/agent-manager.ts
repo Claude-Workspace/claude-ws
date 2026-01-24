@@ -5,7 +5,13 @@
  * Provides streaming output, file checkpointing, and session management.
  */
 
+// Ensure file checkpointing is always enabled
+process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
+
 import { EventEmitter } from 'events';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeOutput } from '@/types';
 import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo, type SDKResultMessage } from './sdk-event-adapter';
@@ -14,6 +20,171 @@ import { checkpointManager } from './checkpoint-manager';
 import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
+
+// MCP Server configuration types matching SDK's McpServerConfig union
+interface MCPStdioServerConfig {
+  type?: 'stdio';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+interface MCPHttpServerConfig {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+interface MCPSSEServerConfig {
+  type: 'sse';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig | MCPSSEServerConfig;
+
+interface MCPConfig {
+  mcpServers?: Record<string, MCPServerConfig>;
+}
+
+/**
+ * Load a single .mcp.json file and parse it
+ */
+function loadSingleMCPConfig(configPath: string): Record<string, MCPServerConfig> | null {
+  if (!existsSync(configPath)) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    let config = JSON.parse(content) as MCPConfig;
+
+    // Support both formats:
+    // 1. { "mcpServers": { "name": {...} } }  - standard format
+    // 2. { "name": {...} }                    - flat format (servers at root)
+    if (!config.mcpServers) {
+      const keys = Object.keys(config);
+      const looksLikeServers = keys.some(key => {
+        const val = (config as Record<string, unknown>)[key];
+        return val && typeof val === 'object' && (
+          'command' in val || 'url' in val || 'type' in val
+        );
+      });
+
+      if (looksLikeServers) {
+        config = { mcpServers: config as unknown as Record<string, MCPServerConfig> };
+      }
+    }
+
+    return config.mcpServers || null;
+  } catch (error) {
+    console.warn(`[AgentManager] Failed to parse ${configPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Interpolate environment variables in MCP server config
+ */
+function interpolateEnvVars(servers: Record<string, MCPServerConfig>): void {
+  for (const [, serverConfig] of Object.entries(servers)) {
+    // Interpolate env vars for stdio servers
+    if ('env' in serverConfig && serverConfig.env) {
+      for (const [key, value] of Object.entries(serverConfig.env)) {
+        if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
+          const envVar = value.slice(2, -1);
+          serverConfig.env[key] = process.env[envVar] || '';
+        }
+      }
+    }
+    // Interpolate env vars for HTTP/SSE headers
+    if ('headers' in serverConfig && serverConfig.headers) {
+      for (const [key, value] of Object.entries(serverConfig.headers)) {
+        if (typeof value === 'string' && value.includes('${')) {
+          serverConfig.headers[key] = value.replace(/\$\{([^}]+)\}/g, (_, envVar) => process.env[envVar] || '');
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Load MCP configuration from multiple sources (merged)
+ * Priority: project-file > cli-project > cli-global
+ *
+ * Locations checked (in order):
+ * 1. ~/.claude.json → mcpServers (global)
+ * 2. ~/.claude.json → projects[projectPath].mcpServers (per-project, CLI style)
+ * 3. {projectPath}/.mcp.json (project file)
+ */
+function loadMCPConfig(projectPath: string): MCPConfig | null {
+  const claudeConfigPath = join(homedir(), '.claude.json');
+  const projectConfigPath = join(projectPath, '.mcp.json');
+
+  let userServers: Record<string, MCPServerConfig> | null = null;
+
+  // Load from ~/.claude.json (both global and per-project)
+  if (existsSync(claudeConfigPath)) {
+    try {
+      const content = readFileSync(claudeConfigPath, 'utf-8');
+      const config = JSON.parse(content);
+
+      // 1. Global mcpServers at root level
+      if (config.mcpServers && typeof config.mcpServers === 'object' && Object.keys(config.mcpServers).length > 0) {
+        userServers = config.mcpServers as Record<string, MCPServerConfig>;
+        console.log(`[AgentManager] Loaded global MCP config from ${claudeConfigPath}:`, Object.keys(userServers || {}));
+      }
+
+      // 2. Per-project mcpServers (CLI style) - overrides global
+      if (config.projects && config.projects[projectPath]?.mcpServers) {
+        const projectServers = config.projects[projectPath].mcpServers as Record<string, MCPServerConfig>;
+        if (Object.keys(projectServers).length > 0) {
+          userServers = { ...(userServers || {}), ...projectServers };
+          console.log(`[AgentManager] Loaded CLI project MCP config for ${projectPath}:`, Object.keys(projectServers));
+        }
+      }
+    } catch (error) {
+      console.warn(`[AgentManager] Failed to parse ${claudeConfigPath}:`, error);
+    }
+  }
+
+  // Load project config (overrides user)
+  const projectServers = loadSingleMCPConfig(projectConfigPath);
+  if (projectServers) {
+    console.log(`[AgentManager] Loaded project MCP config from ${projectConfigPath}:`, Object.keys(projectServers));
+  }
+
+  // Merge: project overrides user
+  const mergedServers: Record<string, MCPServerConfig> = {
+    ...(userServers || {}),
+    ...(projectServers || {}),
+  };
+
+  if (Object.keys(mergedServers).length === 0) {
+    console.log(`[AgentManager] No MCP servers found in user or project config`);
+    return null;
+  }
+
+  // Interpolate environment variables
+  interpolateEnvVars(mergedServers);
+
+  // Log merged servers
+  console.log(`[AgentManager] Merged MCP servers:`, Object.keys(mergedServers));
+  for (const [name, cfg] of Object.entries(mergedServers)) {
+    const serverType = cfg.type || 'stdio';
+    const endpoint = 'url' in cfg ? cfg.url : ('command' in cfg ? cfg.command : 'unknown');
+    console.log(`[AgentManager]   - ${name}: ${serverType} ${endpoint}`);
+  }
+
+  return { mcpServers: mergedServers };
+}
+
+/**
+ * Generate allowed MCP tools wildcards from server names
+ */
+function getMCPToolWildcards(mcpServers: Record<string, MCPServerConfig>): string[] {
+  return Object.keys(mcpServers).map(serverName => `mcp__${serverName}__*`);
+}
 
 // Default model for agent queries
 export const DEFAULT_MODEL = 'opus' as const;
@@ -85,9 +256,6 @@ class AgentManager extends EventEmitter {
     if (this.agents.has(attemptId)) {
       return;
     }
-
-    // Build prompt with file references and task-aware system prompt
-    const isResume = !!(sessionOptions?.resume || sessionOptions?.resumeSessionAt);
 
     // Use DATA_DIR environment variable for output files (writes to ${DATA_DIR}/tmp/{attemptId}.{ext})
     // Falls back to tmp/{attemptId} if DATA_DIR not set
@@ -195,12 +363,40 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     const { attemptId, controller } = instance;
 
     try {
+      // Load MCP configuration from project's .mcp.json
+      const mcpConfig = loadMCPConfig(projectPath);
+      const mcpToolWildcards = mcpConfig?.mcpServers
+        ? getMCPToolWildcards(mcpConfig.mcpServers)
+        : [];
+
+      // Debug: Log MCP config being passed to SDK
+      if (mcpConfig?.mcpServers) {
+        console.log(`[AgentManager] Passing MCP servers to SDK:`, JSON.stringify(mcpConfig.mcpServers, null, 2));
+        console.log(`[AgentManager] MCP tool wildcards:`, mcpToolWildcards);
+      } else {
+        console.log(`[AgentManager] No MCP config found at ${projectPath}/.mcp.json`);
+      }
+
       // Configure SDK query options
       // resumeSessionAt: resume conversation at specific message UUID (for rewind)
       const queryOptions = {
         cwd: projectPath,
         model: DEFAULT_MODEL, // 'opus' - proxy API will handle mapping
         permissionMode: 'bypassPermissions' as const,
+        // Enable skill loading from filesystem (~/.claude/skills/ and .claude/skills/)
+        settingSources: ['user', 'project'] as ('user' | 'project')[],
+        // MCP servers configuration (loaded from .mcp.json)
+        ...(mcpConfig?.mcpServers ? { mcpServers: mcpConfig.mcpServers } : {}),
+        // Enable Skill tool for skill invocation + MCP tool wildcards
+        allowedTools: [
+          'Skill',           // Required for skill invocation
+          'Task',            // Subagent workflows
+          'Read', 'Write', 'Edit', 'NotebookEdit',
+          'Bash', 'Grep', 'Glob',
+          'WebFetch', 'WebSearch',
+          'TodoWrite', 'AskUserQuestion',
+          ...mcpToolWildcards, // MCP server tool wildcards (e.g., mcp__github__*)
+        ],
         ...(sessionOptions?.resume ? { resume: sessionOptions.resume } : {}),
         ...(sessionOptions?.resumeSessionAt ? { resumeSessionAt: sessionOptions.resumeSessionAt } : {}),
         ...checkpointOptions,

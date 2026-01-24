@@ -1,10 +1,13 @@
 /**
- * Optimized Engineering System Prompt
- * Design: Front-load critical rules, concrete examples, task-aware guidance
+ * Minimal System Prompt - Only project-specific rules
+ * SDK already provides: Tools, Skills, MCP, Agents documentation
  */
 export const ENGINEERING_SYSTEM_PROMPT = `
-You are an expert software engineer with Tools, Agents, Skills, and Plugins.
+## BACKGROUND SERVERS
 
+When starting servers (dev, directus, strapi, etc.), MUST use this pattern:
+\`\`\`bash
+nohup <cmd> > /tmp/<name>.log 2>&1 & echo "BGPID:$!"
 ## CRITICAL RULES
 1. **READ BEFORE EDIT** - Never modify unread code
 2. **VERIFY AFTER CHANGE** - Run build/tests after changes
@@ -21,42 +24,17 @@ You are an expert software engineer with Tools, Agents, Skills, and Plugins.
 
 ## DECISION FLOW
 \`\`\`
-Simple file op? → Tool (Glob/Grep/Read/Edit)
-Run command? → Tool (Bash)
-Workflow pattern? → Skill (commit→git:cm, test→test, fix→fix)
-Complex/multi-step? → Agent (>10 files, research, test+fix cycles)
-External service? → Plugin (MCP tools)
+
+Without BGPID echo, UI cannot track/kill the process.
+
+Example:
+\`\`\`bash
+lsof -ti :8055 | xargs kill -9 2>/dev/null; sleep 1 && nohup npx directus start > /tmp/directus.log 2>&1 & echo "BGPID:$!"
 \`\`\`
-
-## WORKFLOWS
-
-**Bug Fix:** Grep error → Read → Find ROOT CAUSE → Edit → Test
-**Feature:** Glob patterns → Read similar code → Follow conventions → Implement → Test
-**Refactor:** Read → Grep usages → Small edits → Test EACH change
-
-## AVOID
-- Edit without Read
-- Write when Edit works
-- Delegate simple tasks to Agent
-- Repeat failing approach (try different strategy)
-- Over-engineer (no unnecessary abstractions/comments)
-- Verbose output ("Let me...", "I'll now...") - just do it
-
-## OUTPUT STYLE
-Good: "Fixed null check in auth.ts:42. Tests pass."
-Bad: "Let me search the codebase to understand..."
-
-## CONTEXT
-- >10 files → delegate to Agent
-- Stuck >3 attempts → different approach or ask user
-- Use parallel Task calls for independent work
-
-## CODE STANDARDS
-- Files: kebab-case, <200 lines
-- Follow existing codebase patterns
 `.trim();
 
 /**
+ * Detect if task involves starting a server
  * Task-specific prompt additions
  */
 const TASK_HINTS: Record<string, string> = {
@@ -80,34 +58,9 @@ Without BGPID echo, we cannot track/kill the process in UI.`,
 /**
  * Detect task type from prompt content
  */
-function detectTaskType(prompt: string): string | null {
+function isServerTask(prompt: string): boolean {
   const lower = prompt.toLowerCase();
-
-  // Order matters - more specific patterns first
-  // Server/run commands should use run_in_background
-  if (/run.*(start|dev|server)|start.*(directus|strapi|server)|npm run (dev|start)|npx.*(start|dev)/.test(lower)) return 'server';
-  if (/fix|bug|error|broken|issue|crash|fail|wrong/.test(lower)) return 'fix';
-  if (/debug|trace|investigate|why does|why is/.test(lower)) return 'debug';
-  if (/refactor|clean|improve code|reorganize/.test(lower)) return 'refactor';
-  if (/setup|install|configure|init|bootstrap/.test(lower)) return 'setup';
-  if (/what|where|how|explain|find|show me/.test(lower)) return 'question';
-  if (/add|create|implement|build|new/.test(lower)) return 'feature';
-
-  return null;
-}
-
-/**
- * Generate context-aware hints based on conversation state
- */
-function getContextHints(isResume: boolean, attemptCount: number): string {
-  const hints: string[] = [];
-  if (isResume) {
-    hints.push(`\n## RESUME\nReview previous work. If failed, try DIFFERENT approach.`);
-  }
-  if (attemptCount > 2) {
-    hints.push(`\n## ${attemptCount} ATTEMPTS\nWrong approach? Missing deps? Ask user? Try different strategy.`);
-  }
-  return hints.join('');
+  return /run.*(start|dev|server)|start.*(directus|strapi|server)|npm run (dev|start)|npx.*(start|dev)/.test(lower);
 }
 
 export interface SystemPromptOptions {
@@ -122,10 +75,8 @@ export interface SystemPromptOptions {
 }
 
 /**
- * Get optimized system prompt based on task context
- *
- * @param options - Configuration options for prompt generation
- * @returns Task-aware system prompt
+ * Get system prompt - only includes BGPID rule for server tasks
+ * SDK handles all other documentation (Tools, Skills, MCP, etc.)
  */
 export function getSystemPrompt(options: SystemPromptOptions | string = {}): string {
   // Support legacy string parameter (projectPath only)
@@ -134,6 +85,10 @@ export function getSystemPrompt(options: SystemPromptOptions | string = {}): str
   }
 
   const { prompt, isResume = false, attemptCount = 1, outputFormat, outputSchema, attemptId, outputFilePath } = options;
+  
+  // Only include BGPID instructions for server-related tasks
+  if (prompt && isServerTask(prompt)) {
+    return ENGINEERING_SYSTEM_PROMPT;
 
   // Base prompt is always included
   let finalPrompt = ENGINEERING_SYSTEM_PROMPT;
@@ -158,7 +113,8 @@ export function getSystemPrompt(options: SystemPromptOptions | string = {}): str
     finalPrompt += '\n' + contextHints;
   }
 
-  return finalPrompt;
+  // For non-server tasks, SDK provides all needed context
+  return '';
 }
 
 /**
