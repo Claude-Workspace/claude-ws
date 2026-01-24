@@ -101,6 +101,22 @@ export function useAttemptStream(
       }
     });
 
+    // Handle attempt started event (from REST API or WebSocket)
+    // Auto-subscribe if we're viewing this task
+    socketInstance.on('attempt:started', (data: { attemptId: string; taskId: string }) => {
+      console.log('[useAttemptStream] Received attempt:started', { attemptId: data.attemptId, taskId: data.taskId, currentTaskId: taskId });
+      // Only subscribe if this attempt is for the current task we're viewing
+      if (data.taskId === taskId) {
+        console.log('[useAttemptStream] Auto-subscribing to attempt', data.attemptId);
+        currentTaskIdRef.current = data.taskId;
+        currentAttemptIdRef.current = data.attemptId; // CRITICAL: Sync ref BEFORE state for immediate filtering
+        setCurrentAttemptId(data.attemptId);
+        setIsRunning(true);
+        addRunningTask(data.taskId);
+        socketInstance.emit('attempt:subscribe', { attemptId: data.attemptId });
+      }
+    });
+
     // Message handling - SDK streams both deltas and complete messages
     socketInstance.on('output:json', (data: { attemptId: string; data: ClaudeOutput }) => {
       const { attemptId, data: output } = data;

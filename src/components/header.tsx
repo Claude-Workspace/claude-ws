@@ -29,15 +29,20 @@ interface HeaderProps {
   onCreateTask: () => void;
   onOpenSettings: () => void;
   onAddProject: () => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export function Header({ onCreateTask, onOpenSettings, onAddProject }: HeaderProps) {
+export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery: externalSearchQuery = '', onSearchChange }: HeaderProps) {
   const { tasks } = useTaskStore();
   const { isOpen: sidebarOpen, toggleSidebar } = useSidebarStore();
   const { isOpen: rightSidebarOpen, toggleRightSidebar } = useRightSidebarStore();
   const { shells } = useShellStore();
   const { activeProjectId, selectedProjectIds } = useProjectStore();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const setSearchQuery = onSearchChange || setInternalSearchQuery;
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -97,6 +102,8 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject }: HeaderPro
               type="search"
               placeholder="Search tasks..."
               className="pl-8 h-9 w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
               <span className="text-xs">⌘</span>K
@@ -213,6 +220,8 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject }: HeaderPro
               type="search"
               placeholder="Search tasks..."
               className="pl-8 h-9 w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
             />
           </div>

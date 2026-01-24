@@ -1,0 +1,4330 @@
+openapi: 3.0.3
+info:
+  title: Claude.WS API
+  description: |
+    Complete API documentation for Claude.WS including Projects, Tasks, Attempts, Checkpoints, Git operations, Files, Search, Uploads, Authentication, Commands, Language, Shells, and Agent Factory.
+
+    **Note:** The default server port is **33333** (not 3000). Set `API_BASE` environment variable to override.
+  version: 0.1.25
+  contact:
+    name: Claude.WS
+    url: https://github.com/Claude-Workspace/claude-ws
+  license:
+    name: MIT
+    url: https://github.com/Claude-Workspace/claude-ws/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:33333
+    description: Local development server (default port 33333)
+  - url: http://{server}
+    description: Custom HTTP server address
+    variables:
+      server:
+        default: "localhost:33333"
+        description: Full server address (e.g., localhost:33333, 192.168.1.100:33333)
+  - url: https://{server}
+    description: Custom HTTPS server address
+    variables:
+      server:
+        default: "domain.com"
+        description: Production HTTPS server address (e.g., localhost:8443, domain.com:8443)
+tags:
+  - name: Attempts
+    description: Task attempt management
+  - name: Checkpoints
+    description: Conversation checkpoint operations
+  - name: Commands
+    description: Claude Code slash commands
+  - name: Files
+    description: File system operations
+  - name: Git
+    description: Git repository operations
+  - name: Projects
+    description: Project management
+  - name: Search
+    description: Search operations
+  - name: Tasks
+    description: Task management
+  - name: Uploads
+    description: File upload management
+  - name: Code
+    description: Code editing operations
+  - name: Language
+    description: Language service operations
+  - name: Auth
+    description: Authentication and authorization
+  - name: Shells
+    description: Shell process tracking
+  - name: Agent Factory
+    description: Plugin and agent management
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/attempts:
+    post:
+      tags:
+        - Attempts
+      summary: Create attempt
+      description: |
+        Create a new attempt and start agent execution. Supports both queue mode (returns immediately) and sync mode (waits for completion).
+
+        Can optionally create project and task if they don't exist (when force_create=true).
+
+        **Output Format:**
+        When `output_format` is specified, the agent will write results to a file at `{DATA_DIR}/tmp/{attemptId}.{ext}`.
+        The agent is instructed to:
+        1. Write generated content directly to the file (not wrapped in metadata)
+        2. Validate the file by reading it back after writing
+        3. Follow the format specification provided in `output_schema` (if provided)
+
+        Supported formats include: json, yaml, xml, html, md, csv, tsv, txt, css, js, pdf, xlsx, docx, pptx, zip, and more.
+        Any file extension can be used - the SDK agent understands common format conventions.
+      operationId: createAttempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+                - prompt
+              properties:
+                taskId:
+                  type: string
+                  description: Task ID to create attempt for
+                prompt:
+                  type: string
+                  description: User prompt/message
+                force_create:
+                  type: boolean
+                  description: "Create task/project if they don't exist (default: false)"
+                  default: false
+                projectId:
+                  type: string
+                  description: "Project ID (required if force_create=true and task doesn't exist)"
+                projectName:
+                  type: string
+                  description: Project name (required if creating new project)
+                taskTitle:
+                  type: string
+                  description: Task title (required if creating new task)
+                projectRootPath:
+                  type: string
+                  description: Root path for project creation
+                request_method:
+                  type: string
+                  enum: [queue, sync]
+                  description: "Queue mode: return immediately (default). Sync mode: wait for completion."
+                  default: queue
+                output_format:
+                  type: string
+                  description: |
+                    File extension for output format (e.g., json, xml, html, md, csv, tsv, txt, yaml, pdf, xlsx, docx, pptx, zip).
+                    The agent will write results to `{DATA_DIR}/tmp/{attemptId}.{output_format}`.
+                    Any file extension is supported - the SDK agent understands common format conventions.
+                  examples:
+                    - json
+                    - xml
+                    - html
+                    - md
+                    - csv
+                    - yaml
+                    - pdf
+                    - xlsx
+                output_schema:
+                  type: string
+                  description: |
+                    Format specification for the output (not a JSON schema).
+                    Provides structure guidance to the agent (e.g., "name,age,email" for CSV, or XML element structure).
+                    This is included in the instructions sent to the agent.
+                  example: "<users><user name=\"...\" email=\"...\"/></users>"
+                timeout:
+                  type: integer
+                  description: "Timeout in milliseconds for sync mode (default: 300000)"
+                  default: 300000
+      responses:
+        "201":
+          description: Attempt created successfully (queue mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Attempt ID
+                  taskId:
+                    type: string
+                    description: Task ID
+                  prompt:
+                    type: string
+                    description: User prompt
+                  status:
+                    type: string
+                    enum: [running, completed, failed, cancelled]
+                    description: Attempt status
+                  createdAt:
+                    type: integer
+                    description: Creation timestamp
+        "200":
+          description: Attempt completed successfully (sync mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Formatted output based on output_format parameter
+        "400":
+          description: Bad request (missing required fields, invalid parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "408":
+          description: Attempt timed out (sync mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                  attemptId:
+                    type: string
+                    description: Attempt ID for polling results
+                  retryUrl:
+                    type: string
+                    description: URL to fetch attempt results
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/attempts/{id}:
+    get:
+      tags:
+        - Attempts
+      summary: Get attempt
+      description: |
+        Get a single attempt with its logs.
+
+        **Output Format Mode**: When `?output_format=true` query parameter is present and the attempt has an `outputFormat` set, returns the generated output file with appropriate Content-Type header.
+
+        The output file is located at `{DATA_DIR}/tmp/{attemptId}.{outputFormat}` where `outputFormat` is the file extension (e.g., json, xml, html, md, csv, pdf, xlsx, etc.).
+
+        **Default Mode**: Without `?output_format`, returns the attempt data as JSON with logs.
+      operationId: getAttempt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Attempt ID
+          schema:
+            type: string
+        - name: output_format
+          in: query
+          required: false
+          description: |
+            Flag to retrieve the generated output file. When present (value=true), returns the file content directly
+            with appropriate Content-Type header instead of JSON response.
+
+            The file location is `{DATA_DIR}/tmp/{attemptId}.{ext}` where `ext` is the outputFormat specified during attempt creation.
+
+            Supports any file extension with proper MIME type mapping:
+            - Data: json, xml, yaml, csv, tsv, txt
+            - Web: html, css, js, md
+            - Office: xlsx, docx, pptx, xls, doc, ppt
+            - Archives: zip, rar, 7z, tar, gz
+            - Images: png, jpg, jpeg, gif, svg, webp, ico
+            - Video: mp4, webm, avi, mov
+            - Audio: mp3, wav, ogg
+            - Other: pdf, exe, dll
+          schema:
+            type: boolean
+            example: true
+      responses:
+        "200":
+          description: |
+            - **Default mode**: Attempt retrieved successfully as JSON
+            - **Output format mode**: Formatted output file with appropriate content-type
+          content:
+            application/json:
+              description: Default response (without ?output_format)
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  taskId:
+                    type: string
+                  displayPrompt:
+                    type: string
+                  prompt:
+                    type: string
+                  status:
+                    type: string
+                    enum: ["running", "success", "error", "cancelled"]
+                  outputFormat:
+                    type: string
+                    enum: ["json", "html", "markdown", "yaml", "raw", "custom"]
+                  outputSchema:
+                    type: object
+                  createdAt:
+                    type: integer
+                  completedAt:
+                    type: integer
+                    nullable: true
+                  logs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        attemptId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          type: string
+                        createdAt:
+                          type: integer
+            text/html:
+              description: HTML formatted output (with ?output_format when outputFormat=html)
+              schema:
+                type: string
+                example: "<!DOCTYPE html>...</html>"
+            text/markdown:
+              description: Markdown formatted output (with ?output_format when outputFormat=markdown)
+              schema:
+                type: string
+                example: "# Summary\n\n..."
+            text/yaml:
+              description: YAML formatted output (with ?output_format when outputFormat=yaml)
+              schema:
+                type: string
+                example: "summary: ...\nfiles_changed:\n  - ..."
+            text/plain:
+              description: Plain text formatted output (with ?output_format when outputFormat=raw)
+              schema:
+                type: string
+                example: "Summary: ...\n\nFiles Changed:\n- ..."
+        "404":
+          description: Attempt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/attempts/{id}/status:
+    get:
+      tags:
+        - Attempts
+      summary: Get attempt status
+      description: Lightweight endpoint to get only the status of an attempt
+      operationId: getAttemptStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Attempt ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [running, completed, failed, cancelled]
+        "404":
+          description: Attempt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/checkpoints:
+    get:
+      tags:
+        - Checkpoints
+      summary: List checkpoints by task
+      description: Retrieve checkpoints for a specific task, ordered by creation date (newest first)
+      operationId: listCheckpoints
+      parameters:
+        - name: taskId
+          in: query
+          required: true
+          description: Task ID to filter checkpoints
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Checkpoints retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Checkpoint ID
+                    taskId:
+                      type: string
+                      description: Task this checkpoint belongs to
+                    attemptId:
+                      type: string
+                      description: Attempt that created this checkpoint
+                    sessionId:
+                      type: string
+                      description: Session ID for resuming
+                    gitCommitHash:
+                      type: string
+                      description: SDK checkpoint UUID for file rewind
+                    messageCount:
+                      type: integer
+                      description: Number of messages at checkpoint
+                    summary:
+                      type: string
+                      description: Checkpoint summary
+                    createdAt:
+                      type: integer
+                      description: Checkpoint creation timestamp
+                    attempt:
+                      type: object
+                      properties:
+                        displayPrompt:
+                          type: string
+                        prompt:
+                          type: string
+        "400":
+          description: Bad request (taskId required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/checkpoints/rewind:
+    post:
+      tags:
+        - Checkpoints
+      summary: Rewind to checkpoint
+      description: |
+        Rewind a task to a previous checkpoint. This operation:
+        1. Optionally rewinds files using SDK checkpoint (if rewindFiles=true)
+        2. Deletes all attempts, logs, and checkpoints after this point
+        3. Sets rewind state on the task for conversation context recovery
+
+        **Note:** gitCommitHash field stores SDK checkpoint UUID for file operations
+      operationId: rewindCheckpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - checkpointId
+              properties:
+                checkpointId:
+                  type: string
+                  description: Checkpoint ID to rewind to
+                rewindFiles:
+                  type: boolean
+                  description: "Whether to rewind files using SDK (default: true)"
+                  default: true
+      responses:
+        "200":
+          description: Rewind completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  sessionId:
+                    type: string
+                    description: Session ID to resume from
+                  messageUuid:
+                    type: string
+                    description: Message UUID for conversation context
+                  taskId:
+                    type: string
+                    description: Task ID
+                  attemptId:
+                    type: string
+                    description: Attempt ID that created the checkpoint
+                  sdkRewind:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      error:
+                        type: string
+                    description: SDK file rewind result
+                  conversationRewound:
+                    type: boolean
+                    description: Whether conversation context was rewound
+        "400":
+          description: Bad request (checkpointId required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Checkpoint not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/checkpoints/backfill:
+    post:
+      tags:
+        - Checkpoints
+      summary: Backfill checkpoints
+      description: "Creates checkpoints for existing completed attempts that don't have one"
+      operationId: backfillCheckpoints
+      responses:
+        "200":
+          description: Checkpoints backfilled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  created:
+                    type: integer
+                    description: Number of checkpoints created
+                  skipped:
+                    type: integer
+                    description: Number of attempts skipped
+                  total:
+                    type: integer
+                    description: Total completed attempts processed
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/commands:
+    get:
+      tags:
+        - Commands
+      summary: List available commands
+      description: "Get a list of all available Claude Code slash commands (built-in and user-defined)"
+      operationId: listCommands
+      responses:
+        "200":
+          description: Commands retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommandInfo'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/commands/{name}:
+    get:
+      tags:
+        - Commands
+      summary: Get command content
+      description: Get the content and metadata of a specific command
+      operationId: getCommand
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Command name
+          schema:
+            type: string
+        - name: subcommand
+          in: query
+          description: "Subcommand name (if command is a group)"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandDetail'
+        "404":
+          description: Command not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Commands
+      summary: Process command with arguments
+      description: Process a command by replacing $ARGUMENTS placeholder with actual arguments
+      operationId: processCommand
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Command name
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: string
+                  description: Arguments to substitute for $ARGUMENTS placeholder
+                subcommand:
+                  type: string
+                  description: "Subcommand name (if command is a group)"
+      responses:
+        "200":
+          description: Command processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandDetail'
+        "404":
+          description: Command not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/files:
+    get:
+      tags:
+        - Files
+      summary: List directory tree
+      description: Get a recursive file tree for a directory with git status
+      operationId: listFiles
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Base directory path
+          schema:
+            type: string
+        - name: depth
+          in: query
+          description: "Maximum depth to traverse (default: 10)"
+          schema:
+            type: integer
+            default: 10
+        - name: showHidden
+          in: query
+          description: "Show hidden files (default: true)"
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: File tree retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileEntry'
+                  basePath:
+                    type: string
+        "400":
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Path does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/files/search:
+    get:
+      tags:
+        - Files
+      summary: Search files by name
+      description: Search for files by name with fuzzy matching
+      operationId: searchFiles
+      parameters:
+        - name: basePath
+          in: query
+          required: true
+          description: Base directory path
+          schema:
+            type: string
+        - name: query
+          in: query
+          required: true
+          description: Search query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: "Maximum results (default: 10)"
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+        "400":
+          description: Missing basePath
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/discard:
+    post:
+      tags:
+        - Git
+      summary: Discard changes
+      description: Discard file changes or all changes
+      operationId: discardChanges
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+                files:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of file paths to discard
+                all:
+                  type: boolean
+                  description: Discard all changes
+      responses:
+        "200":
+          description: Changes discarded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: Invalid file path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/diff:
+    get:
+      tags:
+        - Git
+      summary: Get git diff
+      description: Get diff output with addition/deletion counts
+      operationId: getGitDiff
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Path to the git repository
+          schema:
+            type: string
+        - name: file
+          in: query
+          description: Specific file to get diff for
+          schema:
+            type: string
+        - name: staged
+          in: query
+          description: Get staged changes instead of unstaged
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Diff retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitDiff'
+        "400":
+          description: Invalid request or not a git repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: Invalid file path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "504":
+          description: Git command timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/fetch:
+    post:
+      tags:
+        - Git
+      summary: Fetch from remote
+      description: Fetch changes from all remotes
+      operationId: fetchGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Fetch successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: Invalid project path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Fetch failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/log:
+    get:
+      tags:
+        - Git
+      summary: Get git log
+      description: Get commit history with branch information
+      operationId: getGitLog
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Path to the git repository
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: "Maximum number of commits (default: 50)"
+          schema:
+            type: integer
+            default: 50
+        - name: filter
+          in: query
+          description: "Filter: 'current' for HEAD only, 'all' for all branches"
+          schema:
+            type: string
+            enum: [current, all]
+            default: current
+      responses:
+        "200":
+          description: Commit history retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GitCommit'
+                  head:
+                    type: string
+                    description: Current HEAD commit hash
+        "400":
+          description: Invalid path or not a git repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/pull:
+    post:
+      tags:
+        - Git
+      summary: Pull from remote
+      description: Pull changes from remote with rebase
+      operationId: pullGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Pull successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: No upstream branch configured or invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Merge conflict detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Pull failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/stage:
+    post:
+      tags:
+        - Git
+      summary: Stage files
+      description: "Stage file(s) for commit"
+      operationId: stageFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+                files:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of file paths to stage
+                all:
+                  type: boolean
+                  description: Stage all changes
+      responses:
+        "200":
+          description: Files staged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: Invalid file path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Git
+      summary: Unstage files
+      description: "Unstage file(s) from commit"
+      operationId: unstageFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+                files:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of file paths to unstage
+                all:
+                  type: boolean
+                  description: Unstage all changes
+      responses:
+        "200":
+          description: Files unstaged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/status:
+    get:
+      tags:
+        - Git
+      summary: Get git status
+      description: Get repository status including staged, unstaged, and untracked files
+      operationId: getGitStatus
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Path to the git repository
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Git status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitStatus'
+        "400":
+          description: Invalid path or not a git repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "504":
+          description: Git command timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: List all projects
+      description: Retrieve a list of all projects ordered by creation date (newest first)
+      operationId: listProjects
+      responses:
+        "200":
+          description: List of projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Unique project identifier
+                    name:
+                      type: string
+                      description: Project name
+                    path:
+                      type: string
+                      description: Project file system path
+                    createdAt:
+                      type: integer
+                      description: Project creation timestamp
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Projects
+      summary: Create project
+      description: Create a new project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - path
+              properties:
+                name:
+                  type: string
+                  description: Project name
+                path:
+                  type: string
+                  description: Project file system path
+      responses:
+        "201":
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Project with this path already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Get project
+      description: Get a single project by ID
+      operationId: getProject
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Projects
+      summary: Update project
+      description: Update project name or path
+      operationId: updateProject
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New project name
+                path:
+                  type: string
+                  description: New project path
+      responses:
+        "200":
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "400":
+          description: At least one field required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Project with this path already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Projects
+      summary: Delete project
+      description: Delete a project by ID
+      operationId: deleteProject
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects/{id}/settings:
+    get:
+      tags:
+        - Projects
+      summary: Get project settings
+      description: Fetch project settings from .claude/project-settings.json
+      operationId: getProjectSettings
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    $ref: '#/components/schemas/ProjectSettings'
+        "401":
+          description: Unauthorized - Invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Project or settings not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Projects
+      summary: Update project settings
+      description: Update project settings in .claude/project-settings.json
+      operationId: updateProjectSettings
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - settings
+              properties:
+                settings:
+                  $ref: '#/components/schemas/ProjectSettings'
+      responses:
+        "200":
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    $ref: '#/components/schemas/ProjectSettings'
+        "401":
+          description: Unauthorized - Invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "400":
+          description: Missing settings in request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/search/content:
+    get:
+      tags:
+        - Search
+      summary: Search file contents
+      description: Grep-like content search in files
+      operationId: searchContent
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query
+          schema:
+            type: string
+        - name: basePath
+          in: query
+          required: true
+          description: Project root path
+          schema:
+            type: string
+        - name: caseSensitive
+          in: query
+          description: "Case sensitive search (default: false)"
+          schema:
+            type: boolean
+        - name: regex
+          in: query
+          description: "Use regex pattern (default: false)"
+          schema:
+            type: boolean
+        - name: wholeWord
+          in: query
+          description: "Match whole words only (default: false)"
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          description: "Max results per file (default: 100)"
+          schema:
+            type: integer
+            default: 100
+        - name: maxFiles
+          in: query
+          description: "Max files to return (default: 50)"
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContentSearchResult'
+                  totalMatches:
+                    type: integer
+                  filesSearched:
+                    type: integer
+                  query:
+                    type: string
+        "400":
+          description: Missing parameters or invalid regex
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Search
+      summary: Search file contents
+      description: Grep-like content search in files
+      operationId: searchContentPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - basePath
+              properties:
+                query:
+                  type: string
+                  description: Search term
+                basePath:
+                  type: string
+                  description: Project root path
+                limit:
+                  type: integer
+                  description: "Max results (default: 50)"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    file:
+                      type: string
+                    matches:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          lineNumber:
+                            type: integer
+                          line:
+                            type: string
+                          column:
+                            type: integer
+                          matchLength:
+                            type: integer
+        "400":
+          description: Missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/search/files:
+    get:
+      tags:
+        - Search
+      summary: Fuzzy search files
+      description: Fuzzy search for files by name
+      operationId: fuzzySearchFiles
+      parameters:
+        - name: q
+          in: query
+          description: "Search query (empty returns all files)"
+          schema:
+            type: string
+        - name: basePath
+          in: query
+          required: true
+          description: Project root path
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: "Max results (default: 50)"
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileSearchResult'
+                  total:
+                    type: integer
+                    description: Total matching files
+        "400":
+          description: Missing basePath
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Path does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/shells:
+    get:
+      tags:
+        - Shells
+      summary: List shell processes
+      description: |
+        Retrieve shell processes created during task execution for a project.
+
+        Returns information about all shell commands executed for tasks in the project,
+        including running and completed shells.
+      operationId: listShells
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          description: Project ID to filter shells
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shell processes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    shellId:
+                      type: string
+                      description: Unique shell identifier
+                    projectId:
+                      type: string
+                      description: Project this shell belongs to
+                    attemptId:
+                      type: string
+                      description: Attempt that created this shell (if any)
+                    command:
+                      type: string
+                      description: Shell command that was executed
+                    pid:
+                      type: integer
+                      description: Process ID (0 if not running)
+                    startedAt:
+                      type: integer
+                      description: Shell start timestamp
+                    isRunning:
+                      type: boolean
+                      description: Whether the shell is currently running
+                    exitCode:
+                      type: integer
+                      nullable: true
+                      description: Exit code (null if still running)
+        "400":
+          description: Bad request (projectId required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: List tasks
+      description: |
+        Retrieve tasks with optional filtering.
+
+        **Filtering options:**
+        - No parameters: Returns all tasks across all projects
+        - `projectId`: Returns tasks for a single project
+        - `projectIds`: Returns tasks for multiple projects (comma-separated)
+
+        Results are ordered by status and position.
+      operationId: listTasks
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          description: Filter tasks by a single project ID
+          schema:
+            type: string
+          example: "project-123"
+        - name: projectIds
+          in: query
+          required: false
+          description: Filter tasks by multiple project IDs (comma-separated)
+          schema:
+            type: string
+          example: "project-123,project-456,project-789"
+      responses:
+        "200":
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Unique task identifier
+                    projectId:
+                      type: string
+                      description: Project this task belongs to
+                    title:
+                      type: string
+                      description: Task title
+                    description:
+                      type: string
+                      nullable: true
+                      description: Detailed task description
+                    status:
+                      type: string
+                      enum: ["todo", "in_progress", "in_review", "done", "cancelled"]
+                      description: Current task status
+                    position:
+                      type: integer
+                      description: Position within status column
+                    chatInit:
+                      type: boolean
+                      description: Whether chat initialization is enabled
+                    rewindSessionId:
+                      type: string
+                      nullable: true
+                      description: Session ID to resume from after rewind
+                    rewindMessageUuid:
+                      type: string
+                      nullable: true
+                      description: Message UUID for conversation context rewind
+                    createdAt:
+                      type: integer
+                      description: Task creation timestamp
+                    updatedAt:
+                      type: integer
+                      description: Last update timestamp
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Tasks
+      summary: Create task
+      description: Create a new task in a project
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectId
+                - title
+              properties:
+                projectId:
+                  type: string
+                  description: Project ID to create the task in
+                title:
+                  type: string
+                  description: Task title
+                description:
+                  type: string
+                  description: Detailed task description
+                status:
+                  type: string
+                  enum: ["todo", "in_progress", "in_review", "done", "cancelled"]
+                  description: "Initial task status (default: todo)"
+      responses:
+        "201":
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  projectId:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                  position:
+                    type: integer
+                  createdAt:
+                    type: integer
+                  updatedAt:
+                    type: integer
+        "400":
+          description: Bad request (missing required fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task
+      description: Get a single task by ID
+      operationId: getTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  projectId:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                    enum: ["todo", "in_progress", "in_review", "done", "cancelled"]
+                  position:
+                    type: integer
+                  chatInit:
+                    type: boolean
+                  rewindSessionId:
+                    type: string
+                    nullable: true
+                  rewindMessageUuid:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: integer
+                  updatedAt:
+                    type: integer
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Tasks
+      summary: Update task
+      description: Update a task (all fields optional, at least one required)
+      operationId: updateTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Task title
+                description:
+                  type: string
+                  description: Detailed task description
+                status:
+                  type: string
+                  enum: ["todo", "in_progress", "in_review", "done", "cancelled"]
+                  description: Task status
+                position:
+                  type: integer
+                  description: Position within status column
+                chatInit:
+                  type: boolean
+                  description: Whether chat initialization is enabled
+      responses:
+        "200":
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  projectId:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                  position:
+                    type: integer
+                  chatInit:
+                    type: boolean
+                  createdAt:
+                    type: integer
+                  updatedAt:
+                    type: integer
+        "400":
+          description: Bad request (no fields provided or invalid status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Tasks
+      summary: Partial update task
+      description: Partially update a task (alias for PUT)
+      operationId: patchTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  enum: ["todo", "in_progress", "in_review", "done", "cancelled"]
+                position:
+                  type: integer
+                chatInit:
+                  type: boolean
+      responses:
+        "200":
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Tasks
+      summary: Delete task
+      description: Delete a task by ID
+      operationId: deleteTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{id}/attempts:
+    get:
+      tags:
+        - Tasks
+      summary: List task attempts
+      description: Get all attempts for a specific task
+      operationId: listTaskAttempts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Attempts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attempts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Attempt'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{id}/conversation:
+    get:
+      tags:
+        - Tasks
+      summary: Get task conversation
+      description: Get full conversation history for a task with all attempts
+      operationId: getTaskConversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  turns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationTurn'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/reorder:
+    put:
+      tags:
+        - Tasks
+      summary: Reorder single task
+      description: Update position and status of a single task
+      operationId: reorderTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+                - status
+                - position
+              properties:
+                taskId:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/TaskStatus'
+                position:
+                  type: integer
+      responses:
+        "200":
+          description: Task reordered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid status value or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Tasks
+      summary: Reorder tasks (batch)
+      description: Batch update position and status of multiple tasks
+      operationId: reorderTasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tasks
+              properties:
+                tasks:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - status
+                      - position
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/TaskStatus'
+                      position:
+                        type: integer
+      responses:
+        "200":
+          description: Tasks reordered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  updated:
+                    type: integer
+        "207":
+          description: Multi-status - some tasks failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  details:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/uploads:
+    post:
+      tags:
+        - Uploads
+      summary: Upload files
+      description: "Upload files to temporary storage (max 50MB total)"
+      operationId: uploadFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Files to upload
+      responses:
+        "201":
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UploadedFile'
+        "400":
+          description: No files provided or size limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/uploads/{fileId}:
+    get:
+      tags:
+        - Uploads
+      summary: Serve uploaded file
+      description: Serve a previously uploaded file
+      operationId: serveFile
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          description: "File ID (prefix match)"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File served successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid file ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Uploads
+      summary: Delete temp file
+      description: "Delete a pending (temp) uploaded file"
+      operationId: deleteTempFile
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          description: "File ID (prefix match)"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid file ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Temp file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/code/inline-edit:
+    post:
+      tags:
+        - Code
+      summary: Start inline edit session
+      description: Initiate an inline code editing session with AI
+      operationId: startInlineEdit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+                - basePath
+                - filePath
+                - selectedCode
+                - instruction
+              properties:
+                sessionId:
+                  type: string
+                  description: Socket.io session ID for streaming
+                basePath:
+                  type: string
+                  description: Project root path
+                filePath:
+                  type: string
+                  description: Relative file path
+                language:
+                  type: string
+                  description: Programming language
+                selectedCode:
+                  type: string
+                  description: Code to be edited
+                instruction:
+                  type: string
+                  description: Edit instruction
+                  maxLength: 2000
+                beforeContext:
+                  type: string
+                  description: Code context before selection
+                afterContext:
+                  type: string
+                  description: Code context after selection
+      responses:
+        "200":
+          description: Edit session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Code
+      summary: Cancel inline edit session
+      description: Cancel an active inline edit session
+      operationId: cancelInlineEdit
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Session ID to cancel
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+        "400":
+          description: Missing sessionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/language/definition:
+    get:
+      tags:
+        - Language
+      summary: Get language definition
+      description: Get language definition for code blocks
+      operationId: getLanguageDefinition
+      parameters:
+        - name: language
+          in: query
+          required: true
+          description: Language name (e.g., typescript)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Language definition retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  language:
+                    type: string
+                  extensions:
+                    type: array
+                    items:
+                      type: string
+                  aliases:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: Missing language parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Language
+      summary: Resolve symbol definition
+      description: Resolve symbol definition location for goto-definition functionality
+      operationId: resolveDefinition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - basePath
+                - filePath
+                - symbol
+                - line
+                - column
+              properties:
+                basePath:
+                  type: string
+                  description: Project root path
+                filePath:
+                  type: string
+                  description: Current file path relative to basePath
+                symbol:
+                  type: string
+                  description: Symbol name to lookup
+                line:
+                  type: integer
+                  description: "Line number (1-indexed)"
+                column:
+                  type: integer
+                  description: "Column number (0-indexed)"
+                language:
+                  type: string
+                  description: Optional language hint
+                fileContent:
+                  type: string
+                  description: Optional file content
+      responses:
+        "200":
+          description: Definition resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefinitionResult'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "503":
+          description: Language adapter not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/files/content:
+    post:
+      tags:
+        - Files
+      summary: Get file content
+      description: Read the content of a file
+      operationId: getFileContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Absolute path to the file
+      responses:
+        "200":
+          description: File content retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: File content
+        "400":
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/filesystem:
+    get:
+      tags:
+        - Files
+      summary: List filesystem directories
+      description: Browse any directory on the filesystem (for project selection)
+      operationId: listFilesystem
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: Directory path to browse
+          schema:
+            type: string
+        - name: showHidden
+          in: query
+          required: false
+          description: "Show hidden files (default: false)"
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Directories retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentPath:
+                    type: string
+                  parentPath:
+                    type: string
+                  directories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        path:
+                          type: string
+                        isDirectory:
+                          type: boolean
+                  homePath:
+                    type: string
+        "400":
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/commit:
+    post:
+      tags:
+        - Git
+      summary: Commit changes
+      description: Create a git commit with staged changes
+      operationId: gitCommit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+                - message
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+                message:
+                  type: string
+                  description: Commit message
+      responses:
+        "200":
+          description: Commit created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  hash:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          description: Nothing to commit or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/generate-message:
+    post:
+      tags:
+        - Git
+      summary: Generate commit message (AI)
+      description: Generates a conventional commit message based on staged changes using Claude
+      operationId: generateCommitMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Commit message generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  diff:
+                    type: object
+                    properties:
+                      additions:
+                        type: integer
+                      deletions:
+                        type: integer
+        "400":
+          description: Missing projectPath, invalid path, not a git repository, or no staged files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "401":
+          description: API authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "504":
+          description: Git command timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/git/push:
+    post:
+      tags:
+        - Git
+      summary: Push to remote
+      description: Push changes to remote repository
+      operationId: gitPush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectPath
+              properties:
+                projectPath:
+                  type: string
+                  description: Path to the git repository
+      responses:
+        "200":
+          description: Push successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: No upstream branch or invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Push rejected (pull first)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Push failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{id}/running-attempt:
+    get:
+      tags:
+        - Tasks
+      summary: Get running attempt
+      description: Get the currently running attempt for a task
+      operationId: getRunningAttempt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Running attempt retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+        "404":
+          description: Task not found or no running attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/verify:
+    get:
+      tags:
+        - Auth
+      summary: Check auth status
+      description: Check if authentication is required
+      operationId: checkAuthStatus
+      responses:
+        '200':
+          description: Auth status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authRequired:
+                    type: boolean
+                    example: true
+    post:
+      tags:
+        - Auth
+      summary: Verify API key
+      description: Verify if an API key is valid
+      operationId: verifyApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+                  description: API key to verify
+      responses:
+        '200':
+          description: API key is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  authRequired:
+                    type: boolean
+        '401':
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agent-factory/compare:
+    post:
+      tags:
+        - Agent Factory
+      summary: Compare components
+      description: Compare two agent factory components
+      operationId: compareComponents
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - component1
+                - component2
+              properties:
+                component1:
+                  type: string
+                component2:
+                  type: string
+      responses:
+        '200':
+          description: Comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agent-factory/discover:
+    post:
+      tags:
+        - Agent Factory
+      summary: Discover components
+      description: Scan filesystem for agent factory components (skills, commands, agents)
+      operationId: discoverComponents
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Components discovered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  discovered:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agent-factory/plugins:
+    get:
+      tags:
+        - Agent Factory
+      summary: List plugins
+      description: Get all plugins with optional type filter
+      operationId: listPlugins
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [skill, command, agent, agent_set]
+      responses:
+        '200':
+          description: Plugins retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plugins:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Plugin'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Agent Factory
+      summary: Create plugin
+      description: Create a new plugin
+      operationId: createPlugin
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - name
+              properties:
+                type:
+                  type: string
+                  enum: [skill, command, agent]
+                name:
+                  type: string
+                description:
+                  type: string
+                storageType:
+                  type: string
+                  enum: [local, imported, external]
+                  default: local
+      responses:
+        '201':
+          description: Plugin created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plugin:
+                    $ref: '#/components/schemas/Plugin'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Plugin already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agent-factory/plugins/{id}:
+    get:
+      tags:
+        - Agent Factory
+      summary: Get plugin by ID
+      description: Retrieve a single plugin by its ID
+      operationId: getPlugin
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Plugin ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plugin:
+                    $ref: '#/components/schemas/Plugin'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Agent Factory
+      summary: Update plugin
+      description: Update plugin metadata (all fields optional, at least one required)
+      operationId: updatePlugin
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Plugin ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Plugin name
+                description:
+                  type: string
+                  description: Plugin description
+                sourcePath:
+                  type: string
+                  description: Source file path
+                metadata:
+                  type: object
+                  description: Additional metadata (JSON object)
+      responses:
+        '200':
+          description: Plugin updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plugin:
+                    $ref: '#/components/schemas/Plugin'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Agent Factory
+      summary: Delete plugin
+      description: |
+        Delete a plugin by ID. For local and imported plugins in agent-factory,
+        this will also delete the associated files from disk.
+      operationId: deletePlugin
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Plugin ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agent-factory/plugins/{id}/files:
+    get:
+      tags:
+        - Agent Factory
+      summary: List plugin files
+      description: "List all files in a plugin directory. For skills/agent sets: recursive file tree. For commands/agents: single file."
+      operationId: listPluginFiles
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Plugin ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        path:
+                          type: string
+                        type:
+                          type: string
+                          enum: [file, directory]
+                        children:
+                          type: array
+        '401':
+          description: Unauthorized
+        '404':
+          description: Plugin not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/plugins/{id}/files/{...path}:
+    get:
+      tags:
+        - Agent Factory
+      summary: Get plugin file content
+      description: "Read file content with language detection for syntax highlighting"
+      operationId: getPluginFile
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ...path
+          in: path
+          required: true
+          description: File path within plugin
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  path:
+                    type: string
+                  content:
+                    type: string
+                  language:
+                    type: string
+                  size:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: File not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/plugins/{id}/files/save:
+    put:
+      tags:
+        - Agent Factory
+      summary: Save plugin file
+      description: "Save file content (local plugins only)"
+      operationId: savePluginFile
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filePath
+                - content
+              properties:
+                filePath:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Saved successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: "Only local plugins can be edited"
+        '404':
+          description: Plugin not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/plugins/{id}/dependencies:
+    get:
+      tags:
+        - Agent Factory
+      summary: Get plugin dependencies
+      description: "Extract library and plugin dependencies (cached)"
+      operationId: getPluginDependencies
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: force
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Dependencies extracted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  libraries:
+                    type: array
+                  plugins:
+                    type: array
+                  installScripts:
+                    type: object
+                  dependencyTree:
+                    type: array
+        '401':
+          description: Unauthorized
+        '404':
+          description: Plugin not found
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Agent Factory
+      summary: Re-resolve dependencies
+      description: "Re-extract dependencies, optionally using Claude SDK"
+      operationId: reResolvePluginDependencies
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                useClaude:
+                  type: boolean
+      responses:
+        '200':
+          description: Dependencies re-resolved
+        '401':
+          description: Unauthorized
+        '404':
+          description: Plugin not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/dependencies/{id}/install:
+    post:
+      tags:
+        - Agent Factory
+      summary: Install dependencies
+      description: Install library dependencies for plugin
+      operationId: installPluginDependencies
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Installed successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Plugin not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/import:
+    post:
+      tags:
+        - Agent Factory
+      summary: Import plugin
+      description: "Import external plugin to agent factory directory"
+      operationId: importPlugin
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - name
+                - sourcePath
+              properties:
+                type:
+                  type: string
+                  enum: [skill, command, agent]
+                name:
+                  type: string
+                description:
+                  type: string
+                sourcePath:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Imported successfully
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Source not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/upload:
+    post:
+      tags:
+        - Agent Factory
+      summary: Upload plugin archive
+      description: "Upload and extract zip/tar/tar.gz archive"
+      operationId: uploadPluginArchive
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                confirm:
+                  type: boolean
+      responses:
+        '200':
+          description: Upload successful
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/agent-factory/file-content:
+    post:
+      tags:
+        - Agent Factory
+      summary: Get file content
+      description: "Read file from absolute path with security checks"
+      operationId: getFileContent
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+      responses:
+        '200':
+          description: File content
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: File not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/projects/{projectId}/installed:
+    get:
+      tags:
+        - Agent Factory
+      summary: Get installed plugins
+      description: "List plugins installed in project"
+      operationId: getProjectInstalledPlugins
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Installed plugins
+        '401':
+          description: Unauthorized
+        '404':
+          description: Project not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/projects/{projectId}/sync:
+    post:
+      tags:
+        - Agent Factory
+      summary: Sync plugins to project
+      description: "Sync selected plugins/agent sets to project directory"
+      operationId: syncProjectPlugins
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                componentIds:
+                  type: array
+                  items:
+                    type: string
+                agentSetIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Synced successfully
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Project not found
+        '500':
+          description: Server error
+
+  /api/agent-factory/projects/{projectId}/uninstall:
+    post:
+      tags:
+        - Agent Factory
+      summary: Uninstall plugins
+      description: "Remove plugins from project directory"
+      operationId: uninstallProjectPlugins
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pluginIds
+              properties:
+                pluginIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Uninstalled successfully
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Project not found
+        '500':
+          description: Server error
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (required for Agent Factory and Project Settings endpoints)
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication (for future use)
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, in_review, done, cancelled]
+      description: Status of a task in the Kanban board
+
+    AttemptStatus:
+      type: string
+      enum: [running, completed, failed, cancelled]
+      description: Status of an execution attempt
+
+    CommandInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Command name (can include : for subcommands)"
+        description:
+          type: string
+          description: Command description
+        argumentHint:
+          type: string
+          description: Hint for command arguments
+        isBuiltIn:
+          type: boolean
+          description: Whether this is a built-in command
+        isInteractive:
+          type: boolean
+          description: Whether this command requires interactive mode
+      required:
+        - name
+        - description
+
+    CommandDetail:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        argumentHint:
+          type: string
+        body:
+          type: string
+          description: Command prompt template
+      required:
+        - name
+        - body
+
+    FileEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: File/directory name
+        path:
+          type: string
+          description: Relative path from base
+        type:
+          type: string
+          enum: [file, directory]
+        size:
+          type: integer
+          description: File size in bytes
+        gitStatus:
+          type: string
+          enum: ["M", "A", "D", "R", "U", "?"]
+          description: Git status code
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileEntry'
+          description: "Child entries (for directories)"
+      required:
+        - name
+        - path
+        - type
+
+    SearchResult:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Absolute path
+        name:
+          type: string
+          description: File name
+        type:
+          type: string
+          enum: [file, directory]
+        relativePath:
+          type: string
+          description: Relative path from base
+      required:
+        - path
+        - name
+        - type
+        - relativePath
+
+    GitCommit:
+      type: object
+      properties:
+        hash:
+          type: string
+          description: Full commit hash
+        shortHash:
+          type: string
+          description: Short commit hash
+        message:
+          type: string
+          description: Commit message
+        author:
+          type: string
+          description: Author name
+        date:
+          type: string
+          description: "Relative date (e.g., \"2 days ago\")"
+        parents:
+          type: array
+          items:
+            type: string
+          description: Parent commit hashes
+        refs:
+          type: array
+          items:
+            type: string
+          description: Branch/tag refs
+        isLocal:
+          type: boolean
+          description: "Whether commit is local only (not pushed)"
+        isMerge:
+          type: boolean
+          description: Whether this is a merge commit
+      required:
+        - hash
+        - shortHash
+        - message
+        - author
+        - date
+
+    GitDiff:
+      type: object
+      properties:
+        diff:
+          type: string
+          description: Unified diff output
+        additions:
+          type: integer
+          description: Number of lines added
+        deletions:
+          type: integer
+          description: Number of lines deleted
+      required:
+        - diff
+        - additions
+        - deletions
+
+    GitFileStatus:
+      type: object
+      properties:
+        path:
+          type: string
+          description: File path
+        status:
+          type: string
+          enum: [M, A, D, R, U]
+          description: "Status code (Modified, Added, Deleted, Renamed, Unmerged)"
+        additions:
+          type: integer
+          description: Number of additions
+        deletions:
+          type: integer
+          description: Number of deletions
+      required:
+        - path
+        - status
+
+    GitStatus:
+      type: object
+      properties:
+        branch:
+          type: string
+          description: Current branch name
+        staged:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitFileStatus'
+          description: Staged changes
+        unstaged:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitFileStatus'
+          description: Unstaged changes
+        untracked:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitFileStatus'
+          description: Untracked files
+        ahead:
+          type: integer
+          description: Commits ahead of remote
+        behind:
+          type: integer
+          description: Commits behind remote
+      required:
+        - branch
+        - staged
+        - unstaged
+        - untracked
+        - ahead
+        - behind
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Project ID
+        name:
+          type: string
+          description: Project name
+        path:
+          type: string
+          description: Project path
+        createdAt:
+          type: integer
+          description: Creation timestamp
+        settings:
+          $ref: '#/components/schemas/ProjectSettings'
+      required:
+        - id
+        - name
+        - path
+        - createdAt
+
+    ProjectSettings:
+      type: object
+      properties:
+        selectedPlugins:
+          type: array
+          items:
+            type: string
+          description: Selected plugin IDs
+        selectedAgentSets:
+          type: array
+          items:
+            type: string
+          description: Selected agent set IDs
+
+    Plugin:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique plugin identifier
+        type:
+          type: string
+          enum: [skill, command, agent, agent_set]
+          description: Plugin type
+        name:
+          type: string
+          description: Plugin name
+        description:
+          type: string
+          description: Plugin description
+        sourcePath:
+          type: string
+          description: Source file path
+        storageType:
+          type: string
+          enum: [local, imported, external]
+          description: Storage location type
+        agentSetPath:
+          type: string
+          nullable: true
+          description: Agent set path (if applicable)
+        metadata:
+          type: object
+          description: Additional metadata (JSON object)
+        createdAt:
+          type: integer
+          description: Creation timestamp
+        updatedAt:
+          type: integer
+          description: Last update timestamp
+      required:
+        - id
+        - type
+        - name
+        - storageType
+        - createdAt
+        - updatedAt
+
+    ContentMatch:
+      type: object
+      properties:
+        lineNumber:
+          type: integer
+          description: "Line number (1-indexed)"
+        line:
+          type: string
+          description: Line content
+        column:
+          type: integer
+          description: Column where match starts
+        matchLength:
+          type: integer
+          description: Length of match
+      required:
+        - lineNumber
+        - line
+        - column
+        - matchLength
+
+    ContentSearchResult:
+      type: object
+      properties:
+        file:
+          type: string
+          description: Relative file path
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentMatch'
+          description: Matches in this file
+      required:
+        - file
+        - matches
+
+    FileSearchResult:
+      type: object
+      properties:
+        name:
+          type: string
+          description: File name
+        path:
+          type: string
+          description: Relative file path
+        type:
+          type: string
+          enum: [file, directory]
+        score:
+          type: number
+          description: Match score
+        matches:
+          type: array
+          items:
+            type: integer
+          description: Match positions
+      required:
+        - name
+        - path
+        - type
+        - score
+        - matches
+
+    Attempt:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Attempt ID
+        taskId:
+          type: string
+          description: Parent task ID
+        prompt:
+          type: string
+          description: User prompt
+        status:
+          $ref: '#/components/schemas/AttemptStatus'
+        sessionId:
+          type: string
+          nullable: true
+          description: Claude CLI session ID
+        branch:
+          type: string
+          nullable: true
+          description: Git branch name
+        diffAdditions:
+          type: integer
+          description: Lines added
+        diffDeletions:
+          type: integer
+          description: Lines deleted
+        createdAt:
+          type: integer
+          description: Creation timestamp
+        completedAt:
+          type: integer
+          nullable: true
+          description: Completion timestamp
+      required:
+        - id
+        - taskId
+        - prompt
+        - status
+
+    ConversationTurn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [user, assistant]
+        prompt:
+          type: string
+          description: "User prompt (for user turns)"
+        messages:
+          type: array
+          items:
+            type: object
+          description: "Claude output messages (for assistant turns)"
+        attemptId:
+          type: string
+          description: Associated attempt ID
+        timestamp:
+          type: integer
+          description: Turn timestamp
+        files:
+          type: array
+          items:
+            type: object
+          description: "Attached files (for user turns)"
+      required:
+        - type
+        - attemptId
+        - timestamp
+
+    UploadedFile:
+      type: object
+      properties:
+        tempId:
+          type: string
+          description: Temporary file ID
+        filename:
+          type: string
+          description: Generated filename
+        originalName:
+          type: string
+          description: Original filename
+        mimeType:
+          type: string
+          description: File MIME type
+        size:
+          type: integer
+          description: File size in bytes
+      required:
+        - tempId
+        - filename
+        - originalName
+        - mimeType
+        - size
+
+    DefinitionResult:
+      type: object
+      properties:
+        found:
+          type: boolean
+          description: Whether definition was found
+        definition:
+          type: object
+          properties:
+            filePath:
+              type: string
+              description: File containing definition
+            line:
+              type: integer
+              description: "Line number (1-indexed)"
+            column:
+              type: integer
+              description: "Column number (0-indexed)"
+            symbol:
+              type: string
+              description: Symbol name
+            kind:
+              type: string
+              description: "Symbol kind (function, class, variable, etc.)"
+        preview:
+          type: object
+          properties:
+            content:
+              type: string
+              description: Preview content
+            startLine:
+              type: integer
+              description: Start line of preview
+            endLine:
+              type: integer
+              description: End line of preview
+            language:
+              type: string
+              description: Language for syntax highlighting
+        error:
+          type: string
+          description: Error message if not found
+      required:
+        - found

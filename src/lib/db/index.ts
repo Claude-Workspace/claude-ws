@@ -3,15 +3,25 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
+import { config } from 'dotenv';
 
-// Database file path - stored in project directory for multi-instance support
-const DB_DIR = path.join(process.cwd(), 'data');
+// Load environment variables from .env file (will be loaded automatically by Next.js in production, but we load it here for direct script usage)
+const env = config();
+
+// Database file path - use DATA_DIR from env if configured, otherwise default to project data dir
+const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Ensure data/tmp directory exists for formatted output files
+const tmpDir = path.join(dataDir, 'tmp');
+if (!fs.existsSync(tmpDir)) {
+  fs.mkdirSync(tmpDir, { recursive: true });
 }
 
 // Create SQLite connection
@@ -176,6 +186,19 @@ export function initDb() {
     { name: 'baseline_context', type: 'INTEGER NOT NULL DEFAULT 0' },
   ];
   for (const col of usageColumns) {
+    try {
+      sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
+    } catch {
+      // Column already exists, ignore error
+    }
+  }
+
+  // Migration: Add output_format and output_schema columns for custom output formatting
+  const outputFormatColumns = [
+    { name: 'output_format', type: 'TEXT' },
+    { name: 'output_schema', type: 'TEXT' },
+  ];
+  for (const col of outputFormatColumns) {
     try {
       sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
     } catch {

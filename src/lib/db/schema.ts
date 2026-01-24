@@ -81,6 +81,9 @@ export const attempts = sqliteTable(
       .notNull()
       .$defaultFn(() => Date.now()),
     completedAt: integer('completed_at', { mode: 'number' }),
+    // Output format settings
+    outputFormat: text('output_format'), // 'json' | 'html' | 'markdown' | 'yaml' | 'raw' | 'custom'
+    outputSchema: text('output_schema'), // Natural language instructions for custom format
   },
   (table) => [
     index('idx_attempts_task').on(table.taskId, table.createdAt),

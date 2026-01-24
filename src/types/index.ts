@@ -4,6 +4,26 @@ export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancel
 // Attempt status types
 export type AttemptStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
+// Output format types for API responses
+export type OutputFormat = 'json' | 'html' | 'markdown' | 'yaml' | 'raw' | 'custom';
+
+// Request method types for attempt execution
+export type RequestMethod = 'sync' | 'queue';
+
+// Formatted response interface
+export interface FormattedResponse {
+  formatted_data: string;
+  format: OutputFormat;
+  attempt: {
+    id: string;
+    taskId: string;
+    prompt: string;
+    status: AttemptStatus;
+    createdAt: number;
+    completedAt: number | null;
+  };
+}
+
 // Project settings
 export interface ProjectSettings {
   selectedComponents: string[]; // Component IDs

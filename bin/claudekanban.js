@@ -14,6 +14,9 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 // Get package root directory
 const packageRoot = path.resolve(__dirname, '..');
 
@@ -43,11 +46,11 @@ For more info: https://github.com/Claude-Workspace/claude-ws
   process.exit(0);
 }
 
-// Database path (in user's home directory for persistence)
-const DB_DIR = path.join(os.homedir(), '.claude-ws');
+// Database path - use DATA_DIR from env if configured, otherwise default to project data dir
+const DB_DIR = process.env.DATA_DIR || path.join(packageRoot, 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
-// Ensure .claude-ws directory exists
+// Ensure database directory exists
 if (!fs.existsSync(DB_DIR)) {
   console.log('[Claude Workspace] Creating database directory:', DB_DIR);
   fs.mkdirSync(DB_DIR, { recursive: true });

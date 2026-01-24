@@ -13,12 +13,31 @@ import { Button } from '@/components/ui/button';
 interface TaskCardProps {
   task: Task;
   attemptCount?: number;
+  searchQuery?: string;
 }
 
-export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
+export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardProps) {
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
   const isSelected = selectedTaskId === task.id;
+
+  // Helper function to highlight matched text
+  const highlightText = (text: string) => {
+    if (!searchQuery.trim()) return text;
+
+    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      regex.test(part) ? (
+        <mark key={index} style={{ color: '#d87756', backgroundColor: 'transparent', fontWeight: 'bold' }}>
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
 
   // Show project badge when viewing multiple projects
   const showProjectBadge = isAllProjectsMode() || selectedProjectIds.length > 1;
@@ -129,7 +148,7 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
           {/* Title - only show if exists and different from description */}
           {task.title && task.title !== task.description && (
             <h3 className="font-semibold text-sm leading-snug text-card-foreground line-clamp-2">
-              {task.title}
+              {highlightText(task.title)}
             </h3>
           )}
 
@@ -139,7 +158,7 @@ export function TaskCard({ task, attemptCount = 0 }: TaskCardProps) {
               'text-[13px] leading-relaxed line-clamp-2',
               !task.title || task.title === task.description ? 'text-card-foreground' : 'mt-1 text-muted-foreground'
             )}>
-              {task.description}
+              {highlightText(task.description)}
             </p>
           )}
 

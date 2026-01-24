@@ -76,6 +76,8 @@ app.prepare().then(async () => {
         projectName?: string;
         taskTitle?: string;
         projectRootPath?: string;
+        outputFormat?: 'json' | 'html' | 'markdown' | 'yaml' | 'raw' | 'custom';
+        outputSchema?: string;
       }) => {
         const {
           taskId,
@@ -86,7 +88,9 @@ app.prepare().then(async () => {
           projectId,
           projectName,
           taskTitle,
-          projectRootPath
+          projectRootPath,
+          outputFormat,
+          outputSchema
         } = data;
 
         console.log('[Socket] attempt:start received:', {
@@ -96,7 +100,9 @@ app.prepare().then(async () => {
           projectId,
           projectName,
           taskTitle,
-          projectRootPath
+          projectRootPath,
+          outputFormat,
+          hasOutputSchema: !!outputSchema
         });
 
         try {
@@ -251,6 +257,8 @@ app.prepare().then(async () => {
             prompt,
             displayPrompt: displayPrompt || null,
             status: 'running',
+            outputFormat: outputFormat || null,
+            outputSchema: outputSchema || null,
           });
 
           // Process file attachments if any
@@ -280,6 +288,8 @@ app.prepare().then(async () => {
             prompt,
             sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
             filePaths: filePaths.length > 0 ? filePaths : undefined,
+            outputFormat,
+            outputSchema,
           });
 
           // Log session mode
@@ -546,6 +556,12 @@ app.prepare().then(async () => {
   });
 
   // Forward AgentManager events to WebSocket clients
+  agentManager.on('started', ({ attemptId, taskId }) => {
+    console.log(`[Server] Agent started for attempt ${attemptId}, task ${taskId}`);
+    // Emit to all clients so they can subscribe if they're viewing this task
+    io.emit('attempt:started', { attemptId, taskId });
+  });
+
   agentManager.on('json', async ({ attemptId, data }) => {
     // Skip saving streaming deltas - they're intermediate state
     // Complete assistant messages will have full text/thinking
@@ -722,6 +738,7 @@ app.prepare().then(async () => {
     }
   });
 
+  // Register exit event handler
   agentManager.on('exit', async ({ attemptId, code }) => {
     // Get attempt to retrieve taskId and current status
     const attempt = await db.query.attempts.findFirst({

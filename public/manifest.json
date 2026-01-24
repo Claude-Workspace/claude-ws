@@ -1,0 +1,17 @@
+{
+  "name": "Claude Workspace",
+  "short_name": "Claude",
+  "description": "Workspace powered by Claude Code CLI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

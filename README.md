@@ -42,6 +42,12 @@ Open http://localhost:8556
 
 ---
 
+## API Documentation
+
+See [Swagger API Docs](README-docs-swagger.md)
+
+---
+
 ## Configuration
 
 Create `.env` file (or use `~/.claude-ws/.env`):
