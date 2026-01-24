@@ -3,9 +3,13 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
+import { config } from 'dotenv';
 
-// Database file path - stored in project directory for multi-instance support
-const DB_DIR = path.join(process.cwd(), 'data');
+// Load environment variables from .env file (will be loaded automatically by Next.js in production, but we load it here for direct script usage)
+const env = config();
+
+// Database file path - use DATA_DIR from env if configured, otherwise default to project data dir
+const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
 // Ensure data directory exists

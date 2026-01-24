@@ -9,8 +9,13 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { config } from 'dotenv';
 
-const DB_DIR = path.join(process.cwd(), 'data');
+// Load environment variables
+const env = config();
+
+// Database location - use DATA_DIR from env if configured, otherwise default to project data dir
+const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
 if (!fs.existsSync(DB_PATH)) {
