@@ -4,7 +4,7 @@ Complete API documentation has been created for the Claude Workspace project.
 
 ## 📚 Documentation Location
 
-All API documentation is located in the **`docs/swagger/`** directory.
+All API documentation is located in the **`public/docs/swagger/`** directory.
 
 ## 🔗 Quick Access
 
