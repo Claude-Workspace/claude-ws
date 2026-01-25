@@ -62,8 +62,8 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // 250ms long press to drag on touch devices
-        tolerance: 8,
+        delay: 700, // 700ms long press to drag on touch devices (prevents accidental drags during scroll)
+        tolerance: 20, // Prevents accidental drags during scroll
       },
     })
   );
@@ -215,6 +215,15 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   return (
     <DndContext
       sensors={sensors}
+      autoScroll={{
+        // Slow down horizontal auto-scroll when dragging near edges
+        acceleration: 5, // Lower = slower (default is 10)
+        interval: 10, // Higher = less frequent scrolling (default is 5)
+        threshold: {
+          x: 0.15, // Smaller threshold = less aggressive edge detection
+          y: 0.15,
+        },
+      }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

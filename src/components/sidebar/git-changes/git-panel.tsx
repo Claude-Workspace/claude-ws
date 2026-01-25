@@ -168,6 +168,25 @@ export function GitPanel() {
     }
   }, [activeProject?.path, fetchStatus]);
 
+  const addToGitignore = useCallback(async (filePath: string) => {
+    if (!activeProject?.path) return;
+    try {
+      const res = await fetch('/api/git/gitignore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectPath: activeProject.path, filePath }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to add to .gitignore');
+      }
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to add to .gitignore:', err);
+      alert(err instanceof Error ? err.message : 'Failed to add to .gitignore');
+    }
+  }, [activeProject?.path, fetchStatus]);
+
   const handleCommit = useCallback(async () => {
     if (!activeProject?.path || !commitTitle.trim()) return;
     setCommitting(true);
@@ -545,6 +564,7 @@ export function GitPanel() {
                                 staged={true}
                                 onClick={() => handleFileClick(file.path, true)}
                                 onUnstage={() => unstageFile(file.path)}
+                                onAddToGitignore={() => addToGitignore(file.path)}
                               />
                             ))}
                           </div>
@@ -564,6 +584,7 @@ export function GitPanel() {
                             onClick={() => handleFileClick(file.path, false)}
                             onStage={() => stageFile(file.path)}
                             onDiscard={() => discardFile(file.path)}
+                            onAddToGitignore={() => addToGitignore(file.path)}
                           />
                         ))}
                       </div>

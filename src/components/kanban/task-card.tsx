@@ -1,14 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { GripVertical, MessageSquare, Trash2 } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
-import { Button } from '@/components/ui/button';
 
 interface TaskCardProps {
   task: Task;
@@ -20,6 +19,16 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardP
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
   const isSelected = selectedTaskId === task.id;
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect true mobile devices using hover capability (excludes MacBooks with trackpads)
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: none)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Helper function to highlight matched text
   const highlightText = (text: string) => {
@@ -80,26 +89,22 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardP
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group cursor-pointer touch-none select-none',
-        isDragging && 'opacity-50'
+        'group cursor-pointer select-none',
+        // Only apply touch-none when actively dragging to allow natural scrolling
+        isDragging && 'touch-none opacity-50'
       )}
     >
       <div
-        {...attributes}
-        {...listeners}
+        // On mobile: don't make card draggable (use handle only to prevent scroll conflicts)
+        {...(isMobile ? {} : { ...attributes, ...listeners })}
         className={cn(
           'relative bg-card rounded-lg border border-border',
           'px-2.5 py-2.5 transition-all duration-200',
           'hover:border-border/80 hover:shadow-sm',
-          'cursor-grab active:cursor-grabbing',
+          !isMobile && 'cursor-grab active:cursor-grabbing',
           isSelected && 'ring-2 ring-primary ring-offset-1 ring-offset-background border-transparent',
           isDragging && 'shadow-lg'
         )}
-        // Prevent text selection during drag, allow tap to open
-        onTouchStart={(e) => {
-          // Don't prevent default here - let dnd-kit handle the long press
-          // Only prevent default if we're actually dragging
-        }}
         onClick={(e) => {
           // Only open detail panel if this wasn't a drag operation
           if (!isDragging) {
@@ -107,17 +112,20 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardP
           }
         }}
       >
-        {/* Drag handle - visible on hover (desktop) */}
+        {/* Drag handle - on mobile: visible & draggable; on desktop: hover indicator only */}
         <button
+          {...(isMobile ? { ...attributes, ...listeners } : {})}
           className={cn(
-            'absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab touch-none p-0.5 rounded',
-            'text-muted-foreground/40 hover:text-muted-foreground',
-            'opacity-0 group-hover:opacity-100 transition-opacity',
-            'hover:bg-muted pointer-events-none sm:pointer-events-auto'
+            'absolute top-1/2 -translate-y-1/2 p-1 rounded',
+            'text-muted-foreground/50 hover:text-muted-foreground',
+            isMobile
+              ? 'left-0 opacity-100 cursor-grab active:cursor-grabbing touch-none'
+              : '-left-1 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none',
+            'hover:bg-muted'
           )}
-          aria-label="Drag handle"
+          aria-label="Drag to reorder"
         >
-          <GripVertical className="size-3" />
+          <GripVertical className="size-4" />
         </button>
 
         {/* Delete button - always visible for Done/Cancelled tasks */}
@@ -135,7 +143,7 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardP
           </button>
         )}
 
-        <div className={cn('pl-3.5', showDeleteButton && 'pr-6')}>
+        <div className={cn(isMobile ? 'pl-4' : 'pl-1', showDeleteButton && 'pr-6')}>
           {/* Header: Project badge - smaller */}
           {showProjectBadge && projectName && (
             <div style={{ marginBottom: '5px', lineHeight: '10px' }}>
