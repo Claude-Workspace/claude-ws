@@ -62,8 +62,8 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 150, // Quick activation
-        tolerance: 15, // More tolerance for touch movement
+        delay: 120, // Faster activation
+        tolerance: 25, // Higher tolerance for Samsung S25 touch handling
       },
     })
   );
