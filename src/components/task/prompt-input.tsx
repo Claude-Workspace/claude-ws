@@ -547,7 +547,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 placeholder={placeholder}
                 disabled={disabled}
                 rows={minRows}
-                className="resize-none w-full min-w-0 max-w-full break-words break-all overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:break-word]"
+                className="resize-none w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm whitespace-pre-wrap break-words"
                 style={{
                   fontSize: '14px',
                   // Only use fieldSizing when minRows is 1 (auto-sizing from 1 row)
