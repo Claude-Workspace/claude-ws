@@ -1,10 +1,18 @@
 'use client';
 
-import { Plus, Settings, Package, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { Plus, Settings, Package, X, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface RightSidebarProps {
   projectId?: string;
@@ -16,6 +24,17 @@ interface RightSidebarProps {
 export function RightSidebar({ projectId, onCreateTask, onOpenSettings, className }: RightSidebarProps) {
   const { isOpen, closeRightSidebar } = useRightSidebarStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   if (!isOpen) return null;
 
@@ -38,14 +57,39 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-sm">Actions</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={closeRightSidebar}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {/* Theme toggle button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleTheme}
+                    className="h-8 w-8"
+                    disabled={!mounted}
+                  >
+                    {mounted && resolvedTheme === 'dark' ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Toggle theme</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={closeRightSidebar}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Action buttons */}

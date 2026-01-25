@@ -172,7 +172,7 @@ function KanbanApp() {
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-3 text-muted-foreground">
           <img src="/logo.svg" alt="Logo" className="h-8 w-8 animate-spin" />
-          <span>Loading to Claude Workspace</span>
+          <span>Loading to Claude<span style={{ color: '#d87756' }}>.</span>WS</span>
         </div>
       </div>
     );

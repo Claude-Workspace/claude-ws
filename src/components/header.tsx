@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Sun, Moon } from 'lucide-react';
+import { useState } from 'react';
+import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,17 +42,6 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const setSearchQuery = onSearchChange || setInternalSearchQuery;
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Prevent hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
 
   // Count running shells for current project
   const currentProjectId = activeProjectId || selectedProjectIds[0];
@@ -85,11 +73,11 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
           </Tooltip>
         </TooltipProvider>
 
-        {/* Logo - full text on desktop, icon only on mobile */}
+        {/* Logo - show text on both mobile and desktop */}
         <div className="flex items-center gap-2 shrink-0">
           <Image src="/logo.svg" alt="Claude Workspace" width={28} height={28} className="sm:hidden" unoptimized />
           <Image src="/logo.svg" alt="Claude Workspace" width={32} height={32} className="hidden sm:block" unoptimized />
-          <span className="hidden sm:inline font-mono text-base font-bold tracking-tight">
+          <span className="font-mono text-base font-bold tracking-tight">
             CLAUDE<span style={{ color: '#d87756' }}>.</span>WS
           </span>
         </div>
@@ -157,30 +145,6 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
               </span>
             </div>
           </div>
-
-          {/* Theme toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleTheme}
-                  className="shrink-0"
-                  disabled={!mounted}
-                >
-                  {mounted && resolvedTheme === 'dark' ? (
-                    <Sun className="h-4 w-4" />
-                  ) : (
-                    <Moon className="h-4 w-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Toggle theme</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
 
           {/* Right sidebar toggle - opens panel with New Task and Settings */}
           <TooltipProvider>
