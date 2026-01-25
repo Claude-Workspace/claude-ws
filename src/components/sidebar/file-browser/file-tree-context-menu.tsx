@@ -17,11 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useSidebarStore } from '@/stores/sidebar-store';
-import { cn } from '@/lib/utils';
 import type { FileEntry } from '@/types';
 
 interface FileTreeContextMenuProps {
@@ -31,6 +28,8 @@ interface FileTreeContextMenuProps {
   rootPath: string;
   /** Callback when file is deleted successfully */
   onDelete?: () => void;
+  /** Callback to trigger inline rename */
+  onRename?: () => void;
   /** Child element that triggers the context menu */
   children: React.ReactNode;
 }
@@ -39,14 +38,12 @@ export function FileTreeContextMenu({
   entry,
   rootPath,
   onDelete,
+  onRename,
   children,
 }: FileTreeContextMenuProps) {
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [renameDialog, setRenameDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [newName, setNewName] = useState(entry.name);
   const closeTabByFilePath = useSidebarStore((state) => state.closeTabByFilePath);
 
   const fullPath = `${rootPath}/${entry.path}`;
@@ -140,38 +137,6 @@ export function FileTreeContextMenu({
     }
   };
 
-  /**
-   * Handle file/folder rename
-   */
-  const handleRename = async () => {
-    if (!newName.trim()) {
-      toast.error('Name cannot be empty');
-      return;
-    }
-
-    setIsRenaming(true);
-    try {
-      const res = await fetch('/api/files/operations', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: fullPath, rootPath, newName: newName.trim() }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Rename failed');
-      }
-
-      toast.success('Rename successful');
-      setRenameDialog(false);
-      onDelete?.(); // Refresh file tree
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Rename failed');
-    } finally {
-      setIsRenaming(false);
-    }
-  };
-
   return (
     <>
       <ContextMenu>
@@ -190,7 +155,7 @@ export function FileTreeContextMenu({
             <Copy className="mr-2 size-4" />
             Copy Path
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => { setNewName(entry.name); setRenameDialog(true); }}>
+          <ContextMenuItem onClick={onRename}>
             <FileText className="mr-2 size-4" />
             Rename
           </ContextMenuItem>
@@ -226,43 +191,6 @@ export function FileTreeContextMenu({
               disabled={isDeleting}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={renameDialog} onOpenChange={setRenameDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename {entry.type === 'directory' ? 'Folder' : 'File'}</DialogTitle>
-            <DialogDescription>
-              Enter a new name for <strong>{entry.name}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-name">New Name</Label>
-              <Input
-                id="new-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isRenaming) {
-                    handleRename();
-                  }
-                }}
-                placeholder={entry.name}
-                autoFocus
-                disabled={isRenaming}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialog(false)} disabled={isRenaming}>
-              Cancel
-            </Button>
-            <Button onClick={handleRename} disabled={isRenaming || !newName.trim()}>
-              {isRenaming ? 'Renaming...' : 'Rename'}
             </Button>
           </DialogFooter>
         </DialogContent>
