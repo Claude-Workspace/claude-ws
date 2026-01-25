@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Minus, Undo2 } from 'lucide-react';
+import { Plus, Minus, Undo2, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileIcon } from '@/components/sidebar/file-browser/file-icon';
 import type { GitFileStatus } from '@/types';
@@ -13,6 +13,7 @@ interface GitFileItemProps {
   onStage?: () => void;
   onUnstage?: () => void;
   onDiscard?: () => void;
+  onAddToGitignore?: () => void;
 }
 
 // Check if file is new (added or untracked)
@@ -47,6 +48,7 @@ export function GitFileItem({
   onStage,
   onUnstage,
   onDiscard,
+  onAddToGitignore,
 }: GitFileItemProps) {
   // Get filename and parent directory
   const parts = file.path.split('/');
@@ -79,17 +81,32 @@ export function GitFileItem({
       {/* Action buttons (absolute positioned, visible on hover) */}
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-background px-1 rounded">
         {staged ? (
-          // Unstage button for staged files
-          <button
-            className="p-0.5 hover:bg-accent rounded"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUnstage?.();
-            }}
-            title="Unstage Changes"
-          >
-            <Minus className="size-3.5" />
-          </button>
+          <>
+            {/* Add to .gitignore button for staged files */}
+            {onAddToGitignore && (
+              <button
+                className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToGitignore();
+                }}
+                title="Add to .gitignore"
+              >
+                <EyeOff className="size-3.5" />
+              </button>
+            )}
+            {/* Unstage button for staged files */}
+            <button
+              className="p-0.5 hover:bg-accent rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnstage?.();
+              }}
+              title="Unstage Changes"
+            >
+              <Minus className="size-3.5" />
+            </button>
+          </>
         ) : (
           <>
             {/* Discard button */}
@@ -103,6 +120,19 @@ export function GitFileItem({
             >
               <Undo2 className="size-3.5" />
             </button>
+            {/* Add to .gitignore button */}
+            {onAddToGitignore && (
+              <button
+                className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToGitignore();
+                }}
+                title="Add to .gitignore"
+              >
+                <EyeOff className="size-3.5" />
+              </button>
+            )}
             {/* Stage button */}
             <button
               className="p-0.5 hover:bg-accent rounded"

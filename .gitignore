@@ -41,6 +41,10 @@ yarn-error.log*
 .claude
 .plans
 
+# claudekit
+.opencode
+AGENTS.md
+
 # vercel
 .vercel
 
@@ -68,3 +72,5 @@ next-env.d.ts
 /logs/
 *.log
 .pm2/
+.repomixignore
+release-manifest.json
