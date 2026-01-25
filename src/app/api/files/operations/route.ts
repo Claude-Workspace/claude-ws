@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rm, rename } from 'fs/promises';
+import { rm, rename, mkdir, writeFile } from 'fs/promises';
 import fs from 'fs';
 import path from 'path';
 import AdmZip from 'adm-zip';
@@ -210,6 +210,116 @@ export async function POST(request: NextRequest) {
     console.error('Download error:', error);
     return NextResponse.json(
       { error: 'Failed to create download' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/files/operations
+ *
+ * Create a new file or folder in a directory.
+ *
+ * Request body: { parentPath: string, rootPath: string, name: string, type: 'file' | 'folder' }
+ * Response: { success: true, path: string }
+ *
+ * Security:
+ * - Path traversal validation via validatePath()
+ * - Parent directory existence check
+ * - Name validation (no path traversal, no special characters)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const { parentPath, rootPath, name, type } = await request.json();
+
+    // Validate required fields
+    if (!parentPath || !rootPath || !name || !type) {
+      return NextResponse.json(
+        { error: 'parentPath, rootPath, name, and type required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate type
+    if (type !== 'file' && type !== 'folder') {
+      return NextResponse.json(
+        { error: 'type must be "file" or "folder"' },
+        { status: 400 }
+      );
+    }
+
+    // Security: Validate parent path stays within root
+    const resolvedParent = validatePath(parentPath, rootPath);
+
+    // Check if parent directory exists
+    if (!fs.existsSync(resolvedParent)) {
+      return NextResponse.json(
+        { error: 'Parent directory not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify parent is actually a directory
+    const parentStats = await fs.promises.stat(resolvedParent);
+    if (!parentStats.isDirectory()) {
+      return NextResponse.json(
+        { error: 'Parent path is not a directory' },
+        { status: 400 }
+      );
+    }
+
+    // Validate new name (prevent path traversal)
+    if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+      return NextResponse.json(
+        { error: 'Invalid name. Cannot contain path separators or ..' },
+        { status: 400 }
+      );
+    }
+
+    // Build new path
+    const newPath = path.join(resolvedParent, name);
+
+    // Check if path already exists
+    if (fs.existsSync(newPath)) {
+      return NextResponse.json(
+        { error: 'A file or folder with that name already exists' },
+        { status: 409 }
+      );
+    }
+
+    // Create file or folder
+    if (type === 'folder') {
+      await mkdir(newPath, { recursive: false });
+    } else {
+      // Create empty file
+      await writeFile(newPath, '', { encoding: 'utf-8' });
+    }
+
+    return NextResponse.json({ success: true, path: newPath });
+  } catch (error: unknown) {
+    // Handle known error types
+    if (error instanceof Error) {
+      // Path traversal attempt
+      if (error.message === 'Path traversal detected') {
+        return NextResponse.json(
+          { error: 'Invalid path' },
+          { status: 403 }
+        );
+      }
+
+      // Permission denied
+      if ('code' in error && error.code === 'EACCES') {
+        return NextResponse.json(
+          { error: 'Permission denied' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Log and return generic error
+    console.error('Create error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create' },
       { status: 500 }
     );
   }

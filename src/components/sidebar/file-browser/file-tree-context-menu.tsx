@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Trash, Download, Copy, Loader2, FileText } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Trash, Download, Copy, Loader2, FileText, FilePlus, FolderPlus } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
@@ -17,6 +18,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import type { FileEntry } from '@/types';
@@ -30,6 +33,8 @@ interface FileTreeContextMenuProps {
   onDelete?: () => void;
   /** Callback to trigger inline rename */
   onRename?: () => void;
+  /** Callback when file/folder is created successfully */
+  onRefresh?: () => void;
   /** Child element that triggers the context menu */
   children: React.ReactNode;
 }
@@ -39,14 +44,30 @@ export function FileTreeContextMenu({
   rootPath,
   onDelete,
   onRename,
+  onRefresh,
   children,
 }: FileTreeContextMenuProps) {
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createType, setCreateType] = useState<'file' | 'folder'>('file');
+  const [createName, setCreateName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const openTab = useSidebarStore((state) => state.openTab);
   const closeTabByFilePath = useSidebarStore((state) => state.closeTabByFilePath);
 
   const fullPath = `${rootPath}/${entry.path}`;
+  const isDirectory = entry.type === 'directory';
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (createDialogOpen && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [createDialogOpen]);
 
   /**
    * Handle file/folder deletion with confirmation
@@ -137,11 +158,95 @@ export function FileTreeContextMenu({
     }
   };
 
+  /**
+   * Open create dialog for file or folder
+   */
+  const openCreateDialog = (type: 'file' | 'folder') => {
+    setCreateType(type);
+    setCreateName('');
+    setCreateDialogOpen(true);
+  };
+
+  /**
+   * Handle create file/folder submission
+   */
+  const handleCreate = async () => {
+    const trimmedName = createName.trim();
+    if (!trimmedName) {
+      toast.error('Name cannot be empty');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const res = await fetch('/api/files/operations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentPath: fullPath,
+          rootPath,
+          name: trimmedName,
+          type: createType,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Create failed');
+      }
+
+      const data = await res.json();
+
+      toast.success(
+        `${createType === 'folder' ? 'Folder' : 'File'} created`
+      );
+
+      setCreateDialogOpen(false);
+
+      // Refresh file tree
+      onRefresh?.();
+
+      // If created a file, open it in editor
+      if (createType === 'file' && data.path) {
+        openTab(data.path);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Create failed');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCreateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !isCreating) {
+      e.preventDefault();
+      handleCreate();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setCreateDialogOpen(false);
+    }
+  };
+
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent>
+          {/* Show create options only for directories */}
+          {isDirectory && (
+            <>
+              <ContextMenuItem onClick={() => openCreateDialog('file')}>
+                <FilePlus className="mr-2 size-4" />
+                New File
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => openCreateDialog('folder')}>
+                <FolderPlus className="mr-2 size-4" />
+                New Folder
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+
           <ContextMenuItem onClick={handleDownload} disabled={isDownloading}>
             {isDownloading ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
@@ -191,6 +296,45 @@ export function FileTreeContextMenu({
               disabled={isDeleting}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Create New {createType === 'folder' ? 'Folder' : 'File'}
+            </DialogTitle>
+            <DialogDescription>
+              Enter a name for the new {createType === 'folder' ? 'folder' : 'file'} in <strong>{entry.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Name</Label>
+              <Input
+                id="create-name"
+                ref={inputRef}
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                onKeyDown={handleCreateKeyDown}
+                placeholder={createType === 'folder' ? 'folder-name' : 'file-name.ts'}
+                disabled={isCreating}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isCreating}>
+              {isCreating ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -143,6 +143,7 @@ export function FileTreeItem({
       rootPath={rootPath}
       onDelete={onRefresh}
       onRename={startRename}
+      onRefresh={onRefresh}
     >
       <div
         className={cn(
