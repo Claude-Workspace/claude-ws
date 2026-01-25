@@ -80,7 +80,9 @@ export function FileTreeContextMenu({
   };
 
   /**
-   * Handle file/folder download as ZIP
+   * Handle file/folder download
+   * - Files: download directly without ZIP
+   * - Folders: download as ZIP archive
    */
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -101,7 +103,10 @@ export function FileTreeContextMenu({
       try {
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${entry.name}.zip`;
+        // Use .zip extension for folders, original filename for files
+        a.download = entry.type === 'directory'
+          ? `${entry.name}.zip`
+          : entry.name;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -97,14 +97,16 @@ export async function DELETE(request: NextRequest) {
 /**
  * POST /api/files/operations
  *
- * Create a ZIP archive of a file or folder for download.
+ * Download a file or folder.
+ * - Files: returned directly with proper MIME type
+ * - Folders: returned as ZIP archive
  *
  * Request body: { path: string, rootPath: string }
- * Response: ZIP buffer with download headers
+ * Response: File blob or ZIP buffer with download headers
  *
  * Security:
  * - Path traversal validation via validatePath()
- * - File existence check before zipping
+ * - File existence check before download
  * - Only operations within provided rootPath
  */
 export async function POST(request: NextRequest) {
@@ -130,30 +132,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create ZIP archive
-    const zip = new AdmZip();
     const stats = await fs.promises.stat(resolved);
+    const filename = path.basename(resolved);
 
     if (stats.isDirectory()) {
-      // Add entire folder to ZIP
+      // Folder: Create ZIP archive
+      const zip = new AdmZip();
       zip.addLocalFolder(resolved);
+
+      const zipBuffer = zip.toBuffer();
+
+      // Return ZIP with download headers
+      return new NextResponse(new Uint8Array(zipBuffer), {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${filename}.zip"`,
+          'Content-Length': zipBuffer.length.toString(),
+        },
+      });
     } else {
-      // Add single file to ZIP
-      zip.addLocalFile(resolved);
+      // File: Return directly with appropriate MIME type
+      const fileBuffer = await fs.promises.readFile(resolved);
+
+      // Determine MIME type based on extension
+      const ext = path.extname(filename).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.txt': 'text/plain',
+        '.md': 'text/markdown',
+        '.json': 'application/json',
+        '.js': 'text/javascript',
+        '.ts': 'text/typescript',
+        '.tsx': 'text/typescript',
+        '.jsx': 'text/javascript',
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.xml': 'application/xml',
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.zip': 'application/zip',
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      // Return file with download headers
+      return new NextResponse(new Uint8Array(fileBuffer), {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Length': fileBuffer.length.toString(),
+        },
+      });
     }
-
-    // Convert to buffer for download
-    const zipBuffer = zip.toBuffer();
-    const filename = `${path.basename(resolved)}.zip`;
-
-    // Return ZIP with download headers (convert to Uint8Array for NextResponse)
-    return new NextResponse(new Uint8Array(zipBuffer), {
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': zipBuffer.length.toString(),
-      },
-    });
   } catch (error: unknown) {
     // Handle known error types
     if (error instanceof Error) {
