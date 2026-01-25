@@ -250,11 +250,11 @@ export function FileTreeContextMenuContent({
       {/* Show create options only for directories */}
       {isDirectory && (
         <>
-          <MenuItem onClick={() => openCreateDialog('file')}>
+          <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('file'); }}>
             <FilePlus className="mr-2 size-4" />
             New File
           </MenuItem>
-          <MenuItem onClick={() => openCreateDialog('folder')}>
+          <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('folder'); }}>
             <FolderPlus className="mr-2 size-4" />
             New Folder
           </MenuItem>
@@ -280,7 +280,10 @@ export function FileTreeContextMenuContent({
         Rename
       </MenuItem>
       <MenuItem
-        onClick={() => setDeleteDialog(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          setDeleteDialog(true);
+        }}
         className="text-destructive focus:text-destructive"
       >
         <Trash className="mr-2 size-4" />
