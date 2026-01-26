@@ -182,7 +182,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[500px] overflow-hidden" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>

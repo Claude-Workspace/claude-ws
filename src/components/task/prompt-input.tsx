@@ -551,8 +551,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 style={{
                   fontSize: '14px',
                   // Only use fieldSizing when minRows is 1 (auto-sizing from 1 row)
-                  // Otherwise respect the minRows setting
-                  ...(minRows === 1 ? { fieldSizing: 'content' } : {}),
+                  // Otherwise disable it so minRows/maxRows height constraints work properly
+                  fieldSizing: minRows === 1 ? 'content' : 'fixed',
                   minHeight: `${minRows * 24 + 16}px`,
                   maxHeight: `${maxRows * 24 + 16}px`,
                 } as React.CSSProperties}
