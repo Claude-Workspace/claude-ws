@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, X, Loader2, FileText, FileCode, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileIcon } from './file-icon';
@@ -47,6 +48,7 @@ interface UnifiedSearchProps {
 }
 
 export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing }: UnifiedSearchProps) {
+  const t = useTranslations('sidebar');
   const activeProject = useActiveProject();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -128,7 +130,7 @@ export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={searchMode === 'content' ? 'Search content...' : searchMode === 'files' ? 'Search files...' : 'Search files...'}
+          placeholder={searchMode === 'content' ? t('searchContent') : searchMode === 'files' ? t('searchFiles') : t('searchAll')}
           className="pl-8 pr-16 h-8 text-sm"
           data-slot="unified-search-input"
         />
@@ -150,7 +152,7 @@ export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing
               className="size-6"
               onClick={onRefresh}
               disabled={refreshing}
-              title="Refresh file tree"
+              title={t('refreshFileTree')}
             >
               <RefreshCw className={`size-3 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
@@ -170,7 +172,7 @@ export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing
           )}
         >
           <FileText className="size-3.5" />
-          Files
+          {t('filesTab')}
         </button>
         <button
           onClick={() => setSearchMode('content')}
@@ -182,7 +184,7 @@ export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing
           )}
         >
           <FileCode className="size-3.5" />
-          Content
+          {t('contentTab')}
         </button>
         <button
           onClick={() => setSearchMode('all')}
@@ -193,7 +195,7 @@ export function UnifiedSearch({ onSearchChange, className, onRefresh, refreshing
               : 'text-muted-foreground hover:bg-accent'
           )}
         >
-          All
+          {t('allTab')}
         </button>
       </div>
     </div>
@@ -221,7 +223,7 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
     setSelectedFile(path);
     openTab(path);
     onFileSelect(path);
-  }, [setSelectedFile, openTab, onFileSelect]);
+  }, [onFileSelect]);
 
   const handleLineClick = useCallback((path: string, lineNumber: number, column: number, matchLength: number) => {
     setSelectedFile(path);
@@ -236,7 +238,7 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
     });
 
     onFileSelect(path, lineNumber, column, matchLength);
-  }, [setSelectedFile, openTab, setPendingEditorPosition, onFileSelect]);
+  }, [onFileSelect]);
 
   const toggleContentFile = useCallback((file: string) => {
     setExpandedFiles(prev => {
@@ -336,7 +338,7 @@ export function SearchResultsView({ results, onFileSelect }: SearchResultsViewPr
                   <div className="bg-muted/30">
                     {result.matches.slice(0, 10).map((match, idx) => (
                       <button
-                        key={idx}
+                        key={`${result.file}-${match.lineNumber}-${idx}`}
                         className="w-full flex items-start gap-2 px-3 py-1 hover:bg-accent text-left font-mono text-xs"
                         onClick={() => handleLineClick(result.file, match.lineNumber, match.column, match.matchLength)}
                       >

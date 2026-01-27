@@ -7,7 +7,7 @@ import { Header } from '@/components/header';
 import { Board } from '@/components/kanban/board';
 import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
 import { TaskDetailPanel } from '@/components/task/task-detail-panel';
-import { SettingsDialog } from '@/components/settings/settings-dialog';
+import { SettingsPage } from '@/components/settings/settings-page';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
@@ -18,16 +18,17 @@ import { useTaskStore } from '@/stores/task-store';
 import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
+import { useSettingsUIStore } from '@/stores/settings-ui-store';
 
 function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [apiKeyRefresh, setApiKeyRefresh] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { needsApiKey } = useApiKeyCheck(apiKeyRefresh);
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
+  const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
   const { selectedTask, fetchTasks, setSelectedTask, setPendingAutoStartTask } = useTaskStore();
@@ -48,8 +49,8 @@ function KanbanApp() {
   // Rehydrate from localStorage and fetch projects on mount
   useEffect(() => {
     useProjectStore.persist.rehydrate();
-    fetchProjects();
-  }, [fetchProjects]);
+    useProjectStore.getState().fetchProjects();
+  }, []);
 
   // Read project from URL and select it
   useEffect(() => {
@@ -90,9 +91,9 @@ function KanbanApp() {
   // Fetch tasks when selectedProjectIds changes
   useEffect(() => {
     if (!projectLoading) {
-      fetchTasks(selectedProjectIds);
+      useTaskStore.getState().fetchTasks(selectedProjectIds);
     }
-  }, [selectedProjectIds, projectLoading, fetchTasks]);
+  }, [selectedProjectIds, projectLoading]);
 
   // Handle task created event - select task if startNow is true
   const handleTaskCreated = (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[]) => {
@@ -182,7 +183,6 @@ function KanbanApp() {
     <div className="flex h-screen flex-col">
       <Header
         onCreateTask={() => setCreateTaskOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
         onAddProject={() => setSetupOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -227,7 +227,6 @@ function KanbanApp() {
         onOpenChange={setCreateTaskOpen}
         onTaskCreated={handleTaskCreated}
       />
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SetupDialog open={setupOpen || autoShowSetup} onOpenChange={setSetupOpen} />
       <ApiKeyDialog
         open={needsApiKey}
@@ -250,11 +249,17 @@ function KanbanApp() {
         </div>
       )}
 
+      {/* Settings Page */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <SettingsPage />
+        </div>
+      )}
+
       {/* Right Sidebar - actions panel */}
       <RightSidebar
         projectId={selectedProjectIds[0]}
         onCreateTask={() => setCreateTaskOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
       />
     </div>
   );

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
@@ -13,62 +12,13 @@ interface TaskCardProps {
   task: Task;
   attemptCount?: number;
   searchQuery?: string;
+  isMobile?: boolean;
 }
 
-export function TaskCard({ task, attemptCount = 0, searchQuery = '' }: TaskCardProps) {
+export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false }: TaskCardProps) {
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
   const isSelected = selectedTaskId === task.id;
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Detect touch devices using runtime events + localStorage persistence
-  useEffect(() => {
-    const STORAGE_KEY = 'claude-kanban-is-touch-device';
-
-    // Check localStorage first
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const initialValue = stored === 'true';
-
-    setIsMobile(initialValue);
-
-    let touchTimeout: NodeJS.Timeout | null = null;
-
-    // Mark as touch device on touch event
-    const handleTouch = () => {
-      // Clear any pending mouse event handling
-      if (touchTimeout) {
-        clearTimeout(touchTimeout);
-        touchTimeout = null;
-      }
-
-      localStorage.setItem(STORAGE_KEY, 'true');
-      setIsMobile(true);
-
-      // Prevent mousedown from overriding for 500ms
-      touchTimeout = setTimeout(() => {
-        touchTimeout = null;
-      }, 500);
-    };
-
-    // Mark as desktop on mouse click (only if not recently touched)
-    const handleMouseClick = () => {
-      // Don't switch to desktop if we just had a touch event
-      if (touchTimeout) return;
-
-      localStorage.setItem(STORAGE_KEY, 'false');
-      setIsMobile(false);
-    };
-
-    // Listen for events at window level
-    window.addEventListener('touchstart', handleTouch, { passive: true });
-    window.addEventListener('mousedown', handleMouseClick);
-
-    return () => {
-      if (touchTimeout) clearTimeout(touchTimeout);
-      window.removeEventListener('touchstart', handleTouch);
-      window.removeEventListener('mousedown', handleMouseClick);
-    };
-  }, []);
 
   // Helper function to highlight matched text
   const highlightText = (text: string) => {

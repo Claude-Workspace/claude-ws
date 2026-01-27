@@ -127,6 +127,17 @@
     @apply bg-background text-foreground;
   }
 
+  /* Emoji/flag rendering fix for cross-platform compatibility */
+  .emoji-flag {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "EmojiOne Color", "Android Emoji", sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   /* Prevent horizontal scrolling on mobile */
   html, body {
     overflow-x: hidden;

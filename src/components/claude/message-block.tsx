@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChevronDown, ChevronRight, Brain } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { RunningDots } from '@/components/ui/running-dots';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from './code-block';
@@ -15,13 +15,104 @@ interface MessageBlockProps {
   className?: string;
 }
 
-export function MessageBlock({ content, isThinking = false, isStreaming = false, className }: MessageBlockProps) {
+// Memoized markdown components - defined outside component to avoid recreation
+const markdownComponents = {
+  h1: ({ children }: any) => (
+    <h1 className="text-lg font-semibold mt-6 mb-3 first:mt-0">{children}</h1>
+  ),
+  h2: ({ children }: any) => (
+    <h2 className="text-base font-semibold mt-5 mb-2 first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }: any) => (
+    <h3 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h3>
+  ),
+  p: ({ children }: any) => (
+    <p className="mb-4 last:mb-0 break-words">{children}</p>
+  ),
+  ul: ({ children }: any) => (
+    <ul className="list-disc list-inside mb-4 space-y-1.5">{children}</ul>
+  ),
+  ol: ({ children }: any) => (
+    <ol className="list-decimal list-inside mb-4 space-y-1.5">{children}</ol>
+  ),
+  li: ({ children }: any) => (
+    <li className="text-[15px]">{children}</li>
+  ),
+  code({ inline, className, children, ...props }: any) {
+    const match = /language-(\w+)/.exec(className || '');
+    let codeString = '';
+    if (Array.isArray(children)) {
+      codeString = children.map(child => (typeof child === 'string' ? child : '')).join('');
+    } else if (typeof children === 'string') {
+      codeString = children;
+    } else if (children && typeof children === 'object' && 'props' in children) {
+      codeString = String(children.props?.children || '');
+    } else {
+      codeString = String(children || '');
+    }
+    codeString = codeString.replace(/\n$/, '');
+    const isMultiLine = codeString.includes('\n');
+    if (!inline && (match || isMultiLine)) {
+      return <CodeBlock code={codeString} language={match?.[1]} />;
+    }
+    return (
+      <code className="px-1.5 py-0.5 bg-muted rounded text-[13px] font-mono" {...props}>
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }: any) => (
+    <div className="my-2 w-full max-w-full overflow-x-auto">{children}</div>
+  ),
+  strong: ({ children }: any) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  a: ({ href, children }: any) => (
+    <a href={href} className="text-primary underline hover:no-underline" target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }: any) => (
+    <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-2 text-muted-foreground italic">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }: any) => (
+    <div className="overflow-x-auto my-2">
+      <table className="min-w-full text-sm border-collapse">{children}</table>
+    </div>
+  ),
+  th: ({ children }: any) => (
+    <th className="border border-border px-2 py-1 bg-muted font-medium text-left">{children}</th>
+  ),
+  td: ({ children }: any) => (
+    <td className="border border-border px-2 py-1">{children}</td>
+  ),
+  hr: () => <hr className="my-3 border-border" />,
+};
+
+// Memoized markdown renderer - only re-renders when content changes
+const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      {content}
+    </ReactMarkdown>
+  );
+});
+
+// Main MessageBlock component - memoized to prevent unnecessary re-renders
+export const MessageBlock = memo(function MessageBlock({
+  content,
+  isThinking = false,
+  isStreaming = false,
+  className
+}: MessageBlockProps) {
   const [isExpanded, setIsExpanded] = useState(!isThinking);
   const [displayContent, setDisplayContent] = useState(content);
   const prevContentRef = useRef(content);
   const animatingRef = useRef(false);
 
-  // Typewriter effect for streaming content
+  // Typewriter effect for streaming content - only for non-thinking blocks
   useEffect(() => {
     // Skip animation for thinking blocks or non-streaming
     if (isThinking || !isStreaming) {
@@ -51,8 +142,8 @@ export function MessageBlock({ content, isThinking = false, isStreaming = false,
     animatingRef.current = true;
 
     let currentLength = startFrom;
-    const charsPerFrame = 12; // Speed: characters per frame
-    const frameInterval = 16; // ~60fps
+    const charsPerFrame = 24; // Increased for better performance
+    const frameInterval = 32; // Reduced frequency (30fps instead of 60fps)
 
     const timer = setInterval(() => {
       currentLength = Math.min(currentLength + charsPerFrame, targetLength);
@@ -101,118 +192,4 @@ export function MessageBlock({ content, isThinking = false, isStreaming = false,
       <MarkdownContent content={displayContent} />
     </div>
   );
-}
-
-// Separate component for markdown rendering with consistent styling
-function MarkdownContent({ content }: { content: string }) {
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        // Headings - consistent sizing, not too big
-        h1: ({ children }) => (
-          <h1 className="text-lg font-semibold mt-6 mb-3 first:mt-0">{children}</h1>
-        ),
-        h2: ({ children }) => (
-          <h2 className="text-base font-semibold mt-5 mb-2 first:mt-0">{children}</h2>
-        ),
-        h3: ({ children }) => (
-          <h3 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h3>
-        ),
-        // Paragraphs
-        p: ({ children }) => (
-          <p className="mb-4 last:mb-0 break-words">{children}</p>
-        ),
-        // Lists
-        ul: ({ children }) => (
-          <ul className="list-disc list-inside mb-4 space-y-1.5">{children}</ul>
-        ),
-        ol: ({ children }) => (
-          <ol className="list-decimal list-inside mb-4 space-y-1.5">{children}</ol>
-        ),
-        li: ({ children }) => (
-          <li className="text-[15px]">{children}</li>
-        ),
-        // Code
-        code({ inline, className, children, ...props }: any) {
-          const match = /language-(\w+)/.exec(className || '');
-
-          // Extract code string from children (handle React nodes properly)
-          let codeString = '';
-          if (Array.isArray(children)) {
-            codeString = children
-              .map(child => (typeof child === 'string' ? child : ''))
-              .join('');
-          } else if (typeof children === 'string') {
-            codeString = children;
-          } else if (children && typeof children === 'object' && 'props' in children) {
-            // Handle React element nodes
-            codeString = String(children.props?.children || '');
-          } else {
-            codeString = String(children || '');
-          }
-
-          // Remove trailing newline
-          codeString = codeString.replace(/\n$/, '');
-
-          // Only use CodeBlock for actual code blocks (has language OR has multiple lines)
-          const isMultiLine = codeString.includes('\n');
-          if (!inline && (match || isMultiLine)) {
-            return <CodeBlock code={codeString} language={match?.[1]} />;
-          }
-
-          // Inline code (single line without language specification)
-          return (
-            <code
-              className="px-1.5 py-0.5 bg-muted rounded text-[13px] font-mono"
-              {...props}
-            >
-              {children}
-            </code>
-          );
-        },
-        // Pre blocks
-        pre: ({ children }) => (
-          <div className="my-2 w-full max-w-full overflow-x-auto">{children}</div>
-        ),
-        // Strong/Bold
-        strong: ({ children }) => (
-          <strong className="font-semibold">{children}</strong>
-        ),
-        // Links
-        a: ({ href, children }) => (
-          <a
-            href={href}
-            className="text-primary underline hover:no-underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {children}
-          </a>
-        ),
-        // Blockquotes
-        blockquote: ({ children }) => (
-          <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-2 text-muted-foreground italic">
-            {children}
-          </blockquote>
-        ),
-        // Tables
-        table: ({ children }) => (
-          <div className="overflow-x-auto my-2">
-            <table className="min-w-full text-sm border-collapse">{children}</table>
-          </div>
-        ),
-        th: ({ children }) => (
-          <th className="border border-border px-2 py-1 bg-muted font-medium text-left">{children}</th>
-        ),
-        td: ({ children }) => (
-          <td className="border border-border px-2 py-1">{children}</td>
-        ),
-        // Horizontal rule
-        hr: () => <hr className="my-3 border-border" />,
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  );
-}
+});

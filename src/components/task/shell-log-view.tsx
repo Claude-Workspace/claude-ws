@@ -64,7 +64,7 @@ export function ShellLogView({ shell, onClose, className }: ShellLogViewProps) {
         ) : (
           logs.map((log, idx) => (
             <div
-              key={idx}
+              key={`log-${log.timestamp}-${idx}`}
               className={cn(
                 'whitespace-pre-wrap break-all',
                 log.type === 'stderr' && 'text-red-400'

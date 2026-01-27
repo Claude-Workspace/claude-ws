@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { FolderOpen, Trash2 } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { useProjectStore } from '@/stores/project-store';
 
 interface SettingsDialogProps {
@@ -20,8 +20,8 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { currentProject, projects, updateProject, deleteProject, setCurrentProject } =
-    useProjectStore();
+  const t = useTranslations('settings');
+  const { currentProject, updateProject } = useProjectStore();
   const [editingName, setEditingName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -31,27 +31,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setIsEditing(false);
   };
 
-  const handleDeleteProject = async () => {
-    if (!currentProject) return;
-    if (!confirm(`Delete project "${currentProject.name}"? This will remove all tasks and attempts.`)) {
-      return;
-    }
-    await deleteProject(currentProject.id);
-    onOpenChange(false);
-  };
-
-  const handleSwitchProject = (projectId: string) => {
-    const project = projects.find((p) => p.id === projectId);
-    if (project) {
-      setCurrentProject(project);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
             Manage your project settings and preferences.
           </DialogDescription>
@@ -106,53 +90,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
             </div>
           )}
-
-          <Separator />
-
-          {/* All Projects */}
-          {projects.length > 1 && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Switch Project</h3>
-              <div className="space-y-2">
-                {projects
-                  .filter((p) => p.id !== currentProject?.id)
-                  .map((project) => (
-                    <button
-                      key={project.id}
-                      onClick={() => handleSwitchProject(project.id)}
-                      className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left"
-                    >
-                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{project.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {project.path}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Danger Zone */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-destructive">Danger Zone</h3>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeleteProject}
-              disabled={!currentProject}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Project
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              This will permanently delete the project and all associated tasks and attempts.
-            </p>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

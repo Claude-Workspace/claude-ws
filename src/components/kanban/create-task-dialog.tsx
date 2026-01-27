@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ interface CreateTaskDialogProps {
 const TEMP_TASK_PREFIX = '__create_dialog_temp__';
 
 export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTaskDialogProps) {
+  const t = useTranslations('kanban');
   const { createTask } = useTaskStore();
   const {
     projects,
@@ -76,18 +78,18 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
 
   const handleSubmit = async (startNow = false) => {
     if (!chatPrompt.trim()) {
-      setError('Message is required');
+      setError(t('messageRequired'));
       return;
     }
 
     if (!selectedProjectId) {
-      setError('Please select a project');
+      setError(t('pleaseSelectProject'));
       return;
     }
 
     // Check if files are still uploading
     if (tempTaskId && hasUploadingFiles(tempTaskId)) {
-      setError('Please wait for files to finish uploading');
+      setError(t('waitFileUpload'));
       return;
     }
 
@@ -149,7 +151,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
       setTempTaskId('');
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create task');
+      setError(err instanceof Error ? err.message : t('failedToCreate'));
     } finally {
       setIsSubmitting(false);
     }
@@ -184,12 +186,12 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]" onKeyDown={handleKeyDown}>
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>{t('createNewTask')}</DialogTitle>
           <DialogDescription>
-            Add a new task to your Kanban board. Fill in the details below.
+            {t('createNewTaskDescription')}
             <br />
             <span className="text-xs text-muted-foreground">
-              Press Enter to create task, Shift+Enter for newline
+              {t('pressEnter')}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -199,7 +201,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
           {isMultiProject && (
             <div className="space-y-2">
               <Label htmlFor="project">
-                Project <span className="text-destructive">*</span>
+                {t('projectLabel')} <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={selectedProjectId}
@@ -207,7 +209,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
                 disabled={isSubmitting}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a project..." />
+                  <SelectValue placeholder={t('selectProject')} />
                 </SelectTrigger>
                 <SelectContent className="z-[200]" position="popper" side="bottom">
                   {availableProjects.map(p => (
@@ -222,13 +224,13 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
 
           <div className="space-y-2">
             <Label>
-              Message <span className="text-destructive">*</span>
+              {t('messageLabel')} <span className="text-destructive">*</span>
             </Label>
             <PromptInput
               key={open ? `create-task-input-${tempTaskId}` : 'closed'}
               onSubmit={() => handleSubmit(false)}
               onChange={setChatPrompt}
-              placeholder="Type / for commands..."
+              placeholder={t('typeForCommands')}
               disabled={isSubmitting}
               hideSendButton
               hideStats
@@ -241,11 +243,11 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
 
           <div className="space-y-2">
             <Label htmlFor="title">
-              Title <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              {t('titleOptional')}
             </Label>
             <Input
               id="title"
-              placeholder="Enter custom title (defaults to message if empty)..."
+              placeholder={t('enterCustomTitle')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isSubmitting}
@@ -265,7 +267,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
               onClick={() => handleOpenChange(false)}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -275,7 +277,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
                   onClick={() => handleSubmit(true)}
                   disabled={isSubmitting || !chatPrompt.trim()}
                 >
-                  {isSubmitting ? 'Starting...' : 'Start Now'}
+                  {isSubmitting ? t('starting') : t('startNow')}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -290,7 +292,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
                   disabled={isSubmitting || !chatPrompt.trim()}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Task'}
+                  {isSubmitting ? t('creating') : t('createTaskButton')}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>

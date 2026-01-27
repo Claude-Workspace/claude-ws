@@ -38,6 +38,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const [selection, setSelection] = useState<{ startLine: number; endLine: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fetchedPathRef = useRef<string | null>(null);
 
   // Editor state
   const [originalContent, setOriginalContent] = useState<string>('');
@@ -62,7 +63,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   // Notify store of dirty state changes
   useEffect(() => {
     updateTabDirty(tabId, isDirty);
-  }, [tabId, isDirty, updateTabDirty]);
+  }, [tabId, isDirty]);
 
   // Warn user before closing browser with unsaved changes
   useEffect(() => {
@@ -85,8 +86,15 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setSaveStatus('idle');
       setPast([]);
       setFuture([]);
+      fetchedPathRef.current = null;
       return;
     }
+
+    // Skip if already fetched this path
+    if (fetchedPathRef.current === filePath) return;
+
+    console.log('[FileTabContent] Fetching file content', { filePath, timestamp: Date.now() });
+    fetchedPathRef.current = filePath;
 
     const fetchContent = async () => {
       setLoading(true);
@@ -119,7 +127,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   // Reset editor position when file changes
   useEffect(() => {
     setEditorPosition(null);
-  }, [filePath, setEditorPosition]);
+  }, [filePath]);
 
   // Check for pending editor position after file loads
   useEffect(() => {
@@ -137,7 +145,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [pendingEditorPosition, filePath, loading, content, setEditorPosition, clearPendingEditorPosition]);
+  }, [pendingEditorPosition, filePath, loading, content]);
 
   // Save handler
   const handleSave = useCallback(async () => {
@@ -249,7 +257,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
     if (positions.length > 0) {
       setEditorPosition(positions[0]);
     }
-  }, [editedContent, setEditorPosition]);
+  }, [editedContent]);
 
   const handleNextMatch = useCallback(() => {
     if (!searchQuery || totalMatches === 0) return;
@@ -259,7 +267,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setEditorPosition(matchPositions[nextMatch - 1]);
     }
     setTimeout(() => searchInputRef.current?.focus(), 0);
-  }, [searchQuery, totalMatches, currentMatch, matchPositions, setEditorPosition]);
+  }, [searchQuery, totalMatches, currentMatch, matchPositions]);
 
   const handlePrevMatch = useCallback(() => {
     if (!searchQuery || totalMatches === 0) return;
@@ -269,7 +277,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setEditorPosition(matchPositions[prevMatch - 1]);
     }
     setTimeout(() => searchInputRef.current?.focus(), 0);
-  }, [searchQuery, totalMatches, currentMatch, matchPositions, setEditorPosition]);
+  }, [searchQuery, totalMatches, currentMatch, matchPositions]);
 
   const closeSearch = useCallback(() => {
     setSearchVisible(false);
@@ -278,7 +286,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
     setCurrentMatch(0);
     setMatchPositions([]);
     setEditorPosition(null);
-  }, [setEditorPosition]);
+  }, []);
 
   // Track previous content for undo (debounced)
   const lastTrackedContentRef = useRef<string>(originalContent);

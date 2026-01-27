@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { FolderTree, GitBranch, X, FolderOpen } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileTree } from './file-browser';
@@ -20,6 +21,7 @@ interface SidebarPanelProps {
 }
 
 export function SidebarPanel({ className }: SidebarPanelProps) {
+  const t = useTranslations('sidebar');
   const { isOpen, activeTab, setActiveTab, setIsOpen } = useSidebarStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const {
@@ -61,7 +63,7 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b">
-        <span className="text-sm font-medium">Explorer</span>
+        <span className="text-sm font-medium">{t('explorer')}</span>
         <Button
           variant="ghost"
           size="icon"
@@ -89,7 +91,7 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
             }}
           >
             <FolderTree className="size-3.5" />
-            Files
+            {t('files')}
           </TabsTrigger>
           <TabsTrigger
             value="git"
@@ -101,7 +103,7 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
             }}
           >
             <GitBranch className="size-3.5" />
-            Git
+            {t('git')}
           </TabsTrigger>
         </TabsList>
 
@@ -110,14 +112,14 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
           <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
             <FolderOpen className="size-8 text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground mb-3">
-              Select a project to browse files
+              {t('selectProjectToBrowse')}
             </p>
             <select
               className="w-full max-w-[200px] text-sm border rounded-md p-2 bg-background"
               value={activeProjectId || ''}
               onChange={(e) => setActiveProjectId(e.target.value || null)}
             >
-              <option value="">Choose project...</option>
+              <option value="">{t('chooseProject')}</option>
               {availableProjects.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}

@@ -7,23 +7,27 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
+import { useSettingsUIStore } from '@/stores/settings-ui-store';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useTranslations } from 'next-intl';
 
 interface RightSidebarProps {
   projectId?: string;
   onCreateTask: () => void;
-  onOpenSettings: () => void;
   className?: string;
 }
 
-export function RightSidebar({ projectId, onCreateTask, onOpenSettings, className }: RightSidebarProps) {
+export function RightSidebar({ projectId, onCreateTask, className }: RightSidebarProps) {
+  const t = useTranslations('common');
   const { isOpen, closeRightSidebar } = useRightSidebarStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
+  const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -56,7 +60,7 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-sm">Actions</h2>
+          <h2 className="font-semibold text-sm">{t('actions')}</h2>
           <div className="flex items-center gap-1">
             {/* Theme toggle button */}
             <TooltipProvider>
@@ -77,7 +81,7 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Toggle theme</p>
+                  <p>{t('toggleTheme')}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -101,7 +105,7 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
           className="w-full justify-start gap-2"
         >
           <Plus className="h-4 w-4" />
-          New Task
+          {t('newTask')}
         </Button>
 
         <Button
@@ -113,20 +117,25 @@ export function RightSidebar({ projectId, onCreateTask, onOpenSettings, classNam
           className="w-full justify-start gap-2"
         >
           <Package className="h-4 w-4" />
-          Agent Factory
+          {t('agentFactory')}
         </Button>
 
         <Button
           variant="outline"
           onClick={() => {
-            onOpenSettings();
+            setSettingsOpen(true);
             closeRightSidebar();
           }}
           className="w-full justify-start gap-2"
         >
           <Settings className="h-4 w-4" />
-          Settings
+          {t('settings')}
         </Button>
+
+        {/* Language switcher - submenu item under Settings */}
+        <div className="pl-6">
+          <LanguageSwitcher />
+        </div>
       </div>
     </>
   );

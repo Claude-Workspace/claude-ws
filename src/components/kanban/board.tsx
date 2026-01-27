@@ -13,10 +13,12 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
+import { useTranslations } from 'next-intl';
 import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { Column } from './column';
 import { TaskCard } from './task-card';
 import { useTaskStore } from '@/stores/task-store';
+import { useTouchDetection } from '@/hooks/use-touch-detection';
 
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
@@ -25,11 +27,13 @@ interface BoardProps {
 }
 
 export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardProps) {
+  const t = useTranslations('kanban');
   const { tasks, reorderTasks, selectTask, setPendingAutoStartTask } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [, startTransition] = useTransition();
   const lastReorderRef = useRef<string>('');
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
+  const isMobile = useTouchDetection(); // Single global touch detection
 
   // Filter tasks based on search query
   const filteredTasks = useMemo(() => {
@@ -233,11 +237,12 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
           <Column
             key={column.id}
             status={column.id}
-            title={column.title}
+            title={t(column.titleKey)}
             tasks={tasksByStatus.get(column.id) || []}
             attemptCounts={attemptCounts}
             onCreateTask={onCreateTask}
             searchQuery={searchQuery}
+            isMobile={isMobile}
           />
         ))}
       </div>
@@ -248,6 +253,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
             <TaskCard
               task={activeTask}
               attemptCount={attemptCounts.get(activeTask.id) || 0}
+              isMobile={isMobile}
             />
           </div>
         ) : null}

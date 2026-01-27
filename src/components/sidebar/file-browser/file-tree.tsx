@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, FilePlus, FolderPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,33 +25,58 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const isComponentMountedRef = useRef(true);
+  const fetchedKeyRef = useRef<string | null>(null);
 
   // Fetch file tree
   useEffect(() => {
+    isComponentMountedRef.current = true;
+
     if (!activeProject?.path) {
       setEntries([]);
       setLoading(false);
+      fetchedKeyRef.current = null;
       return;
     }
 
+    // Skip if already fetched with same path and refreshKey
+    const fetchKey = `${activeProject.path}:${refreshKey}`;
+    if (fetchedKeyRef.current === fetchKey) return;
+
+    if (!isComponentMountedRef.current) return;
+
+    fetchedKeyRef.current = fetchKey;
+    setLoading(true);
+    setError(null);
+
     const fetchTree = async () => {
-      setLoading(true);
-      setError(null);
+      if (!isComponentMountedRef.current) return;
+
       try {
         const res = await fetch(
           `/api/files?path=${encodeURIComponent(activeProject.path)}&depth=10&t=${Date.now()}`
         );
         if (!res.ok) throw new Error('Failed to fetch files');
         const data = await res.json();
-        setEntries(data.entries || []);
+        if (isComponentMountedRef.current) {
+          setEntries(data.entries || []);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (isComponentMountedRef.current) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+        }
       } finally {
-        setLoading(false);
+        if (isComponentMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     fetchTree();
+
+    return () => {
+      isComponentMountedRef.current = false;
+    };
   }, [activeProject?.path, refreshKey]);
 
   const handleRefresh = useCallback(() => {
@@ -60,6 +85,9 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
 
   const handleFileClick = useCallback(
     (path: string, lineNumber?: number, column?: number, matchLength?: number) => {
+      // DEBUG: Log file click
+      console.log('[FileTree] handleFileClick called', { path, lineNumber, column, matchLength });
+
       // Immediate selection update (synchronous, high priority)
       setSelectedFile(path);
 
@@ -76,7 +104,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
       // Call external callback
       onFileSelect?.(path, lineNumber, column, matchLength);
     },
-    [setSelectedFile, openTab, setEditorPosition, onFileSelect]
+    [onFileSelect]
   );
 
   const handleSearchChange = useCallback((results: SearchResults | null) => {

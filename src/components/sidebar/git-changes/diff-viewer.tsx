@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2, X, FileCode, Plus, Minus, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useActiveProject } from '@/hooks/use-active-project';
@@ -78,9 +78,16 @@ export function DiffViewer({ filePath, staged, onClose }: DiffViewerProps) {
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const fetchedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeProject?.path) return;
+
+    // Skip if already fetched for this file/staged combination
+    const fetchKey = `${filePath}:${staged}`;
+    if (fetchedKeyRef.current === fetchKey) return;
+
+    fetchedKeyRef.current = fetchKey;
 
     const fetchDiff = async () => {
       setLoading(true);
