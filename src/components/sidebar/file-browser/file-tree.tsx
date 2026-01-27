@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FilePlus, FolderPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileTreeItem } from './file-tree-item';
@@ -9,6 +9,7 @@ import { UnifiedSearch, SearchResultsView, type SearchResults } from './unified-
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 import type { FileEntry } from '@/types';
+import { FileCreateButtons } from './file-create-buttons';
 
 interface FileTreeProps {
   onFileSelect?: (path: string, lineNumber?: number, column?: number, matchLength?: number) => void;
@@ -82,9 +83,17 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
     setSearchResults(results);
   }, []);
 
+  // Get root directory entry for creating files/folders at project root
+  const rootEntry: FileEntry = {
+    name: activeProject?.path?.split('/').pop() || 'root',
+    path: '',
+    type: 'directory',
+    children: entries,
+  };
+
   // Render tree recursively
   const renderTree = (items: FileEntry[], level: number = 0) => {
-    return items.map((entry) => {
+    const result = items.map((entry) => {
       const isExpanded = expandedFolders.has(entry.path);
       const isSelected = selectedFile === entry.path;
 
@@ -106,6 +115,24 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
         </div>
       );
     });
+
+    // Add create buttons at the end of root level items
+    if (level === 0) {
+      return (
+        <>
+          {result}
+          <div className="px-2 py-1">
+            <FileCreateButtons
+              entry={rootEntry}
+              rootPath={activeProject?.path || ''}
+              onRefresh={handleRefresh}
+            />
+          </div>
+        </>
+      );
+    }
+
+    return result;
   };
 
   if (loading && !searchResults) {

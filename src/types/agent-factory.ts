@@ -59,8 +59,18 @@ export interface DiscoveredPlugin {
   name: string;
   description?: string;
   sourcePath: string;
+  group?: string; // Parent folder name for grouping nested commands/agents
   metadata?: Record<string, unknown>;
 }
+
+export interface DiscoveredFolder {
+  type: 'folder';
+  name: string;
+  path: string;
+  children: DiscoveredNode[];
+}
+
+export type DiscoveredNode = DiscoveredFolder | DiscoveredPlugin;
 
 export interface CreatePluginDTO {
   type: PluginType;

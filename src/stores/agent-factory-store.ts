@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import type { Plugin, CreatePluginDTO, UpdatePluginDTO, DiscoveredPlugin } from '@/types/agent-factory';
+import type { Plugin, CreatePluginDTO, UpdatePluginDTO, DiscoveredPlugin, DiscoveredNode } from '@/types/agent-factory';
 
 interface AgentFactoryState {
   plugins: Plugin[];
   loading: boolean;
   error: string | null;
-  discovered: DiscoveredPlugin[];
+  discovered: DiscoveredNode[];
   discovering: boolean;
 }
 
@@ -17,7 +17,7 @@ interface AgentFactoryActions {
   deletePlugin: (id: string) => Promise<void>;
 
   // Discovery
-  discoverPlugins: () => Promise<DiscoveredPlugin[]>;
+  discoverPlugins: () => Promise<DiscoveredNode[]>;
   importPlugin: (discovered: DiscoveredPlugin) => Promise<Plugin>;
 }
 

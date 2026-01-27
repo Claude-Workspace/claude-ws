@@ -6,14 +6,23 @@ import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { getGlobalClaudeDir } from '@/lib/agent-factory-dir';
 
+interface DiscoveredItem {
+  type: 'skill' | 'command' | 'agent';
+  name: string;
+  description?: string;
+  sourcePath: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface DiscoveredFolder {
+  type: 'folder';
+  name: string;
+  path: string;
+  children: Array<DiscoveredFolder | DiscoveredItem>;
+}
+
 interface DiscoverResult {
-  discovered: Array<{
-    type: 'skill' | 'command' | 'agent';
-    name: string;
-    description?: string;
-    sourcePath: string;
-    metadata?: Record<string, unknown>;
-  }>;
+  discovered: Array<DiscoveredFolder | DiscoveredItem>;
 }
 
 // Directories to exclude during scanning
@@ -46,6 +55,9 @@ const EXCLUDED_DIRS = new Set([
   '.ts',
 ]);
 
+// Track all discovered items to build hierarchy
+const discoveredItems = new Map<string, DiscoveredItem>();
+
 // POST /api/agent-factory/discover - Scan filesystem for components
 export async function POST(request: NextRequest) {
   try {
@@ -53,11 +65,14 @@ export async function POST(request: NextRequest) {
       return unauthorizedResponse();
     }
 
-    const discovered: DiscoverResult['discovered'] = [];
+    discoveredItems.clear();
     const claudeHomeDir = getGlobalClaudeDir();
 
     // Scan from home directory for component directories
-    await scanDirectoryForComponents(homedir(), claudeHomeDir, discovered);
+    await scanDirectoryForComponents(homedir(), claudeHomeDir);
+
+    // Build folder hierarchy from discovered items
+    const discovered = buildFolderHierarchy();
 
     return NextResponse.json({ discovered });
   } catch (error) {
@@ -70,7 +85,6 @@ export async function POST(request: NextRequest) {
 async function scanDirectoryForComponents(
   dir: string,
   excludeDir: string,
-  discovered: DiscoverResult['discovered'],
   depth = 0,
   visited = new Set<string>()
 ) {
@@ -91,7 +105,7 @@ async function scanDirectoryForComponents(
     // Check if this is a component directory
     const dirName = dir.split('/').pop()!;
     if (['skills', 'commands', 'agents'].includes(dirName)) {
-      await scanComponentDirectory(dir, dirName, discovered);
+      await scanComponentDirectory(dir, dirName);
       // Don't recurse deeper into component directories
       return;
     }
@@ -102,7 +116,6 @@ async function scanDirectoryForComponents(
         await scanDirectoryForComponents(
           join(dir, entry.name),
           excludeDir,
-          discovered,
           depth + 1,
           visited
         );
@@ -117,7 +130,6 @@ async function scanDirectoryForComponents(
 async function scanComponentDirectory(
   componentDir: string,
   type: string,
-  discovered: DiscoverResult['discovered'],
   visited = new Set<string>()
 ) {
   // Prevent infinite loops
@@ -138,7 +150,8 @@ async function scanComponentDirectory(
           if (existsSync(skillFile)) {
             const content = await readFile(skillFile, 'utf-8');
             const parsed = parseYamlFrontmatter(content);
-            discovered.push({
+            const key = `skill-${skillPath}`;
+            discoveredItems.set(key, {
               type: 'skill',
               name: (parsed.name as string) || entry.name,
               description: parsed.description as string | undefined,
@@ -147,7 +160,7 @@ async function scanComponentDirectory(
             });
           } else {
             // Recurse into subdirectory looking for SKILL.md
-            await scanComponentDirectory(skillPath, type, discovered, visited);
+            await scanComponentDirectory(skillPath, type, visited);
           }
         }
       } else if (type === 'commands') {
@@ -156,7 +169,8 @@ async function scanComponentDirectory(
           const commandPath = join(componentDir, entry.name);
           const content = await readFile(commandPath, 'utf-8');
           const parsed = parseYamlFrontmatter(content);
-          discovered.push({
+          const key = `command-${commandPath}`;
+          discoveredItems.set(key, {
             type: 'command',
             name: (parsed.name as string) || entry.name.replace('.md', ''),
             description: parsed.description as string | undefined,
@@ -165,7 +179,7 @@ async function scanComponentDirectory(
           });
         } else if (entry.isDirectory() && !entry.name.startsWith('.') && !EXCLUDED_DIRS.has(entry.name)) {
           // Recurse into subdirectory
-          await scanComponentDirectory(join(componentDir, entry.name), type, discovered, visited);
+          await scanComponentDirectory(join(componentDir, entry.name), type, visited);
         }
       } else if (type === 'agents') {
         // Agents: scan for *.md files (recursively in subdirectories)
@@ -173,7 +187,8 @@ async function scanComponentDirectory(
           const agentPath = join(componentDir, entry.name);
           const content = await readFile(agentPath, 'utf-8');
           const parsed = parseYamlFrontmatter(content);
-          discovered.push({
+          const key = `agent-${agentPath}`;
+          discoveredItems.set(key, {
             type: 'agent',
             name: (parsed.name as string) || entry.name.replace('.md', ''),
             description: parsed.description as string | undefined,
@@ -182,13 +197,102 @@ async function scanComponentDirectory(
           });
         } else if (entry.isDirectory() && !entry.name.startsWith('.') && !EXCLUDED_DIRS.has(entry.name)) {
           // Recurse into subdirectory
-          await scanComponentDirectory(join(componentDir, entry.name), type, discovered, visited);
+          await scanComponentDirectory(join(componentDir, entry.name), type, visited);
         }
       }
     }
   } catch {
     // Skip directories we can't read
   }
+}
+
+// Build folder hierarchy from discovered items
+function buildFolderHierarchy(): Array<DiscoveredFolder | DiscoveredItem> {
+  const homeDir = homedir();
+  const roots = new Map<string, DiscoveredFolder>();
+  const rootPaths = new Set<string>();
+
+  for (const [key, item] of discoveredItems) {
+    const sourcePath = item.sourcePath;
+    const relativePath = sourcePath.replace(homeDir + '/', '');
+
+    // Find the component type directory (skills, commands, agents)
+    const parts = relativePath.split('/');
+    const componentTypeIndex = parts.findIndex((p) => ['skills', 'commands', 'agents'].includes(p));
+
+    if (componentTypeIndex === -1) continue;
+
+    // Get the parent directory of the component type directory
+    const parentDir = parts.slice(0, componentTypeIndex).join('/');
+    const componentType = parts[componentTypeIndex];
+    const itemPathInComponent = parts.slice(componentTypeIndex + 1);
+
+    // Create root folder if it doesn't exist
+    let rootFolder: DiscoveredFolder;
+    if (!roots.has(parentDir)) {
+      // For root folder, use full relative path as name
+      const displayName = parentDir === '' ? `~/${componentType}` : `~/${parentDir}`;
+      rootFolder = {
+        type: 'folder',
+        name: displayName,
+        path: parentDir === '' ? join(homeDir, componentType) : join(homeDir, parentDir),
+        children: [],
+      };
+      roots.set(parentDir, rootFolder);
+      rootPaths.add(rootFolder.path);
+    } else {
+      rootFolder = roots.get(parentDir)!;
+    }
+
+    // Build the nested folder structure
+    let currentFolder = rootFolder;
+    let currentPath = rootFolder.path;
+
+    // Add component type folder (skills/commands/agents) if not at root
+    if (parentDir !== '') {
+      const componentTypePath = join(homeDir, parentDir, componentType);
+      let componentTypeFolder = currentFolder.children.find(
+        (c): c is DiscoveredFolder => c.type === 'folder' && c.path === componentTypePath
+      );
+      if (!componentTypeFolder) {
+        componentTypeFolder = {
+          type: 'folder',
+          name: componentType,
+          path: componentTypePath,
+          children: [],
+        };
+        currentFolder.children.push(componentTypeFolder);
+      }
+      currentFolder = componentTypeFolder;
+      currentPath = componentTypePath;
+    }
+
+    // Add intermediate folders
+    for (let i = 0; i < itemPathInComponent.length - 1; i++) {
+      const folderName = itemPathInComponent[i];
+      const folderPath = join(currentPath, folderName);
+      let folder = currentFolder.children.find(
+        (c): c is DiscoveredFolder => c.type === 'folder' && c.path === folderPath
+      );
+      if (!folder) {
+        folder = {
+          type: 'folder',
+          name: folderName,
+          path: folderPath,
+          children: [],
+        };
+        currentFolder.children.push(folder);
+      }
+      currentFolder = folder;
+      currentPath = folderPath;
+    }
+
+    // Add the item
+    currentFolder.children.push(item);
+  }
+
+  // Return root folders sorted by name
+  return Array.from(roots.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // Simple YAML frontmatter parser
