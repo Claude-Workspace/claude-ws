@@ -29,15 +29,18 @@ export class SessionManager {
 
   /**
    * Get the last session ID for a task (for resume)
-   * Returns sessions from completed or cancelled attempts
-   * Cancelled attempts have valid sessions - user just stopped the work
-   * Only 'failed' attempts (errors) may have corrupted sessions
+   * Returns sessions from completed, cancelled, OR failed attempts
+   * Session IDs are captured early in the SDK stream (from system message),
+   * so even failed attempts typically have valid sessions.
+   * Including failed attempts preserves conversation context on retry —
+   * without this, retrying after an API error (400/429/500) would start
+   * a fresh session and Claude would lose all prior context.
    */
   async getLastSessionId(taskId: string): Promise<string | null> {
     const lastResumableAttempt = await db.query.attempts.findFirst({
       where: and(
         eq(schema.attempts.taskId, taskId),
-        inArray(schema.attempts.status, ['completed', 'cancelled'])
+        inArray(schema.attempts.status, ['completed', 'cancelled', 'failed'])
       ),
       orderBy: [desc(schema.attempts.createdAt)],
     });
