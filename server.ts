@@ -26,12 +26,31 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = parseInt(process.env.PORT || '8556', 10);
 
+// API authentication key (optional)
+const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
+
 const app = next({ dev, hostname, port, turbopack: false });
 const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
+    const pathname = parsedUrl.pathname || '';
+
+    // API authentication check
+    const isApiRoute = pathname.startsWith('/api/');
+    const isVerifyEndpoint = pathname === '/api/auth/verify';
+
+    if (isApiRoute && !isVerifyEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
+      const providedKey = req.headers['x-api-key'];
+
+      if (!providedKey || providedKey !== API_ACCESS_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized', message: 'Valid API key required' }));
+        return;
+      }
+    }
+
     handle(req, res, parsedUrl);
   });
 

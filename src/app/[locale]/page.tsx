@@ -11,7 +11,7 @@ import { SettingsPage } from '@/components/settings/settings-page';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
-import { ApiKeyProvider, ApiKeyDialog, useApiKeyCheck } from '@/components/auth/api-key-dialog';
+import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { PluginList } from '@/components/agent-factory/plugin-list';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
@@ -23,10 +23,8 @@ import { useSettingsUIStore } from '@/stores/settings-ui-store';
 function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [apiKeyRefresh, setApiKeyRefresh] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { needsApiKey } = useApiKeyCheck(apiKeyRefresh);
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
 
@@ -228,19 +226,6 @@ function KanbanApp() {
         onTaskCreated={handleTaskCreated}
       />
       <SetupDialog open={setupOpen || autoShowSetup} onOpenChange={setSetupOpen} />
-      <ApiKeyDialog
-        open={needsApiKey}
-        onOpenChange={(open) => {
-          // Allow closing only if not needed
-          if (!open && !needsApiKey) return;
-        }}
-        onSuccess={() => {
-          // Trigger refresh to re-check API key status
-          setApiKeyRefresh(prev => prev + 1);
-          // Refetch projects after API key is set
-          fetchProjects();
-        }}
-      />
 
       {/* Agent Factory Dialog */}
       {agentFactoryOpen && (

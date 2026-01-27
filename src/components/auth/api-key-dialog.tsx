@@ -273,11 +273,38 @@ function headersToObject(headers: HeadersInit): Record<string, string> {
   return headers as Record<string, string>;
 }
 
+// Event name for triggering API key dialog from fetch interceptor
+const API_KEY_REQUIRED_EVENT = 'claude-kanban:api-key-required';
+
 /**
- * Provider that patches global fetch to include API key
+ * Dispatch event to trigger API key dialog
+ */
+function dispatchApiKeyRequired(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(API_KEY_REQUIRED_EVENT));
+  }
+}
+
+/**
+ * Provider that patches global fetch to include API key and handle 401 responses
  * Must be a client component and wrap the app
  */
 export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // Listen for API key required events from fetch interceptor
+  useEffect(() => {
+    const handleApiKeyRequired = () => {
+      setShowAuthDialog(true);
+    };
+
+    window.addEventListener(API_KEY_REQUIRED_EVENT, handleApiKeyRequired);
+    return () => {
+      window.removeEventListener(API_KEY_REQUIRED_EVENT, handleApiKeyRequired);
+    };
+  }, []);
+
   // Patch fetch immediately on render (synchronously)
   // This ensures it's available before any useEffect in child components runs
   if (typeof window !== 'undefined' && !window.fetch._apiKeyPatched) {
@@ -286,20 +313,19 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     window.fetch = async (url, options) => {
       const apiKey = getStoredApiKey();
 
-      // If no API key stored, just pass through
-      if (!apiKey) {
-        return originalFetch(url, options);
-      }
-
-      // Build new headers object with API key
+      // Build new headers object with API key if available
       const existingHeaders = options?.headers
         ? headersToObject(options.headers)
         : {};
 
       const newHeaders: Record<string, string> = {
         ...existingHeaders,
-        'x-api-key': apiKey,
       };
+
+      // Add API key if stored
+      if (apiKey) {
+        newHeaders['x-api-key'] = apiKey;
+      }
 
       // Create new options with merged headers
       const newOptions: RequestInit = {
@@ -307,12 +333,44 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
         headers: newHeaders,
       };
 
-      return originalFetch(url, newOptions);
+      const response = await originalFetch(url, newOptions);
+
+      // Check for 401 on API routes (except auth/verify endpoint)
+      const urlString = typeof url === 'string' ? url : url.toString();
+      const isApiRoute = urlString.includes('/api/');
+      const isVerifyEndpoint = urlString.includes('/api/auth/verify');
+
+      if (response.status === 401 && isApiRoute && !isVerifyEndpoint) {
+        // Clear stored key if it's invalid
+        if (apiKey) {
+          clearStoredApiKey();
+        }
+        // Trigger API key dialog
+        dispatchApiKeyRequired();
+      }
+
+      return response;
     };
 
     // Mark as patched to avoid double-patching
     window.fetch._apiKeyPatched = true;
   }
 
-  return <>{children}</>;
+  const handleAuthSuccess = () => {
+    setShowAuthDialog(false);
+    setRefreshCounter((prev) => prev + 1);
+    // Reload the page to refetch all data with new API key
+    window.location.reload();
+  };
+
+  return (
+    <>
+      {children}
+      <ApiKeyDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        onSuccess={handleAuthSuccess}
+      />
+    </>
+  );
 }
