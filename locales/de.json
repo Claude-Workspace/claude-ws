@@ -54,6 +54,7 @@
     "noTasks": "Keine Aufgaben",
     "deleteAllTasks": "Alle {count} Aufgabe(n) löschen?",
     "newTaskShortcut": "Neue Aufgabe (Strg/⌘ + Leertaste)",
+    "addNew": "Neu",
     "createNewTask": "Neue Aufgabe erstellen",
     "createNewTaskDescription": "Fügen Sie eine neue Aufgabe zu Ihrem Kanban-Board hinzu. Füllen Sie die Details unten aus.",
     "pressEnter": "Drücken Sie Enter, um Aufgabe zu erstellen, Shift+Enter für neue Zeile",

@@ -54,6 +54,7 @@
     "noTasks": "无任务",
     "deleteAllTasks": "删除所有 {count} 个任务？",
     "newTaskShortcut": "新任务 (Ctrl/⌘ + 空格)",
+    "addNew": "新建",
     "createNewTask": "创建新任务",
     "createNewTaskDescription": "向您的看板添加新任务。请在下方填写详细信息。",
     "pressEnter": "按 Enter 创建任务，Shift+Enter 换行",

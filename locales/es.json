@@ -54,6 +54,7 @@
     "noTasks": "Sin tareas",
     "deleteAllTasks": "¿Eliminar {count} tarea(s)?",
     "newTaskShortcut": "Nueva Tarea (Ctrl/⌘ + Espacio)",
+    "addNew": "Nuevo",
     "createNewTask": "Crear Nueva Tarea",
     "createNewTaskDescription": "Añada una nueva tarea a su tablero Kanban. Rellene los detalles abajo.",
     "pressEnter": "Presione Enter para crear tarea, Shift+Enter para nueva línea",

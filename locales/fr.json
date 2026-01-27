@@ -54,6 +54,7 @@
     "noTasks": "Aucune tâche",
     "deleteAllTasks": "Supprimer les {count} tâche(s) ?",
     "newTaskShortcut": "Nouvelle tâche (Ctrl/⌘ + Espace)",
+    "addNew": "Nouveau",
     "createNewTask": "Créer une nouvelle tâche",
     "createNewTaskDescription": "Ajoutez une nouvelle tâche à votre tableau Kanban. Remplissez les détails ci-dessous.",
     "pressEnter": "Appuyez sur Entrée pour créer la tâche, Shift+Entrée pour nouvelle ligne",

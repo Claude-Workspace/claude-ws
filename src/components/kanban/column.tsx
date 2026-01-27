@@ -57,13 +57,14 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
           </span>
           {isTodoColumn && onCreateTask && (
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
+              variant="default"
+              size="sm"
+              className="h-6 px-2 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={onCreateTask}
               title={t('newTaskShortcut')}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3 mr-1" />
+              {t('addNew')}
             </Button>
           )}
           {isArchiveColumn && tasks.length > 0 && (

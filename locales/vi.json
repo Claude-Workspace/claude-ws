@@ -54,6 +54,7 @@
     "noTasks": "Không có nhiệm vụ",
     "deleteAllTasks": "Xóa tất cả {count} nhiệm vụ?",
     "newTaskShortcut": "Nhiệm vụ mới (Ctrl/⌘ + Space)",
+    "addNew": "Thêm",
     "createNewTask": "Tạo nhiệm vụ mới",
     "createNewTaskDescription": "Thêm nhiệm vụ mới vào bảng Kanban của bạn. Điền thông tin chi tiết bên dưới.",
     "pressEnter": "Nhấn Enter để tạo nhiệm vụ, Shift+Enter để xuống dòng",

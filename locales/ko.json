@@ -54,6 +54,7 @@
     "noTasks": "작업 없음",
     "deleteAllTasks": "모든 {count} 개의 작업을 삭제하시겠습니까?",
     "newTaskShortcut": "새 작업 (Ctrl/⌘ + Space)",
+    "addNew": "추가",
     "createNewTask": "새 작업 만들기",
     "createNewTaskDescription": "칸반 보드에 새 작업을 추가하세요. 아래 세부 정보를 입력하세요.",
     "pressEnter": "Enter 키를 누르면 작업 생성, Shift+Enter는 줄 바꿈",

@@ -54,6 +54,7 @@
     "noTasks": "No tasks",
     "deleteAllTasks": "Delete all {count} task(s)?",
     "newTaskShortcut": "New Task (Ctrl/⌘ + Space)",
+    "addNew": "New",
     "createNewTask": "Create New Task",
     "createNewTaskDescription": "Add a new task to your Kanban board. Fill in the details below.",
     "pressEnter": "Press Enter to create task, Shift+Enter for newline",

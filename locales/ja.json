@@ -54,6 +54,7 @@
     "noTasks": "タスクなし",
     "deleteAllTasks": "すべての {count} 個のタスクを削除しますか？",
     "newTaskShortcut": "新しいタスク (Ctrl/⌘ + Space)",
+    "addNew": "新規",
     "createNewTask": "新しいタスクを作成",
     "createNewTaskDescription": "かんばんボードに新しいタスクを追加します。下の詳細を入力してください。",
     "pressEnter": "Enter キーでタスク作成、Shift+Enter で改行",
