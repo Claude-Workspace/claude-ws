@@ -10,7 +10,6 @@ import { useRunningTasksStore } from '@/stores/running-tasks-store';
  */
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const { addRunningTask, removeRunningTask, markTaskCompleted } = useRunningTasksStore();
 
   useEffect(() => {
     const socketInstance = io({
@@ -19,38 +18,35 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     });
 
     socketInstance.on('connect', () => {
-      console.log('[SocketProvider] Connected:', socketInstance.id);
       // Defer setSocket to avoid setState during render
       Promise.resolve().then(() => setSocket(socketInstance));
     });
 
     socketInstance.on('disconnect', () => {
-      console.log('[SocketProvider] Disconnected');
+      // Socket disconnected
     });
 
-    socketInstance.on('connect_error', (err) => {
-      console.error('[SocketProvider] Connect error:', err);
+    socketInstance.on('connect_error', () => {
+      // Socket connect error
     });
 
     // Global: Listen for any task starting
     socketInstance.on('task:started', (data: { taskId: string }) => {
-      console.log('[SocketProvider] Task started:', data.taskId);
-      addRunningTask(data.taskId);
+      useRunningTasksStore.getState().addRunningTask(data.taskId);
     });
 
     // Global: Listen for any task finishing
     socketInstance.on('task:finished', (data: { taskId: string; status: string }) => {
-      console.log('[SocketProvider] Task finished:', data.taskId, data.status);
-      removeRunningTask(data.taskId);
+      useRunningTasksStore.getState().removeRunningTask(data.taskId);
       if (data.status === 'completed') {
-        markTaskCompleted(data.taskId);
+        useRunningTasksStore.getState().markTaskCompleted(data.taskId);
       }
     });
 
     return () => {
       socketInstance.disconnect();
     };
-  }, [addRunningTask, removeRunningTask, markTaskCompleted]);
+  }, []);
 
   return <>{children}</>;
 }

@@ -3,7 +3,11 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
-import './globals.css';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+import { locales } from '@/i18n/config';
+import '../globals.css';
 
 // Force dynamic rendering to avoid Next.js 16 Turbopack bugs
 export const dynamic = 'force-dynamic';
@@ -42,22 +46,34 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
+  const { locale } = await params;
+
+  if (!locales.includes(locale as any)) {
+    notFound();
+  }
+
+  const messages = await getMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <SocketProvider>
-          <ThemeProvider>
-            {children}
-            <Toaster position="top-right" richColors closeButton />
-          </ThemeProvider>
-        </SocketProvider>
+        <NextIntlClientProvider messages={messages}>
+          <SocketProvider>
+            <ThemeProvider>
+              {children}
+              <Toaster position="top-right" richColors closeButton />
+            </ThemeProvider>
+          </SocketProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

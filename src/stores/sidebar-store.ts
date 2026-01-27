@@ -123,11 +123,13 @@ export const useSidebarStore = create<SidebarStore>()(
       setSelectedFile: (selectedFile) => set({ selectedFile }),
 
       // Multi-tab actions
-      openTab: (filePath) =>
-        set((state) => {
+      openTab: (filePath) => {
+        console.log('[SidebarStore] openTab called', { filePath, timestamp: Date.now() });
+        return set((state) => {
           // Check if tab already exists - switch to it
           const existing = state.openTabs.find((t) => t.filePath === filePath);
           if (existing) {
+            console.log('[SidebarStore] Tab already exists, switching to it', { tabId: existing.id });
             return { activeTabId: existing.id };
           }
           // Create new tab
@@ -136,11 +138,13 @@ export const useSidebarStore = create<SidebarStore>()(
             filePath,
             isDirty: false,
           };
+          console.log('[SidebarStore] Creating new tab', { tabId: newTab.id });
           return {
             openTabs: [...state.openTabs, newTab],
             activeTabId: newTab.id,
           };
-        }),
+        });
+      },
 
       closeTab: (tabId) =>
         set((state) => {

@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         prompt,
         options: {
           cwd: resolvedPath,
-          model: 'sonnet',
+          model: 'haiku',
           permissionMode: 'bypassPermissions' as const,
         },
       });

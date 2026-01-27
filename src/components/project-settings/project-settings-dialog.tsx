@@ -51,6 +51,7 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
 
   // Track if we've loaded settings for this project to prevent overwriting user's selections
   const loadedProjectIdRef = useRef<string | null>(null);
+  const fetchedProjectIdRef = useRef<string | null>(null);
 
   // Track installed components from filesystem (always use actual installed IDs)
   const installedComponentIds = actuallyInstalledIds;

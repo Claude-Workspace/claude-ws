@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, type ReactNode, type DragEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ export function FileDropZone({
   children,
   className,
 }: FileDropZoneProps) {
+  const t = useTranslations('chat');
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCountRef = useRef(0);
@@ -98,7 +100,7 @@ export function FileDropZone({
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-md pointer-events-none">
           <div className="flex items-center gap-2 text-primary font-medium">
             <Upload className="size-5" />
-            <span>Drop files here</span>
+            <span>{t('dropFilesHere')}</span>
           </div>
         </div>
       )}

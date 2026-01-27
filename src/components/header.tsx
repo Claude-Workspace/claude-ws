@@ -22,21 +22,24 @@ import { useSidebarStore } from '@/stores/sidebar-store';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useShellStore } from '@/stores/shell-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { ProjectSelector, ProjectSelectorContent } from '@/components/header/project-selector';
+import { useTranslations } from 'next-intl';
 
 interface HeaderProps {
   onCreateTask: () => void;
-  onOpenSettings: () => void;
   onAddProject: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
 }
 
-export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery: externalSearchQuery = '', onSearchChange }: HeaderProps) {
+export function Header({ onCreateTask, onAddProject, searchQuery: externalSearchQuery = '', onSearchChange }: HeaderProps) {
+  const t = useTranslations('common');
   const { tasks } = useTaskStore();
   const { isOpen: sidebarOpen, toggleSidebar } = useSidebarStore();
   const { isOpen: rightSidebarOpen, toggleRightSidebar } = useRightSidebarStore();
   const { shells } = useShellStore();
+  const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const { activeProjectId, selectedProjectIds } = useProjectStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
@@ -68,7 +71,7 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Toggle sidebar (⌘B)</p>
+              <p>{t('toggleSidebar')} (⌘B)</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -88,7 +91,7 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search tasks..."
+              placeholder={t('searchTasks')}
               className="pl-8 h-9 w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -118,7 +121,7 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Search (⌘K)</p>
+                <p>{t('search')} (⌘K)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -166,8 +169,8 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  Toggle actions
-                  {runningShellCount > 0 && ` (${runningShellCount} shell${runningShellCount !== 1 ? 's' : ''} running)`}
+                  {t('toggleActions')}
+                  {runningShellCount > 0 && ` (${runningShellCount} ${t('shell')}${runningShellCount !== 1 ? 's' : ''} ${t('running')})`}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -182,7 +185,7 @@ export function Header({ onCreateTask, onOpenSettings, onAddProject, searchQuery
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search tasks..."
+              placeholder={t('searchTasks')}
               className="pl-8 h-9 w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

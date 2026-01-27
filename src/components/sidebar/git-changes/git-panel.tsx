@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2, RefreshCw, GitBranch, ArrowUp, ArrowDown, Check, ChevronDown, ChevronRight, Plus, Minus, Undo2, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import type { GitStatus, GitFileStatus } from '@/types';
 
 export function GitPanel() {
+  const t = useTranslations('git');
   const activeProject = useActiveProject();
   const { openDiffTab } = useSidebarStore();
   const [status, setStatus] = useState<GitStatus | null>(null);
@@ -30,14 +32,23 @@ export function GitPanel() {
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [branchModalOpen, setBranchModalOpen] = useState(false);
+  const isComponentMountedRef = useRef(true);
+  const fetchedPathRef = useRef<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (forceRefresh = false) => {
     if (!activeProject?.path) {
       setStatus(null);
       setLoading(false);
+      fetchedPathRef.current = null;
       return;
     }
 
+    // Skip if already fetched this path (unless force refresh)
+    if (!forceRefresh && fetchedPathRef.current === activeProject.path) return;
+
+    if (!isComponentMountedRef.current) return;
+
+    fetchedPathRef.current = activeProject.path;
     setLoading(true);
     setError(null);
     try {
@@ -49,19 +60,29 @@ export function GitPanel() {
         throw new Error(data.error || 'Failed to fetch git status');
       }
       const data = await res.json();
-      setStatus(data);
-      setLastUpdated(new Date());
+      if (isComponentMountedRef.current) {
+        setStatus(data);
+        setLastUpdated(new Date());
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setStatus(null);
+      if (isComponentMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setStatus(null);
+      }
     } finally {
-      setLoading(false);
+      if (isComponentMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeProject?.path]);
 
   // Fetch on mount and when project changes
   useEffect(() => {
+    isComponentMountedRef.current = true;
     fetchStatus();
+    return () => {
+      isComponentMountedRef.current = false;
+    };
   }, [fetchStatus]);
 
   // Auto-refresh on window focus
@@ -90,7 +111,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, files: [filePath] }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to stage file:', err);
     }
@@ -104,7 +125,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, files: [filePath] }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to unstage file:', err);
     }
@@ -119,7 +140,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, files: [filePath] }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to discard file:', err);
     }
@@ -133,7 +154,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, all: true }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to stage all:', err);
     }
@@ -147,7 +168,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, all: true }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to unstage all:', err);
     }
@@ -162,7 +183,7 @@ export function GitPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: activeProject.path, all: true }),
       });
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to discard all:', err);
     }
@@ -180,7 +201,7 @@ export function GitPanel() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to add to .gitignore');
       }
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       console.error('Failed to add to .gitignore:', err);
       alert(err instanceof Error ? err.message : 'Failed to add to .gitignore');
@@ -214,7 +235,7 @@ export function GitPanel() {
       }
       setCommitTitle('');
       setCommitDescription('');
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to commit');
     } finally {
@@ -262,7 +283,7 @@ export function GitPanel() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to push');
       }
-      fetchStatus();
+      fetchStatus(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to push changes');
     } finally {
@@ -288,7 +309,7 @@ export function GitPanel() {
         throw new Error(data.error || 'Failed to checkout branch');
       }
 
-      await fetchStatus();
+      await fetchStatus(true);
     } catch (err) {
       throw err;
     }
@@ -312,7 +333,7 @@ export function GitPanel() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 p-4">
         <p className="text-sm text-destructive text-center">{error}</p>
-        <Button variant="outline" size="sm" onClick={fetchStatus}>
+        <Button variant="outline" size="sm" onClick={() => fetchStatus(true)}>
           Retry
         </Button>
       </div>
@@ -365,7 +386,7 @@ export function GitPanel() {
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={fetchStatus}
+            onClick={() => fetchStatus(true)}
             disabled={loading}
             title="Refresh"
           >
@@ -517,7 +538,7 @@ export function GitPanel() {
 
                 {totalChanges === 0 ? (
                   <div className="flex flex-col items-center justify-center py-4 text-muted-foreground text-sm">
-                    <p>No changes</p>
+                    <p>{t('noChanges')}</p>
                     <p className="text-xs mt-1">Working tree clean</p>
                   </div>
                 ) : (
@@ -537,7 +558,7 @@ export function GitPanel() {
                           ) : (
                             <ChevronRight className="size-3" />
                           )}
-                          <span className="flex-1">Staged</span>
+                          <span className="flex-1">{t('staged')}</span>
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               className="p-0.5 hover:bg-accent rounded"
@@ -545,13 +566,13 @@ export function GitPanel() {
                                 e.stopPropagation();
                                 unstageAll();
                               }}
-                              title="Unstage All"
+                              title={t('unstageAll')}
                             >
                               <Minus className="size-3" />
                             </button>
                           </div>
                           <span className="px-1 py-0.5 bg-muted/80 rounded text-[9px] font-semibold">
-                            {status?.staged.length || 0}
+                            {t('stagedCount', { count: status?.staged.length || 0 })}
                           </span>
                         </div>
                         {stagedExpanded && (

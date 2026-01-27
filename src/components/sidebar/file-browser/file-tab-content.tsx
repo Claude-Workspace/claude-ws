@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical, Download } from 'lucide-react';
+import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical, Download, Eye, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CodeEditorWithInlineEdit } from '@/components/editor/code-editor-with-inline-edit';
+import { MarkdownFileViewer } from '@/components/editor/markdown-file-viewer';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 import { useTaskStore } from '@/stores/task-store';
@@ -31,6 +32,24 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const { addFileMention, addLineMention } = useContextMentionStore();
   const { selectedProjectIds } = useProjectStore();
 
+  // Check if file is markdown
+  const isMarkdownFile = filePath.endsWith('.md') || filePath.endsWith('.mdx');
+
+  // Markdown view mode state (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<'preview' | 'code'>(() => {
+    if (typeof window === 'undefined') return 'preview';
+    return (localStorage.getItem('markdown-view-mode') as 'preview' | 'code') || 'preview';
+  });
+
+  // Persist view mode preference
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => {
+      const newMode = prev === 'preview' ? 'code' : 'preview';
+      localStorage.setItem('markdown-view-mode', newMode);
+      return newMode;
+    });
+  }, []);
+
   const [content, setContent] = useState<FileContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +57,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const [selection, setSelection] = useState<{ startLine: number; endLine: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fetchedPathRef = useRef<string | null>(null);
 
   // Editor state
   const [originalContent, setOriginalContent] = useState<string>('');
@@ -62,7 +82,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   // Notify store of dirty state changes
   useEffect(() => {
     updateTabDirty(tabId, isDirty);
-  }, [tabId, isDirty, updateTabDirty]);
+  }, [tabId, isDirty]);
 
   // Warn user before closing browser with unsaved changes
   useEffect(() => {
@@ -85,8 +105,15 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setSaveStatus('idle');
       setPast([]);
       setFuture([]);
+      fetchedPathRef.current = null;
       return;
     }
+
+    // Skip if already fetched this path
+    if (fetchedPathRef.current === filePath) return;
+
+    console.log('[FileTabContent] Fetching file content', { filePath, timestamp: Date.now() });
+    fetchedPathRef.current = filePath;
 
     const fetchContent = async () => {
       setLoading(true);
@@ -119,7 +146,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   // Reset editor position when file changes
   useEffect(() => {
     setEditorPosition(null);
-  }, [filePath, setEditorPosition]);
+  }, [filePath]);
 
   // Check for pending editor position after file loads
   useEffect(() => {
@@ -137,7 +164,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [pendingEditorPosition, filePath, loading, content, setEditorPosition, clearPendingEditorPosition]);
+  }, [pendingEditorPosition, filePath, loading, content]);
 
   // Save handler
   const handleSave = useCallback(async () => {
@@ -249,7 +276,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
     if (positions.length > 0) {
       setEditorPosition(positions[0]);
     }
-  }, [editedContent, setEditorPosition]);
+  }, [editedContent]);
 
   const handleNextMatch = useCallback(() => {
     if (!searchQuery || totalMatches === 0) return;
@@ -259,7 +286,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setEditorPosition(matchPositions[nextMatch - 1]);
     }
     setTimeout(() => searchInputRef.current?.focus(), 0);
-  }, [searchQuery, totalMatches, currentMatch, matchPositions, setEditorPosition]);
+  }, [searchQuery, totalMatches, currentMatch, matchPositions]);
 
   const handlePrevMatch = useCallback(() => {
     if (!searchQuery || totalMatches === 0) return;
@@ -269,7 +296,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       setEditorPosition(matchPositions[prevMatch - 1]);
     }
     setTimeout(() => searchInputRef.current?.focus(), 0);
-  }, [searchQuery, totalMatches, currentMatch, matchPositions, setEditorPosition]);
+  }, [searchQuery, totalMatches, currentMatch, matchPositions]);
 
   const closeSearch = useCallback(() => {
     setSearchVisible(false);
@@ -278,7 +305,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
     setCurrentMatch(0);
     setMatchPositions([]);
     setEditorPosition(null);
-  }, [setEditorPosition]);
+  }, []);
 
   // Track previous content for undo (debounced)
   const lastTrackedContentRef = useRef<string>(originalContent);
@@ -463,6 +490,18 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               <span className="hidden sm:inline">Save</span>
             </Button>
           )}
+          {/* Markdown view/code toggle */}
+          {!content?.isBinary && content?.content !== null && isMarkdownFile && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={toggleViewMode}
+              title={viewMode === 'preview' ? 'Show source code' : 'Show preview'}
+              className={viewMode === 'preview' ? 'bg-accent' : ''}
+            >
+              {viewMode === 'preview' ? <Code className="size-4" /> : <Eye className="size-4" />}
+            </Button>
+          )}
           {/* Attach to chat (@) button */}
           {!content?.isBinary && content?.content !== null && (
             <DropdownMenu>
@@ -645,6 +684,8 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 <span className="text-sm">{content.mimeType}</span>
                 <span className="text-xs mt-1">{formatFileSize(content.size)}</span>
               </div>
+            ) : isMarkdownFile && viewMode === 'preview' ? (
+              <MarkdownFileViewer content={editedContent} className="h-full" />
             ) : (
               <CodeEditorWithInlineEdit
                 value={editedContent}

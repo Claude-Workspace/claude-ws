@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Trash, Download, Copy, Loader2, FileText, FilePlus, FolderPlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -61,6 +62,7 @@ export function FileTreeContextMenuContent({
   onRefresh,
   itemType = 'context',
 }: FileTreeContextMenuContentProps) {
+  const t = useTranslations('sidebar');
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
@@ -110,12 +112,12 @@ export function FileTreeContextMenuContent({
       }
 
       toast.success(
-    `${entry.type === 'directory' ? 'Folder' : 'File'} deleted`
+    entry.type === 'directory' ? t('folderDeleted') : t('fileDeleted')
       );
       setDeleteDialog(false);
       onDelete?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : t('deleteFailed'));
     } finally {
       setIsDeleting(false);
     }
@@ -156,9 +158,9 @@ export function FileTreeContextMenuContent({
         URL.revokeObjectURL(url);
       }
 
-      toast.success('Download started');
+      toast.success(t('downloadStarted'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download failed');
+      toast.error(err instanceof Error ? err.message : t('deleteFailed'));
     } finally {
       setIsDownloading(false);
     }
@@ -170,9 +172,9 @@ export function FileTreeContextMenuContent({
   const handleCopyPath = async () => {
     try {
       await navigator.clipboard.writeText(fullPath);
-      toast.success('Path copied to clipboard');
+      toast.success(t('pathCopied'));
     } catch {
-      toast.error('Failed to copy path');
+      toast.error(t('failedToCopyPath'));
     }
   };
 
@@ -191,7 +193,7 @@ export function FileTreeContextMenuContent({
   const handleCreate = async () => {
     const trimmedName = createName.trim();
     if (!trimmedName) {
-      toast.error('Name cannot be empty');
+      toast.error(t('nameCannotBeEmpty'));
       return;
     }
 
@@ -252,11 +254,11 @@ export function FileTreeContextMenuContent({
         <>
           <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('file'); }}>
             <FilePlus className="mr-2 size-4" />
-            New File
+            {t('newFile')}
           </MenuItem>
           <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('folder'); }}>
             <FolderPlus className="mr-2 size-4" />
-            New Folder
+            {t('newFolder')}
           </MenuItem>
           <MenuSeparator />
         </>
@@ -268,16 +270,16 @@ export function FileTreeContextMenuContent({
         ) : (
           <Download className="mr-2 size-4" />
         )}
-        Download
+        {t('download')}
         {isDownloading && <span className="ml-auto text-xs text-muted-foreground">Preparing...</span>}
       </MenuItem>
       <MenuItem onClick={handleCopyPath}>
         <Copy className="mr-2 size-4" />
-        Copy Path
+        {t('copyPath')}
       </MenuItem>
       <MenuItem onClick={onRename}>
         <FileText className="mr-2 size-4" />
-        Rename
+        {t('rename')}
       </MenuItem>
       <MenuItem
         onClick={(e) => {
@@ -287,31 +289,31 @@ export function FileTreeContextMenuContent({
         className="text-destructive focus:text-destructive"
       >
         <Trash className="mr-2 size-4" />
-        Delete
+        {t('delete')}
       </MenuItem>
 
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Delete {entry.type === 'directory' ? 'Folder' : 'File'}
+              {t('delete')} {entry.type === 'directory' ? t('newFolder').toLowerCase() : t('newFile').toLowerCase().replace('new ', '')}
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{entry.name}</strong>
+              {t('deleteConfirm', { name: entry.name })}
               {entry.type === 'directory' && ' and all its contents'}? This
               action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'Deleting...' : t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -321,10 +323,13 @@ export function FileTreeContextMenuContent({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Create New {createType === 'folder' ? 'Folder' : 'File'}
+              {t('create')} {createType === 'folder' ? t('newFolder') : t('newFile')}
             </DialogTitle>
             <DialogDescription>
-              Enter a name for the new {createType === 'folder' ? 'folder' : 'file'} in <strong>{entry.name}</strong>
+              {createType === 'file'
+                ? t('createFile', { name: createName || '...', location: entry.name })
+                : t('createFolder', { name: createName || '...', location: entry.name })
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -347,10 +352,10 @@ export function FileTreeContextMenuContent({
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create'}
+              {isCreating ? 'Creating...' : t('create')}
             </Button>
           </DialogFooter>
         </DialogContent>

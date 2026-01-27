@@ -3,6 +3,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './task-card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,11 @@ interface ColumnProps {
   attemptCounts?: Map<string, number>;
   onCreateTask?: () => void;
   searchQuery?: string;
+  isMobile?: boolean;
 }
 
-export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '' }: ColumnProps) {
+export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false }: ColumnProps) {
+  const t = useTranslations('kanban');
   const { deleteTasksByStatus } = useTaskStore();
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -34,7 +37,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
 
   const handleEmptyColumn = async () => {
     if (tasks.length === 0) return;
-    if (!confirm(`Delete all ${tasks.length} task(s) from ${title}?`)) return;
+    if (!confirm(t('deleteAllTasks', { count: tasks.length }))) return;
     try {
       await deleteTasksByStatus(status);
     } catch (error) {
@@ -54,13 +57,14 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
           </span>
           {isTodoColumn && onCreateTask && (
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
+              variant="default"
+              size="sm"
+              className="h-6 px-2 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={onCreateTask}
-              title="New Task (Ctrl/⌘ + Space)"
+              title={t('newTaskShortcut')}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3 mr-1" />
+              {t('addNew')}
             </Button>
           )}
           {isArchiveColumn && tasks.length > 0 && (
@@ -69,7 +73,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-destructive"
               onClick={handleEmptyColumn}
-              title={`Delete all ${tasks.length} task(s)`}
+              title={t('deleteAllTasks', { count: tasks.length })}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -92,6 +96,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
                 task={task}
                 attemptCount={attemptCounts.get(task.id) || 0}
                 searchQuery={searchQuery}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -99,7 +104,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
 
         {tasks.length === 0 && (
           <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            No tasks
+            {t('noTasks')}
           </div>
         )}
       </div>

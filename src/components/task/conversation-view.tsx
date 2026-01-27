@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBlock } from '@/components/claude/message-block';
@@ -41,6 +41,9 @@ interface ConversationViewProps {
   onOpenQuestion?: () => void;
   className?: string;
   onHistoryLoaded?: (hasHistory: boolean) => void;
+  // Refs from parent to track fetching state across remounts
+  lastFetchedTaskIdRef?: React.RefObject<string | null>;
+  isFetchingRef?: React.RefObject<boolean>;
 }
 
 // Build a map of tool results from messages
@@ -136,6 +139,8 @@ export function ConversationView({
   activeQuestion,
   onOpenQuestion,
   className,
+  lastFetchedTaskIdRef,
+  isFetchingRef,
 }: ConversationViewProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [historicalTurns, setHistoricalTurns] = useState<ConversationTurn[]>([]);
@@ -147,6 +152,23 @@ export function ConversationView({
   const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Track last prompt to detect new prompt submission
   const lastPromptRef = useRef<string | undefined>(currentPrompt);
+  // Use parent refs if provided, otherwise use local refs (fallback for backward compatibility)
+  const localLastFetchedTaskIdRef = useRef<string | null>(null);
+  const localIsFetchingRef = useRef(false);
+  const effectiveLastFetchedRef = lastFetchedTaskIdRef || localLastFetchedTaskIdRef;
+  const effectiveIsFetchingRef = isFetchingRef || localIsFetchingRef;
+
+  // Pre-compute tool results map and last tool ID for current messages (streaming)
+  // Memoized to avoid O(n²) complexity on every render
+  // MUST be called before any early returns per React Rules of Hooks
+  const currentToolResultsMap = useMemo(
+    () => buildToolResultsMap(currentMessages),
+    [currentMessages]
+  );
+  const currentLastToolUseId = useMemo(
+    () => findLastToolUseId(currentMessages),
+    [currentMessages]
+  );
 
   // Check if user is near bottom of scroll area (within threshold)
   const isNearBottom = () => {
@@ -198,14 +220,7 @@ export function ConversationView({
 
       if (detachedContainer) {
         // In detached mode, scroll the detached container
-        const beforeScroll = detachedContainer.scrollTop;
         detachedContainer.scrollTop = detachedContainer.scrollHeight;
-        console.log('[scrollToBottomWithRetry] detached mode', {
-          beforeScroll,
-          afterScroll: detachedContainer.scrollTop,
-          scrollHeight: detachedContainer.scrollHeight,
-          remaining: remainingAttempts,
-        });
         requestAnimationFrame(() => {
           const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10;
           if (!isAtBottom && remainingAttempts > 0) {
@@ -216,15 +231,7 @@ export function ConversationView({
         // Normal mode, scroll the ScrollArea viewport
         const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
         if (viewport && viewport.scrollHeight > 0) {
-          const beforeScroll = viewport.scrollTop;
           viewport.scrollTop = viewport.scrollHeight;
-          console.log('[scrollToBottomWithRetry] normal mode', {
-            beforeScroll,
-            afterScroll: viewport.scrollTop,
-            scrollHeight: viewport.scrollHeight,
-            clientHeight: viewport.clientHeight,
-            remaining: remainingAttempts,
-          });
           requestAnimationFrame(() => {
             const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
             if (!isAtBottom && remainingAttempts > 0) {
@@ -233,7 +240,6 @@ export function ConversationView({
           });
         } else if (remainingAttempts > 0) {
           // Viewport not ready, retry
-          console.log('[scrollToBottomWithRetry] viewport not ready, retrying...', remainingAttempts);
           setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
         }
       }
@@ -243,6 +249,18 @@ export function ConversationView({
 
   // Load historical conversation
   const loadHistory = async () => {
+    // Prevent duplicate fetches for the same task ID
+    if (effectiveLastFetchedRef.current === taskId && effectiveIsFetchingRef.current) {
+      return;
+    }
+
+    if (effectiveIsFetchingRef.current) {
+      return;
+    }
+
+    effectiveLastFetchedRef.current = taskId;
+    effectiveIsFetchingRef.current = true;
+
     try {
       setIsLoading(true);
       const response = await fetch(`/api/tasks/${taskId}/conversation`);
@@ -251,9 +269,10 @@ export function ConversationView({
         setHistoricalTurns(data.turns || []);
       }
     } catch (error) {
-      console.error('Failed to load conversation history:', error);
+      console.error('[ConversationView] Failed to load conversation history:', error);
     } finally {
       setIsLoading(false);
+      effectiveIsFetchingRef.current = false;
     }
   };
 
@@ -297,7 +316,7 @@ export function ConversationView({
   }, [isRunning, lastIsRunning]);
 
   // Use MutationObserver to detect content changes and scroll to bottom
-  // This is more reliable than timing-based approaches
+  // Throttled to prevent excessive scroll operations during streaming
   useEffect(() => {
     if (!isRunning) return;
 
@@ -312,13 +331,23 @@ export function ConversationView({
 
     if (!container || !contentContainer) return;
 
-    const observer = new MutationObserver(() => {
-      // Only scroll if user is not manually scrolling
+    // Throttle scroll operations to once per 100ms
+    let scrollPending = false;
+    let rafId: number | null = null;
+
+    const performScroll = () => {
       if (!userScrollingRef.current) {
-        // Small delay to let DOM settle
-        requestAnimationFrame(() => {
-          container.scrollTop = container.scrollHeight;
-        });
+        container.scrollTop = container.scrollHeight;
+      }
+      scrollPending = false;
+      rafId = null;
+    };
+
+    const observer = new MutationObserver(() => {
+      // Only schedule scroll if not already pending
+      if (!scrollPending) {
+        scrollPending = true;
+        rafId = requestAnimationFrame(performScroll);
       }
     });
 
@@ -328,7 +357,12 @@ export function ConversationView({
       characterData: true,
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [isRunning]);
 
   // Scroll to bottom when new prompt is submitted (currentPrompt changes to a new value)
@@ -340,29 +374,10 @@ export function ConversationView({
       // New prompt submitted - force scroll to bottom after DOM updates
       userScrollingRef.current = false;
 
-      console.log('[ConversationView] Prompt changed, scheduling scroll...', {
-        newPrompt: currentPrompt?.substring(0, 50),
-        oldPrompt: lastPromptRef.current?.substring(0, 50),
-      });
-
       // Use multiple delayed attempts to ensure DOM is fully rendered
-      // First attempt after a short delay
-      setTimeout(() => {
-        console.log('[ConversationView] Scroll attempt 1 (50ms)');
-        scrollToBottomWithRetry(3);
-      }, 50);
-
-      // Second attempt after content should be rendered
-      setTimeout(() => {
-        console.log('[ConversationView] Scroll attempt 2 (150ms)');
-        scrollToBottomWithRetry(3);
-      }, 150);
-
-      // Third attempt as a safety net
-      setTimeout(() => {
-        console.log('[ConversationView] Scroll attempt 3 (300ms)');
-        scrollToBottomWithRetry(3);
-      }, 300);
+      setTimeout(() => scrollToBottomWithRetry(3), 50);
+      setTimeout(() => scrollToBottomWithRetry(3), 150);
+      setTimeout(() => scrollToBottomWithRetry(3), 300);
     }
     lastPromptRef.current = currentPrompt;
   }, [currentPrompt]);
@@ -414,25 +429,8 @@ export function ConversationView({
     }
   }, [currentMessages, historicalTurns, isRunning]);
 
-  // Continuous auto-scroll during streaming (respects user scroll intent)
-  // Uses requestAnimationFrame to smoothly scroll as content appears
-  useEffect(() => {
-    if (!isRunning) return;
-
-    let rafId: number;
-
-    const autoScroll = () => {
-      // Only auto-scroll if user is not manually scrolling
-      if (!userScrollingRef.current) {
-        scrollToBottomIfNear();
-      }
-      rafId = requestAnimationFrame(autoScroll);
-    };
-
-    rafId = requestAnimationFrame(autoScroll);
-
-    return () => cancelAnimationFrame(rafId);
-  }, [isRunning]);
+  // Auto-scroll during streaming is now handled by the MutationObserver above
+  // Removed continuous RAF loop which caused performance issues when switching tabs
 
   const renderContentBlock = (
     block: ClaudeContentBlock,
@@ -474,11 +472,9 @@ export function ConversationView({
     output: ClaudeOutput,
     index: number,
     isStreaming: boolean,
-    allMessages: ClaudeOutput[]
+    toolResultsMap: Map<string, { result: string; isError: boolean }>,
+    lastToolUseId: string | null
   ) => {
-    const toolResultsMap = buildToolResultsMap(allMessages);
-    const lastToolUseId = findLastToolUseId(allMessages);
-
     // Handle assistant messages - render ALL content blocks in order (text, thinking, tool_use)
     // This preserves the natural order of Claude's response
     if (output.type === 'assistant' && output.message?.content) {
@@ -593,11 +589,16 @@ export function ConversationView({
   );
 
   // Assistant response - clean text flow
-  const renderAssistantTurn = (turn: ConversationTurn) => (
-    <div key={`assistant-${turn.attemptId}`} className="space-y-4 w-full max-w-full overflow-hidden">
-      {turn.messages.map((msg, idx) => renderMessage(msg, idx, false, turn.messages))}
-    </div>
-  );
+  // Pre-compute maps once per turn to avoid O(n²) complexity
+  const renderAssistantTurn = (turn: ConversationTurn) => {
+    const toolResultsMap = buildToolResultsMap(turn.messages);
+    const lastToolUseId = findLastToolUseId(turn.messages);
+    return (
+      <div key={`assistant-${turn.attemptId}`} className="space-y-4 w-full max-w-full overflow-hidden">
+        {turn.messages.map((msg, idx) => renderMessage(msg, idx, false, toolResultsMap, lastToolUseId))}
+      </div>
+    );
+  };
 
   const renderTurn = (turn: ConversationTurn) => {
     if (turn.type === 'user') {
@@ -685,7 +686,7 @@ export function ConversationView({
               )}
               {/* Streaming response */}
               <div className="space-y-4 w-full max-w-full overflow-hidden">
-                {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentMessages))}
+                {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentToolResultsMap, currentLastToolUseId))}
               </div>
 
               {/* Pending question indicator - shown when question is interrupted */}

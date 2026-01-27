@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { X, ChevronDown, Minimize2, Maximize2, Check } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,16 +32,18 @@ interface TaskDetailPanelProps {
 }
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  todo: { label: 'To Do', variant: 'outline' },
-  in_progress: { label: 'In Progress', variant: 'secondary' },
-  in_review: { label: 'In Review', variant: 'default' },
-  done: { label: 'Done', variant: 'default' },
-  cancelled: { label: 'Cancelled', variant: 'destructive' },
+  todo: { label: 'todo', variant: 'outline' },
+  in_progress: { label: 'inProgress', variant: 'secondary' },
+  in_review: { label: 'inReview', variant: 'default' },
+  done: { label: 'done', variant: 'default' },
+  cancelled: { label: 'cancelled', variant: 'destructive' },
 };
 
 const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
 
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
+  const t = useTranslations('chat');
+  const tk = useTranslations('kanban');
   const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
@@ -114,11 +117,11 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       lastCompletedTaskRef.current = taskId;
 
       await updateTaskStatus(taskId, 'in_review');
-      toast.success('Task completed!', {
-        description: 'Moved to In Review',
+      toast.success(t('taskCompleted'), {
+        description: t('movedToReview'),
       });
     },
-    [updateTaskStatus]
+    [updateTaskStatus, t]
   );
 
   const {
@@ -204,9 +207,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
 
   // Auto-show question prompt when activeQuestion appears
   useEffect(() => {
-    console.log('[TaskDetailPanel] activeQuestion changed:', activeQuestion);
     if (activeQuestion) {
-      console.log('[TaskDetailPanel] Setting showQuestionPrompt to true');
       setShowQuestionPrompt(true);
     }
   }, [activeQuestion]);
@@ -266,6 +267,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   }
 
   const statusConfig = STATUS_CONFIG[selectedTask.status];
+  const statusLabel = tk(statusConfig.label as any);
 
   const handleClose = () => {
     setIsDetached(false);
@@ -319,7 +321,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           <div className="border-t bg-muted/30">
             {activeQuestion ? (
               <>
-                {console.log('[TaskDetailPanel] Rendering QuestionPrompt with questions:', activeQuestion.questions)}
                 <QuestionPrompt
                   questions={activeQuestion.questions}
                   onAnswer={(answers) => {
@@ -340,7 +341,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               </>
             ) : (
               <>
-                {console.log('[TaskDetailPanel] Rendering loading state')}
                 {/* Loading state while waiting for question data */}
                 <div className="py-8 px-4 text-center">
                   <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
@@ -414,7 +414,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
                 className="flex items-center gap-1 hover:opacity-80 transition-opacity"
               >
                 <Badge variant={statusConfig.variant} className="cursor-pointer">
-                  {statusConfig.label}
+                  {statusLabel}
                 </Badge>
                 <ChevronDown className="size-3 text-muted-foreground" />
               </button>
@@ -436,7 +436,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
                     >
                       <span className="flex items-center gap-2">
                         <Badge variant={STATUS_CONFIG[status].variant} className="text-xs">
-                          {STATUS_CONFIG[status].label}
+                          {tk(STATUS_CONFIG[status].label as any)}
                         </Badge>
                       </span>
                       {status === selectedTask.status && (
@@ -498,7 +498,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
                 className="flex items-center gap-1 hover:opacity-80 transition-opacity"
               >
                 <Badge variant={statusConfig.variant} className="cursor-pointer">
-                  {statusConfig.label}
+                  {statusLabel}
                 </Badge>
                 <ChevronDown className="size-3 text-muted-foreground" />
               </button>
@@ -520,7 +520,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
                     >
                       <span className="flex items-center gap-2">
                         <Badge variant={STATUS_CONFIG[status].variant} className="text-xs">
-                          {STATUS_CONFIG[status].label}
+                          {tk(STATUS_CONFIG[status].label as any)}
                         </Badge>
                       </span>
                       {status === selectedTask.status && (

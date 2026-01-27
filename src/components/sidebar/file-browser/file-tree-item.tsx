@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Loader2, MoreVertical } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { FileIcon } from './file-icon';
 import { FileTreeContextMenuContent } from './file-tree-context-menu';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ export function FileTreeItem({
   onRenameStart,
   onRenameEnd,
 }: FileTreeItemProps) {
+  const t = useTranslations('sidebar');
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(entry.name);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,6 +67,9 @@ export function FileTreeItem({
       return;
     }
     e.stopPropagation();
+
+    // DEBUG: Log click events
+    console.log('[FileTreeItem] handleClick called', { path: entry.path, detail: e.detail });
 
     // Immediate visual feedback
     setIsPressed(true);
@@ -119,7 +124,7 @@ export function FileTreeItem({
   const submitRename = async () => {
     const trimmedName = renameValue.trim();
     if (!trimmedName) {
-      toast.error('Name cannot be empty');
+      toast.error(t('nameCannotBeEmpty'));
       return;
     }
     if (trimmedName === entry.name) {
@@ -138,14 +143,14 @@ export function FileTreeItem({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Rename failed');
+        throw new Error(data.error || t('renameFailed'));
       }
 
-      toast.success('Rename successful');
+      toast.success(t('renameSuccessful'));
       setIsRenaming(false);
       onRefresh?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Rename failed');
+      toast.error(err instanceof Error ? err.message : t('renameFailed'));
       setRenameValue(entry.name);
     } finally {
       setIsSaving(false);
@@ -191,7 +196,7 @@ export function FileTreeItem({
         {/* Indent guide lines */}
         {level > 0 && Array.from({ length: level }).map((_, i) => (
           <div
-            key={i}
+            key={`indent-${i}`}
             className="absolute top-0 bottom-0 w-px bg-border/50"
             style={{ left: `${i * 16 + 16}px` }}
           />

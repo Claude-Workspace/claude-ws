@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import {
   FileText,
   FilePlus,
@@ -283,7 +283,8 @@ function EditBlock({ input, result, isError }: { input: any; result?: string; is
   );
 }
 
-export function ToolUseBlock({ name, input, result, isError, isStreaming, className, onOpenPanel }: ToolUseBlockProps) {
+// Memoized ToolUseBlock - prevents unnecessary re-renders for completed tool calls
+export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, isError, isStreaming, className, onOpenPanel }: ToolUseBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const Icon = getToolIcon(name);
   const displayText = getToolDisplay(name, input);
@@ -430,4 +431,4 @@ export function ToolUseBlock({ name, input, result, isError, isStreaming, classN
       )}
     </div>
   );
-}
+});

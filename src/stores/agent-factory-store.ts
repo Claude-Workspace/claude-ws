@@ -1,11 +1,21 @@
 import { create } from 'zustand';
-import type { Plugin, CreatePluginDTO, UpdatePluginDTO, DiscoveredPlugin } from '@/types/agent-factory';
+import type { Plugin, CreatePluginDTO, UpdatePluginDTO, DiscoveredPlugin, DiscoveredNode } from '@/types/agent-factory';
+
+// Refs for preventing duplicate fetches (outside store to persist across renders)
+const fetchPluginsRefs = {
+  isFetching: false,
+  lastType: null as string | null,
+};
+
+const discoverPluginsRefs = {
+  isDiscovering: false,
+};
 
 interface AgentFactoryState {
   plugins: Plugin[];
   loading: boolean;
   error: string | null;
-  discovered: DiscoveredPlugin[];
+  discovered: DiscoveredNode[];
   discovering: boolean;
 }
 
@@ -17,7 +27,7 @@ interface AgentFactoryActions {
   deletePlugin: (id: string) => Promise<void>;
 
   // Discovery
-  discoverPlugins: () => Promise<DiscoveredPlugin[]>;
+  discoverPlugins: () => Promise<DiscoveredNode[]>;
   importPlugin: (discovered: DiscoveredPlugin) => Promise<Plugin>;
 }
 
@@ -33,7 +43,16 @@ export const useAgentFactoryStore = create<AgentFactoryStore>()((set, get) => ({
 
   // Fetch all plugins or filter by type
   fetchPlugins: async (type) => {
+    // Prevent duplicate fetches
+    const typeKey = type || 'all';
+    if (fetchPluginsRefs.isFetching && fetchPluginsRefs.lastType === typeKey) {
+      return;
+    }
+
+    fetchPluginsRefs.isFetching = true;
+    fetchPluginsRefs.lastType = typeKey;
     set({ loading: true, error: null });
+
     try {
       const url = type ? `/api/agent-factory/plugins?type=${type}` : '/api/agent-factory/plugins';
       const res = await fetch(url);
@@ -45,6 +64,8 @@ export const useAgentFactoryStore = create<AgentFactoryStore>()((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to fetch plugins',
         loading: false,
       });
+    } finally {
+      fetchPluginsRefs.isFetching = false;
     }
   },
 

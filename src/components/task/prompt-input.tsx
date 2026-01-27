@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, Paperclip, Square, TrendingUp } from 'lucide-react';
@@ -42,7 +43,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   onSubmit,
   onCancel,
   disabled = false,
-  placeholder = 'Describe what you want Claude to do...',
+  placeholder,
   className,
   taskId,
   projectPath,
@@ -54,6 +55,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   minRows = 1,
   maxRows = 5,
 }, ref) => {
+  const t = useTranslations('chat');
   const [prompt, setPrompt] = useState(initialValue || '');
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
@@ -544,7 +546,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                     textareaRef.current?.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
                   }, 100);
                 }}
-                placeholder={placeholder}
+                placeholder={placeholder || t('describeWhatYouWant')}
                 disabled={disabled}
                 rows={minRows}
                 className="resize-none w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm whitespace-pre-wrap break-words"
@@ -569,7 +571,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                   size="icon"
                   onClick={openFilePicker}
                   disabled={disabled}
-                  title="Attach files"
+                  title={t('attachFilesTitle')}
                   className="size-8"
                 >
                   <Paperclip className="size-4" />
@@ -594,7 +596,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                     onClick={onCancel}
                   >
                     <Square className="size-4" />
-                    Stop
+                    {t('stop')}
                   </Button>
                 ) : (
                   <Button
@@ -605,12 +607,12 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                     {disabled ? (
                       <>
                         <Loader2 className="size-4 animate-spin" />
-                        Running...
+                        {t('running')}
                       </>
                     ) : (
                       <>
                         <Send className="size-4" />
-                        Send
+                        {t('send')}
                       </>
                     )}
                   </Button>
@@ -627,15 +629,15 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
               <div className="hidden sm:flex items-center gap-3">
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">/</kbd>
-                  <span>commands</span>
+                  <span>{t('commandsHint')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">@</kbd>
-                  <span>files</span>
+                  <span>{t('filesHint')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">⌘V</kbd>
-                  <span>paste image</span>
+                  <span>{t('pasteImageHint')}</span>
                 </span>
               </div>
 
