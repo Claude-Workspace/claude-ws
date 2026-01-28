@@ -136,7 +136,7 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[450px] z-[9999]">
         <DialogHeader>
           <DialogTitle>API Key Required</DialogTitle>
           <DialogDescription>
@@ -291,7 +291,6 @@ function dispatchApiKeyRequired(): void {
  */
 export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Listen for API key required events from fetch interceptor
   useEffect(() => {
@@ -358,8 +357,8 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
 
   const handleAuthSuccess = () => {
     setShowAuthDialog(false);
-    setRefreshCounter((prev) => prev + 1);
-    // Reload the page to refetch all data with new API key
+
+    // Reload page to reinitialize all components with authenticated state
     window.location.reload();
   };
 

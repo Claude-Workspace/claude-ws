@@ -13,18 +13,9 @@ let socket: Socket | null = null;
  */
 export function getSocket(): Socket {
   if (!socket) {
-    console.log('[SocketService] Creating singleton socket');
     socket = io({
       reconnection: true,
       reconnectionDelay: 1000,
-    });
-
-    socket.on('connect', () => {
-      console.log('[SocketService] Socket connected, id:', socket?.id);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[SocketService] Socket disconnected');
     });
 
     // Prevent HMR from destroying socket
@@ -42,7 +33,6 @@ export function getSocket(): Socket {
 if (typeof window !== 'undefined') {
   const existingSocket = (window as unknown as Record<string, Socket>).__INLINE_EDIT_SOCKET__;
   if (existingSocket && existingSocket.connected) {
-    console.log('[SocketService] Reusing existing socket from window');
     socket = existingSocket;
   }
 }

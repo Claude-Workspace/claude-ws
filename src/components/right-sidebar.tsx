@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { Plus, Settings, Package, X, Sun, Moon, LogOut } from 'lucide-react';
+import { Plus, Settings, Package, X, Sun, Moon, LogOut, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
+import { useTunnelStore } from '@/stores/tunnel-store';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { clearStoredApiKey } from '@/components/auth/api-key-dialog';
 import {
@@ -37,6 +38,7 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
   const { isOpen, closeRightSidebar } = useRightSidebarStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
+  const { setWizardOpen, status } = useTunnelStore();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -155,6 +157,31 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
           <Settings className="h-4 w-4" />
           {t('settings')}
         </Button>
+
+        {/* Access Anywhere - submenu item under Settings */}
+        <div className="pl-6">
+          <Button
+            variant="outline"
+            onClick={() => {
+              // Reset wizard step to 0 so settings dialog logic works correctly
+              useTunnelStore.getState().setWizardStep(0);
+              setWizardOpen(true);
+              closeRightSidebar();
+            }}
+            className="w-full justify-start gap-2"
+          >
+            <div className="relative">
+              <Globe className="h-4 w-4" />
+              {status === 'connected' && (
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              )}
+              {status === 'error' && (
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-red-500 rounded-full" />
+              )}
+            </div>
+            {t('accessAnywhere')}
+          </Button>
+        </div>
 
         {/* Language switcher - submenu item under Settings */}
         <div className="pl-6">

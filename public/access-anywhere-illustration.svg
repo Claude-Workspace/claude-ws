@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Tablet device -->
+  <rect x="25" y="35" width="40" height="55" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
+  <rect x="29" y="40" width="32" height="40" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+  <!-- Phone device -->
+  <rect x="70" y="45" width="25" height="42" rx="3" stroke="currentColor" stroke-width="2.5" fill="none"/>
+  <rect x="73" y="50" width="19" height="30" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+  <!-- WiFi/Connection waves -->
+  <path d="M52 25 C52 25 60 20 68 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M48 20 C48 20 60 13 72 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.35"/>
+  <path d="M44 15 C44 15 60 6 76 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.2"/>
+
+  <!-- Code/content lines on tablet screen -->
+  <line x1="32" y1="46" x2="50" y2="46" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="32" y1="52" x2="45" y2="52" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="32" y1="58" x2="55" y2="58" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="32" y1="64" x2="48" y2="64" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="32" y1="70" x2="52" y2="70" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Code/content lines on phone screen -->
+  <line x1="75" y1="55" x2="85" y2="55" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="75" y1="60" x2="88" y2="60" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="75" y1="65" x2="83" y2="65" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <line x1="75" y1="70" x2="87" y2="70" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+</svg>
