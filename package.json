@@ -16,6 +16,7 @@
     "sqlite"
   ],
   "license": "MIT",
+  "author": "Claude Workspace",
   "repository": {
     "type": "git",
     "url": "https://github.com/Claude-Workspace/claude-ws.git"

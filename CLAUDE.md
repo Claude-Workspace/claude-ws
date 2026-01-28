@@ -10,6 +10,58 @@ Project-specific instructions for Claude Code.
 - All code changes, comments, and documentation must be in English
 - Even if the user communicates in another language, respond in English
 
+## Version Bump & Release
+
+When bumping version and creating a release, follow this workflow:
+
+1. Bump version in `package.json`
+2. Commit: `chore: bump version to X.Y.Z`
+3. Push to `dev`, merge `dev` into `main`, push `main`
+4. Publish to npm: `npm publish --access public`
+5. Create GitHub release: `gh release create vX.Y.Z --target main --title "vX.Y.Z" --notes "..."`
+6. Switch back to `dev`
+
+### Release Notes Format
+
+Use this exact format for GitHub release notes, categorized by emoji headers:
+
+```
+## What's New
+
+### 🌐 Category Name (e.g., Internationalization)
+- Change description
+- Change description
+
+### 🔧 Agent & SDK
+- Change description
+
+### 📝 Editor
+- Change description
+
+### 🖥️ UI/UX
+- Change description
+
+### 🐛 Bug Fixes
+- Change description
+
+### 📦 Dependencies
+- Change description
+```
+
+**Category emojis reference:**
+- 🌐 i18n / Localization
+- 🔧 Agent, SDK, Backend
+- 📝 Editor, Code
+- 🖥️ UI/UX, Frontend
+- 🐛 Bug Fixes
+- 📦 Dependencies
+- 🔒 Security
+- ⚡ Performance
+- 📖 Documentation
+- 🏗️ Infrastructure, CI/CD
+
+Only include categories that have changes. Each bullet should be concise (no full sentences needed).
+
 ## Plugins
 
 **MUST use `agent-sdk-dev` plugin** when working with Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`).
@@ -71,11 +123,3 @@ try {
   // Column already exists
 }
 ```
-
-## Language Rule
-
-**Always respond in English, regardless of the user's input language.**
-
-- All responses must be in English
-- All code changes, comments, and documentation must be in English
-- Even if the user communicates in another language, respond in English
