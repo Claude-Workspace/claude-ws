@@ -170,7 +170,8 @@
     "uploadCount": "{count}개 파일 업로드",
     "willDecompress": "압축 해제됨",
     "decompressUploadedFiles": "업로드된 압축 파일 해제",
-    "decompressInfo": "압축 파일 (.zip, .tar, .tar.gz, .tgz, .gz)은 업로드 후 추출됩니다"
+    "decompressInfo": "압축 파일 (.zip, .tar, .tar.gz, .tgz, .gz)은 업로드 후 추출됩니다",
+    "cancel": "취소"
   },
   "git": {
     "commitMessage": "커밋 메시지",

@@ -170,7 +170,8 @@
     "uploadCount": "上传 {count} 个文件",
     "willDecompress": "将解压",
     "decompressUploadedFiles": "解压上传的压缩文件",
-    "decompressInfo": "压缩文件 (.zip, .tar, .tar.gz, .tgz, .gz) 将在上传后解压"
+    "decompressInfo": "压缩文件 (.zip, .tar, .tar.gz, .tgz, .gz) 将在上传后解压",
+    "cancel": "取消"
   },
   "git": {
     "commitMessage": "提交信息",

@@ -170,7 +170,8 @@
     "uploadCount": "{count} Datei(en) hochladen",
     "willDecompress": "wird entpackt",
     "decompressUploadedFiles": "Hochgeladene Archivdateien entpacken",
-    "decompressInfo": "Komprimierte Dateien (.zip, .tar, .tar.gz, .tgz, .gz) werden nach dem Hochladen extrahiert"
+    "decompressInfo": "Komprimierte Dateien (.zip, .tar, .tar.gz, .tgz, .gz) werden nach dem Hochladen extrahiert",
+    "cancel": "Abbrechen"
   },
   "git": {
     "commitMessage": "Commit-Nachricht",

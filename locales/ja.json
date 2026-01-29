@@ -170,7 +170,8 @@
     "uploadCount": "{count} 個のファイルをアップロード",
     "willDecompress": "解凍されます",
     "decompressUploadedFiles": "アップロードされたアーカイブファイルを解凍",
-    "decompressInfo": "圧縮ファイル (.zip, .tar, .tar.gz, .tgz, .gz) はアップロード後に解凍されます"
+    "decompressInfo": "圧縮ファイル (.zip, .tar, .tar.gz, .tgz, .gz) はアップロード後に解凍されます",
+    "cancel": "キャンセル"
   },
   "git": {
     "commitMessage": "コミットメッセージ",

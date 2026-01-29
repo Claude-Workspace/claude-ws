@@ -3,21 +3,22 @@
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { useTunnelStore } from '@/stores/tunnel-store';
-import { useTheme } from 'next-themes';
 
 export function WizardStepWelcome() {
   const t = useTranslations('accessAnywhere');
   const { setWizardStep } = useTunnelStore();
-  const { resolvedTheme } = useTheme();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center text-center space-y-4">
-        <div className="h-24 w-24">
+        <div className="w-[90%]">
           <img
-            src="/access-anywhere-illustration.svg"
+            src="/anywhere.svg"
             alt="Access from any device"
-            className={`h-full w-full ${resolvedTheme === 'dark' ? 'invert' : ''}`}
+            className="h-full w-full transition-all"
+            style={{
+              filter: 'invert(48%) sepia(79%) saturate(383%) hue-rotate(334deg) brightness(96%) contrast(88%)',
+            }}
           />
         </div>
         <div>

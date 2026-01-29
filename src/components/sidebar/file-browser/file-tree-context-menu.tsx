@@ -311,7 +311,7 @@ export function FileTreeContextMenuContent({
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(false)}>
-              {t('common:cancel')}
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -357,7 +357,7 @@ export function FileTreeContextMenuContent({
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
-              {t('common:cancel')}
+              {t('cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={isCreating}>
               {isCreating ? 'Creating...' : t('create')}

@@ -170,7 +170,8 @@
     "uploadCount": "Upload {count} file(s)",
     "willDecompress": "will decompress",
     "decompressUploadedFiles": "Decompress uploaded archive files",
-    "decompressInfo": "Compressed files (.zip, .tar, .tar.gz, .tgz, .gz) will be extracted after upload"
+    "decompressInfo": "Compressed files (.zip, .tar, .tar.gz, .tgz, .gz) will be extracted after upload",
+    "cancel": "Cancel"
   },
   "git": {
     "commitMessage": "Commit message",

@@ -368,7 +368,7 @@ export function FileUploadDialog({
             onClick={() => handleOpenChange(false)}
             disabled={uploading}
           >
-            {t('common:cancel')}
+            {t('cancel')}
           </Button>
           <Button
             onClick={handleUpload}

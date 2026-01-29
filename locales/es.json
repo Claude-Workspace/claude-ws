@@ -170,7 +170,8 @@
     "uploadCount": "Subir {count} archivo(s)",
     "willDecompress": "se descomprimirá",
     "decompressUploadedFiles": "Descomprimir archivos comprimidos subidos",
-    "decompressInfo": "Los archivos comprimidos (.zip, .tar, .tar.gz, .tgz, .gz) se extraerán después de subir"
+    "decompressInfo": "Los archivos comprimidos (.zip, .tar, .tar.gz, .tgz, .gz) se extraerán después de subir",
+    "cancel": "Cancelar"
   },
   "git": {
     "commitMessage": "Mensaje de confirmación",

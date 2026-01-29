@@ -170,7 +170,8 @@
     "uploadCount": "Téléverser {count} fichier(s)",
     "willDecompress": "sera décompressé",
     "decompressUploadedFiles": "Décompresser les fichiers d'archive téléversés",
-    "decompressInfo": "Les fichiers compressés (.zip, .tar, .tar.gz, .tgz, .gz) seront extraits après téléversement"
+    "decompressInfo": "Les fichiers compressés (.zip, .tar, .tar.gz, .tgz, .gz) seront extraits après téléversement",
+    "cancel": "Annuler"
   },
   "git": {
     "commitMessage": "Message de commit",
