@@ -726,10 +726,20 @@ app.prepare().then(async () => {
   });
 
   // Handle SDK TaskCreate event - when SDK creates a task via Task tool
-  agentManager.on('taskCreated', async ({ attemptId, projectId, taskData }) => {
+  agentManager.on('taskCreated', async ({ attemptId, taskData }) => {
     console.log(`[Server] SDK task created for attempt ${attemptId}:`, taskData.title);
 
     try {
+      // Query attempt to get the actual task and project
+      const attempt = await db.query.attempts.findFirst({
+        where: eq(schema.attempts.id, attemptId),
+      });
+
+      if (!attempt) {
+        console.error(`[Server] Cannot create SDK task: attempt not found`);
+        return;
+      }
+
       // Convert SDK task data to internal Task format
       const sdkTask = {
         ...taskData,
@@ -740,7 +750,7 @@ app.prepare().then(async () => {
 
       const internalTask = {
         id: sdkTask.id,
-        projectId,
+        projectId: attempt.taskId, // Use the actual task ID from attempt
         title: sdkTask.title,
         description: sdkTask.description || null,
         status: mapSDKStatusToInternal(sdkTask.status) as 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled',
@@ -757,7 +767,7 @@ app.prepare().then(async () => {
       // Insert task into database
       await db.insert(schema.tasks).values(internalTask);
 
-      console.log(`[Server] SDK task inserted into DB: ${internalTask.id}`);
+      console.log(`[Server] SDK task inserted into DB: ${internalTask.id} for project ${attempt.taskId}`);
 
       // Emit socket event to all clients
       io.emit('task:created', internalTask);
@@ -767,7 +777,7 @@ app.prepare().then(async () => {
   });
 
   // Handle SDK TaskUpdate event - when SDK updates a task via Task tool
-  agentManager.on('taskUpdated', async ({ attemptId, projectId, taskId, updates }) => {
+  agentManager.on('taskUpdated', async ({ attemptId, taskId, updates }) => {
     console.log(`[Server] SDK task updated: ${taskId}`, updates);
 
     try {

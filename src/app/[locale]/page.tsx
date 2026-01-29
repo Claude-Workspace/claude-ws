@@ -13,7 +13,7 @@ import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar
 import { RightSidebar } from '@/components/right-sidebar';
 import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { PluginList } from '@/components/agent-factory/plugin-list';
-import { AccessAnywhereWizard } from '@/components/access-anywhere';
+import { AccessAnywhereWizard, FirstLoadModal } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useTunnelStore } from '@/stores/tunnel-store';
@@ -255,8 +255,11 @@ function KanbanApp() {
         onCreateTask={() => setCreateTaskOpen(true)}
       />
 
-      {/* Access Anywhere Wizard */}
+      {/* Access Anyplace Wizard */}
       <AccessAnywhereWizard />
+
+      {/* First Load Modal */}
+      <FirstLoadModal />
     </div>
   );
 }

@@ -42,6 +42,8 @@ function getToolIcon(name: string) {
     Grep: Search,
     Glob: FolderSearch,
     TodoWrite: CheckSquare,
+    TaskUpdate: CheckSquare,
+    TaskCreate: CheckSquare,
     WebFetch: Globe,
     WebSearch: Globe,
     Skill: Zap,
@@ -59,6 +61,8 @@ function getToolActiveVerb(name: string): string {
     Grep: 'Searching',
     Glob: 'Finding',
     TodoWrite: 'Updating todos',
+    TaskUpdate: 'Updating task',
+    TaskCreate: 'Creating task',
     WebFetch: 'Fetching',
     WebSearch: 'Searching web',
     Skill: 'Executing',
@@ -93,6 +97,9 @@ function getToolDisplay(name: string, input: any): string {
         return `${completed.length}✓ ${inProgress.length}⟳ ${pending.length}○`;
       }
       return 'list';
+    case 'TaskUpdate':
+    case 'TaskCreate':
+      return input.subject || input.description || 'task...';
     case 'Skill':
       return input.skill || 'unknown';
     case 'WebFetch':
@@ -268,6 +275,29 @@ function TodoListBlock({ todos }: { todos: TodoItem[] }) {
   );
 }
 
+// Extract tasks from TaskUpdate/TaskCreate input
+function extractTasksFromTaskTool(input: any): TodoItem[] | null {
+  // TaskUpdate/TaskCreate has a different structure than TodoWrite
+  // SDK Task tool input format: { prompt, subject, description, status, activeForm }
+  if (!input) return null;
+
+  const tasks: TodoItem[] = [];
+
+  // Single task update - check for subject or prompt (SDK uses prompt as fallback)
+  const taskContent = input.subject || input.prompt || input.description;
+  if (taskContent) {
+    tasks.push({
+      content: taskContent,
+      status: input.status === 'completed' ? 'completed' :
+              input.status === 'in_progress' ? 'in_progress' :
+              input.status === 'in_progress' ? 'in_progress' : 'pending',
+      activeForm: input.activeForm,
+    });
+  }
+
+  return tasks.length > 0 ? tasks : null;
+}
+
 // Edit tool diff display
 function EditBlock({ input, result, isError }: { input: any; result?: string; isError?: boolean }) {
   if (!input?.old_string && !input?.new_string) {
@@ -296,12 +326,14 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, is
   const isBash = name === 'Bash';
   const isEdit = name === 'Edit';
   const isTodoWrite = name === 'TodoWrite';
+  const isTaskUpdate = name === 'TaskUpdate' || name === 'TaskCreate';
   const isAskUserQuestion = name === 'AskUserQuestion';
   const hasEditDiff = isEdit && Boolean(inputObj?.old_string) && Boolean(inputObj?.new_string);
   const hasTodos = isTodoWrite && Array.isArray(inputObj?.todos) && (inputObj.todos as TodoItem[]).length > 0;
+  const hasTaskTodos = isTaskUpdate && extractTasksFromTaskTool(inputObj);
 
   // For bash, edit with diff, and todo list, we show expanded content differently
-  const showSpecialView = isBash || hasEditDiff || hasTodos;
+  const showSpecialView = isBash || hasEditDiff || hasTodos || hasTaskTodos;
 
   // For other tools, check if we have expandable details
   const hasOtherDetails = !showSpecialView && Boolean(result || (inputObj && Object.keys(inputObj).length > 1));
@@ -407,6 +439,13 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, is
       {hasTodos && (
         <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
           <TodoListBlock todos={inputObj?.todos as TodoItem[]} />
+        </div>
+      )}
+
+      {/* Special view for TaskUpdate/TaskCreate */}
+      {hasTaskTodos && (
+        <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
+          <TodoListBlock todos={hasTaskTodos} />
         </div>
       )}
 

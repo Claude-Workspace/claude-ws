@@ -222,8 +222,8 @@ interface AgentEvents {
   question: (data: { attemptId: string; toolUseId: string; questions: unknown[] }) => void;
   backgroundShell: (data: { attemptId: string; shell: BackgroundShellInfo }) => void;
   trackedProcess: (data: { attemptId: string; pid: number; command: string; logFile?: string }) => void;
-  taskCreated: (data: { attemptId: string; projectId: string; taskData: any }) => void;
-  taskUpdated: (data: { attemptId: string; projectId: string; taskId: string; updates: any }) => void;
+  taskCreated: (data: { attemptId: string; taskData: any }) => void;
+  taskUpdated: (data: { attemptId: string; taskId: string; updates: any }) => void;
 }
 
 export interface AgentStartOptions {
@@ -638,20 +638,14 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
                   taskData: extractedData.taskData,
                 });
 
-                // Get projectId from attempt or use default
-                // In production, this should come from attempt metadata
-                const projectId = attemptId; // Temporary: use attemptId as projectId
-
                 if (extractedData.taskType === 'create') {
                   this.emit('taskCreated', {
                     attemptId,
-                    projectId,
                     taskData: extractedData.taskData,
                   });
                 } else {
                   this.emit('taskUpdated', {
                     attemptId,
-                    projectId,
                     taskId: extractedData.taskData.id || '',
                     updates: extractedData.taskData,
                   });
