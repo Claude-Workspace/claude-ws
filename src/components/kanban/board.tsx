@@ -19,6 +19,7 @@ import { Column } from './column';
 import { TaskCard } from './task-card';
 import { useTaskStore } from '@/stores/task-store';
 import { useTouchDetection } from '@/hooks/use-touch-detection';
+import { useChatHistorySearch } from '@/hooks/use-chat-history-search';
 
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
@@ -35,17 +36,26 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
 
-  // Filter tasks based on search query
+  // Search chat history for matches
+  const { matches: chatHistoryMatches } = useChatHistorySearch(searchQuery);
+
+  // Filter tasks based on search query (title/description) OR chat history matches
   const filteredTasks = useMemo(() => {
     if (!searchQuery.trim()) return tasks;
 
     const query = searchQuery.toLowerCase();
     return tasks.filter((task) => {
+      // Check title and description
       const title = task.title?.toLowerCase() || '';
       const description = task.description?.toLowerCase() || '';
-      return title.includes(query) || description.includes(query);
+      const matchesTitleOrDesc = title.includes(query) || description.includes(query);
+
+      // Check if task has a chat history match
+      const hasChatMatch = chatHistoryMatches.has(task.id);
+
+      return matchesTitleOrDesc || hasChatMatch;
     });
-  }, [tasks, searchQuery]);
+  }, [tasks, searchQuery, chatHistoryMatches]);
 
   // Handle auto-start for newly created tasks moved to In Progress
   useEffect(() => {
@@ -243,6 +253,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
             onCreateTask={onCreateTask}
             searchQuery={searchQuery}
             isMobile={isMobile}
+            chatHistoryMatches={chatHistoryMatches}
           />
         ))}
       </div>

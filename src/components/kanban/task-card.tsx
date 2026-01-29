@@ -4,18 +4,20 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
 import { cn } from '@/lib/utils';
-import { GripVertical, MessageSquare, Trash2 } from 'lucide-react';
+import { GripVertical, MessageSquare, Trash2, Search } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
+import type { ChatHistoryMatch } from '@/hooks/use-chat-history-search';
 
 interface TaskCardProps {
   task: Task;
   attemptCount?: number;
   searchQuery?: string;
   isMobile?: boolean;
+  chatHistoryMatch?: ChatHistoryMatch;
 }
 
-export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false }: TaskCardProps) {
+export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false, chatHistoryMatch }: TaskCardProps) {
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
   const isSelected = selectedTaskId === task.id;
@@ -158,6 +160,18 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
             )}>
               {highlightText(task.description)}
             </p>
+          )}
+
+          {/* Chat history match - show matched sentence from conversation */}
+          {chatHistoryMatch && (
+            <div className="mt-2 pt-1.5 border-t border-border/50">
+              <div className="flex items-start gap-1.5">
+                <Search className="size-3 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2 italic">
+                  {highlightText(chatHistoryMatch.matchedText)}
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Footer: Metadata */}

@@ -9,6 +9,7 @@ import { TaskCard } from './task-card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTaskStore } from '@/stores/task-store';
+import type { ChatHistoryMatch } from '@/hooks/use-chat-history-search';
 
 interface ColumnProps {
   status: TaskStatus;
@@ -18,9 +19,10 @@ interface ColumnProps {
   onCreateTask?: () => void;
   searchQuery?: string;
   isMobile?: boolean;
+  chatHistoryMatches?: Map<string, ChatHistoryMatch>;
 }
 
-export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false }: ColumnProps) {
+export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false, chatHistoryMatches = new Map() }: ColumnProps) {
   const t = useTranslations('kanban');
   const { deleteTasksByStatus } = useTaskStore();
   const { setNodeRef, isOver } = useDroppable({
@@ -97,6 +99,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
                 attemptCount={attemptCounts.get(task.id) || 0}
                 searchQuery={searchQuery}
                 isMobile={isMobile}
+                chatHistoryMatch={chatHistoryMatches.get(task.id)}
               />
             ))}
           </div>
