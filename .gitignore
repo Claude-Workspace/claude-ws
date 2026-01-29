@@ -41,6 +41,9 @@ yarn-error.log*
 .claude
 .plans
 
+#Claude.md not to mix context with user's projects
+CLAUDE.md
+
 # claudekit
 .opencode
 AGENTS.md
