@@ -156,7 +156,21 @@
     "createFile": "Crear archivo '{name}' en {location}",
     "createFolder": "Crear carpeta '{name}' en {location}",
     "deleteConfirm": "¿Está seguro de que desea eliminar {name}?",
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "uploadFiles": "Subir archivos",
+    "uploadFilesTo": "Subir archivos a {folder}",
+    "uploading": "Subiendo...",
+    "clickToUploadOrDrop": "Clic para subir o arrastrar y soltar",
+    "selectMultipleFiles": "Puede seleccionar múltiples archivos",
+    "selectedFiles": "{count} archivo(s) seleccionado(s)",
+    "noFilesToUpload": "No hay archivos para subir",
+    "uploadFailed": "Error al subir",
+    "uploadSuccess": "{count} archivo(s) subido(s) exitosamente",
+    "uploadSuccessWithDecompress": "{count} archivo(s) subido(s), {decompressed} descomprimido(s)",
+    "uploadCount": "Subir {count} archivo(s)",
+    "willDecompress": "se descomprimirá",
+    "decompressUploadedFiles": "Descomprimir archivos comprimidos subidos",
+    "decompressInfo": "Los archivos comprimidos (.zip, .tar, .tar.gz, .tgz, .gz) se extraerán después de subir"
   },
   "git": {
     "commitMessage": "Mensaje de confirmación",

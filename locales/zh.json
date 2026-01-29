@@ -156,7 +156,21 @@
     "createFile": "在 {location} 中创建文件 '{name}'",
     "createFolder": "在 {location} 中创建文件夹 '{name}'",
     "deleteConfirm": "您确定要删除 {name} 吗？",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "uploadFiles": "上传文件",
+    "uploadFilesTo": "上传文件到 {folder}",
+    "uploading": "上传中...",
+    "clickToUploadOrDrop": "点击上传或拖放",
+    "selectMultipleFiles": "您可以选择多个文件",
+    "selectedFiles": "已选择 {count} 个文件",
+    "noFilesToUpload": "没有文件可上传",
+    "uploadFailed": "上传失败",
+    "uploadSuccess": "成功上传 {count} 个文件",
+    "uploadSuccessWithDecompress": "已上传 {count} 个文件，解压 {decompressed} 个",
+    "uploadCount": "上传 {count} 个文件",
+    "willDecompress": "将解压",
+    "decompressUploadedFiles": "解压上传的压缩文件",
+    "decompressInfo": "压缩文件 (.zip, .tar, .tar.gz, .tgz, .gz) 将在上传后解压"
   },
   "git": {
     "commitMessage": "提交信息",

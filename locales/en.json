@@ -156,7 +156,21 @@
     "createFile": "Create file '{name}' in {location}",
     "createFolder": "Create folder '{name}' in {location}",
     "deleteConfirm": "Are you sure you want to delete {name}?",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "uploadFiles": "Upload Files",
+    "uploadFilesTo": "Upload files to {folder}",
+    "uploading": "Uploading...",
+    "clickToUploadOrDrop": "Click to upload or drag and drop",
+    "selectMultipleFiles": "You can select multiple files",
+    "selectedFiles": "{count} file(s) selected",
+    "noFilesToUpload": "No files to upload",
+    "uploadFailed": "Upload failed",
+    "uploadSuccess": "{count} file(s) uploaded successfully",
+    "uploadSuccessWithDecompress": "{count} file(s) uploaded, {decompressed} decompressed",
+    "uploadCount": "Upload {count} file(s)",
+    "willDecompress": "will decompress",
+    "decompressUploadedFiles": "Decompress uploaded archive files",
+    "decompressInfo": "Compressed files (.zip, .tar, .tar.gz, .tgz, .gz) will be extracted after upload"
   },
   "git": {
     "commitMessage": "Commit message",

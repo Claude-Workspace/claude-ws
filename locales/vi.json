@@ -156,7 +156,21 @@
     "createFile": "Tạo tập tin '{name}' trong {location}",
     "createFolder": "Tạo thư mục '{name}' trong {location}",
     "deleteConfirm": "Bạn có chắc muốn xóa {name}?",
-    "refresh": "Làm mới"
+    "refresh": "Làm mới",
+    "uploadFiles": "Tải lên tập tin",
+    "uploadFilesTo": "Tải lên tập tin vào {folder}",
+    "uploading": "Đang tải lên...",
+    "clickToUploadOrDrop": "Nhấp để tải lên hoặc kéo thả",
+    "selectMultipleFiles": "Bạn có thể chọn nhiều tập tin",
+    "selectedFiles": "{count} tập tin đã chọn",
+    "noFilesToUpload": "Không có tập tin để tải lên",
+    "uploadFailed": "Tải lên thất bại",
+    "uploadSuccess": "{count} tập tin đã tải lên thành công",
+    "uploadSuccessWithDecompress": "{count} tập tin đã tải lên, {decompressed} đã giải nén",
+    "uploadCount": "Tải lên {count} tập tin",
+    "willDecompress": "sẽ giải nén",
+    "decompressUploadedFiles": "Giải nén các tập tin nén đã tải lên",
+    "decompressInfo": "Các tập tin nén (.zip, .tar, .tar.gz, .tgz, .gz) sẽ được giải nén sau khi tải lên"
   },
   "git": {
     "commitMessage": "Thông điệp gửi",

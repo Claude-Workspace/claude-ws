@@ -156,7 +156,21 @@
     "createFile": "Datei '{name}' in {location} erstellen",
     "createFolder": "Ordner '{name}' in {location} erstellen",
     "deleteConfirm": "Sind Sie sicher, dass Sie {name} löschen möchten?",
-    "refresh": "Aktualisieren"
+    "refresh": "Aktualisieren",
+    "uploadFiles": "Dateien hochladen",
+    "uploadFilesTo": "Dateien in {folder} hochladen",
+    "uploading": "Wird hochgeladen...",
+    "clickToUploadOrDrop": "Klicken zum Hochladen oder per Drag & Drop",
+    "selectMultipleFiles": "Sie können mehrere Dateien auswählen",
+    "selectedFiles": "{count} Datei(en) ausgewählt",
+    "noFilesToUpload": "Keine Dateien zum Hochladen",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "uploadSuccess": "{count} Datei(en) erfolgreich hochgeladen",
+    "uploadSuccessWithDecompress": "{count} Datei(en) hochgeladen, {decompressed} entpackt",
+    "uploadCount": "{count} Datei(en) hochladen",
+    "willDecompress": "wird entpackt",
+    "decompressUploadedFiles": "Hochgeladene Archivdateien entpacken",
+    "decompressInfo": "Komprimierte Dateien (.zip, .tar, .tar.gz, .tgz, .gz) werden nach dem Hochladen extrahiert"
   },
   "git": {
     "commitMessage": "Commit-Nachricht",

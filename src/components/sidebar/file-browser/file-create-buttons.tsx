@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FilePlus, FolderPlus } from 'lucide-react';
+import { FilePlus, FolderPlus, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useSidebarStore } from '@/stores/sidebar-store';
+import { FileUploadDialog } from './file-upload-dialog';
 import type { FileEntry } from '@/types';
 
 interface FileCreateButtonsProps {
@@ -32,6 +33,7 @@ interface FileCreateButtonsProps {
  */
 export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButtonsProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
   const [createName, setCreateName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -138,6 +140,15 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
           <FolderPlus className="mr-2 size-4" />
           Folder
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={() => setUploadDialogOpen(true)}
+        >
+          <Upload className="mr-2 size-4" />
+          Upload
+        </Button>
       </div>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -178,6 +189,15 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FileUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        targetPath={fullPath}
+        rootPath={rootPath}
+        targetName={entry.name || 'root'}
+        onUploadSuccess={onRefresh}
+      />
     </>
   );
 }

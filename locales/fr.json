@@ -156,7 +156,21 @@
     "createFile": "Créer le fichier '{name}' dans {location}",
     "createFolder": "Créer le dossier '{name}' dans {location}",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer {name} ?",
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "uploadFiles": "Téléverser des fichiers",
+    "uploadFilesTo": "Téléverser des fichiers dans {folder}",
+    "uploading": "Téléversement...",
+    "clickToUploadOrDrop": "Cliquez pour téléverser ou glisser-déposer",
+    "selectMultipleFiles": "Vous pouvez sélectionner plusieurs fichiers",
+    "selectedFiles": "{count} fichier(s) sélectionné(s)",
+    "noFilesToUpload": "Aucun fichier à téléverser",
+    "uploadFailed": "Échec du téléversement",
+    "uploadSuccess": "{count} fichier(s) téléversé(s) avec succès",
+    "uploadSuccessWithDecompress": "{count} fichier(s) téléversé(s), {decompressed} décompressé(s)",
+    "uploadCount": "Téléverser {count} fichier(s)",
+    "willDecompress": "sera décompressé",
+    "decompressUploadedFiles": "Décompresser les fichiers d'archive téléversés",
+    "decompressInfo": "Les fichiers compressés (.zip, .tar, .tar.gz, .tgz, .gz) seront extraits après téléversement"
   },
   "git": {
     "commitMessage": "Message de commit",

@@ -156,7 +156,21 @@
     "createFile": "{location}에 파일 '{name}' 만들기",
     "createFolder": "{location}에 폴더 '{name}' 만들기",
     "deleteConfirm": "{name}을(를) 삭제하시겠습니까?",
-    "refresh": "새로고침"
+    "refresh": "새로고침",
+    "uploadFiles": "파일 업로드",
+    "uploadFilesTo": "{folder}에 파일 업로드",
+    "uploading": "업로드 중...",
+    "clickToUploadOrDrop": "클릭하여 업로드하거나 끌어다 놓기",
+    "selectMultipleFiles": "여러 파일을 선택할 수 있습니다",
+    "selectedFiles": "{count}개 파일 선택됨",
+    "noFilesToUpload": "업로드할 파일이 없습니다",
+    "uploadFailed": "업로드 실패",
+    "uploadSuccess": "{count}개 파일을 성공적으로 업로드함",
+    "uploadSuccessWithDecompress": "{count}개 파일 업로드됨, {decompressed}개 압축 해제됨",
+    "uploadCount": "{count}개 파일 업로드",
+    "willDecompress": "압축 해제됨",
+    "decompressUploadedFiles": "업로드된 압축 파일 해제",
+    "decompressInfo": "압축 파일 (.zip, .tar, .tar.gz, .tgz, .gz)은 업로드 후 추출됩니다"
   },
   "git": {
     "commitMessage": "커밋 메시지",

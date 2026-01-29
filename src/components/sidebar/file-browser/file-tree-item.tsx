@@ -23,6 +23,8 @@ interface FileTreeItemProps {
   isSelected: boolean;
   onToggle: () => void;
   onClick: () => void;
+  /** Callback to select the file without opening it (used for right-click) */
+  onSelect?: () => void;
   rootPath: string;
   onRefresh?: () => void;
   onRenameStart?: () => void;
@@ -36,6 +38,7 @@ export function FileTreeItem({
   isSelected,
   onToggle,
   onClick,
+  onSelect,
   rootPath,
   onRefresh,
   onRenameStart,
@@ -76,8 +79,13 @@ export function FileTreeItem({
     setTimeout(() => setIsPressed(false), 150);
 
     if (e.button === 2) {
-      // Right-click - just select, don't toggle or open file
-      onClick();
+      // Right-click - just select, don't toggle or open file in viewer
+      // Use onSelect if provided (selection only), otherwise fall back to onClick
+      if (onSelect) {
+        onSelect();
+      } else {
+        onClick();
+      }
       return;
     }
 
@@ -104,8 +112,12 @@ export function FileTreeItem({
       return;
     }
     e.preventDefault();
-    // Select the item when right-clicking and open context menu
-    onClick();
+    // Select the item when right-clicking (without opening in file viewer) and open context menu
+    if (onSelect) {
+      onSelect();
+    } else {
+      onClick();
+    }
     setContextMenuOpen(true);
   };
 

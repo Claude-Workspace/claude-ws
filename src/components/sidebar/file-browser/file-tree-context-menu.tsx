@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash, Download, Copy, Loader2, FileText, FilePlus, FolderPlus } from 'lucide-react';
+import { Trash, Download, Copy, Loader2, FileText, FilePlus, FolderPlus, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   ContextMenu,
@@ -27,8 +27,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useSidebarStore } from '@/stores/sidebar-store';
+import { FileUploadDialog } from './file-upload-dialog';
 import type { FileEntry } from '@/types';
-import type { ReactNode } from 'react';
 
 interface FileTreeContextMenuProps {
   /** File or folder entry to show context menu for */
@@ -65,6 +65,7 @@ export function FileTreeContextMenuContent({
   const t = useTranslations('sidebar');
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
   const [createName, setCreateName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -260,6 +261,10 @@ export function FileTreeContextMenuContent({
             <FolderPlus className="mr-2 size-4" />
             {t('newFolder')}
           </MenuItem>
+          <MenuItem onClick={(e) => { e.preventDefault(); setUploadDialogOpen(true); }}>
+            <Upload className="mr-2 size-4" />
+            {t('uploadFiles')}
+          </MenuItem>
           <MenuSeparator />
         </>
       )}
@@ -360,6 +365,18 @@ export function FileTreeContextMenuContent({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload Dialog - only for directories */}
+      {isDirectory && (
+        <FileUploadDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          targetPath={fullPath}
+          rootPath={rootPath}
+          targetName={entry.name}
+          onUploadSuccess={onRefresh}
+        />
+      )}
     </>
   );
 }

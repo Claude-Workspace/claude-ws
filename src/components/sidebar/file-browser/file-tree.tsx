@@ -134,6 +134,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
             isSelected={isSelected}
             onToggle={() => toggleFolder(entry.path)}
             onClick={() => handleFileClick(entry.path)}
+            onSelect={() => setSelectedFile(entry.path)}
             rootPath={activeProject?.path || ''}
             onRefresh={handleRefresh}
           />

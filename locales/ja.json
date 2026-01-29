@@ -156,7 +156,21 @@
     "createFile": "{location} にファイル '{name}' を作成",
     "createFolder": "{location} にフォルダー '{name}' を作成",
     "deleteConfirm": "{name} を削除してもよろしいですか？",
-    "refresh": "更新"
+    "refresh": "更新",
+    "uploadFiles": "ファイルをアップロード",
+    "uploadFilesTo": "{folder} にファイルをアップロード",
+    "uploading": "アップロード中...",
+    "clickToUploadOrDrop": "クリックしてアップロードまたはドラッグ＆ドロップ",
+    "selectMultipleFiles": "複数のファイルを選択できます",
+    "selectedFiles": "{count} 個のファイルを選択",
+    "noFilesToUpload": "アップロードするファイルがありません",
+    "uploadFailed": "アップロードに失敗しました",
+    "uploadSuccess": "{count} 個のファイルを正常にアップロードしました",
+    "uploadSuccessWithDecompress": "{count} 個のファイルをアップロード、{decompressed} 個を解凍しました",
+    "uploadCount": "{count} 個のファイルをアップロード",
+    "willDecompress": "解凍されます",
+    "decompressUploadedFiles": "アップロードされたアーカイブファイルを解凍",
+    "decompressInfo": "圧縮ファイル (.zip, .tar, .tar.gz, .tgz, .gz) はアップロード後に解凍されます"
   },
   "git": {
     "commitMessage": "コミットメッセージ",
