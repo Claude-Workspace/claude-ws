@@ -25,6 +25,8 @@ interface ApiKeyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** When true, user cannot dismiss the dialog without entering valid API key */
+  required?: boolean;
 }
 
 /**
@@ -94,7 +96,7 @@ async function verifyApiKey(apiKey: string): Promise<boolean> {
   }
 }
 
-export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProps) {
+export function ApiKeyDialog({ open, onOpenChange, onSuccess, required = false }: ApiKeyDialogProps) {
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -106,6 +108,15 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
       setError('');
     }
   }, [open]);
+
+  // When required, prevent dismissing without valid key
+  const handleOpenChange = (newOpen: boolean) => {
+    if (required && !newOpen) {
+      // Don't allow closing when required
+      return;
+    }
+    onOpenChange(newOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,8 +146,8 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] z-[9999]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[450px] z-[9999]" showCloseButton={!required}>
         <DialogHeader>
           <DialogTitle>API Key Required</DialogTitle>
           <DialogDescription>
@@ -186,14 +197,16 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
 
           {/* Actions */}
           <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
+            {!required && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+            )}
             <Button type="submit" disabled={loading || !apiKey}>
               {loading ? 'Verifying...' : 'Submit'}
             </Button>
@@ -291,10 +304,74 @@ function dispatchApiKeyRequired(): void {
  */
 export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  // Track if this is an initial required check (blocks app) vs 401 response (can cancel)
+  const [isRequiredAuth, setIsRequiredAuth] = useState(false);
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
 
-  // Listen for API key required events from fetch interceptor
+  // Initial auth check on mount
+  useEffect(() => {
+    let mounted = true;
+
+    const checkInitialAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/verify');
+        const data = await res.json();
+
+        if (!data.authRequired) {
+          // No auth required, proceed
+          if (mounted) setInitialCheckDone(true);
+          return;
+        }
+
+        // Auth is required - check if we have valid stored key
+        const storedKey = getStoredApiKey();
+        if (!storedKey) {
+          // No stored key, show required dialog
+          if (mounted) {
+            setIsRequiredAuth(true);
+            setShowAuthDialog(true);
+          }
+          return;
+        }
+
+        // Verify stored key
+        const verifyRes = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: storedKey }),
+        });
+        const verifyData = await verifyRes.json();
+
+        if (!verifyData.valid) {
+          // Stored key is invalid
+          clearStoredApiKey();
+          if (mounted) {
+            setIsRequiredAuth(true);
+            setShowAuthDialog(true);
+          }
+          return;
+        }
+
+        // Valid key, proceed
+        if (mounted) setInitialCheckDone(true);
+      } catch {
+        // On error, assume no auth required and proceed
+        if (mounted) setInitialCheckDone(true);
+      }
+    };
+
+    checkInitialAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Listen for API key required events from fetch interceptor (401 responses)
   useEffect(() => {
     const handleApiKeyRequired = () => {
+      // This is from 401 response, not initial check - can be cancelled
+      setIsRequiredAuth(false);
       setShowAuthDialog(true);
     };
 
@@ -357,18 +434,33 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
 
   const handleAuthSuccess = () => {
     setShowAuthDialog(false);
+    setIsRequiredAuth(false);
+    setInitialCheckDone(true);
 
-    // Reload page to reinitialize all components with authenticated state
-    window.location.reload();
+    // Only reload if this was triggered by 401, not initial check
+    // For initial check, just set initialCheckDone to true to show app
   };
+
+  // Show loading while checking initial auth
+  if (!initialCheckDone && !showAuthDialog) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <img src="/logo.svg" alt="Logo" className="h-8 w-8 animate-spin" />
+          <span>Authenticating...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {children}
+      {initialCheckDone && children}
       <ApiKeyDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
         onSuccess={handleAuthSuccess}
+        required={isRequiredAuth}
       />
     </>
   );

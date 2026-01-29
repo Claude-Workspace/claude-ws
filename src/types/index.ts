@@ -119,6 +119,10 @@ export interface ClaudeOutput {
     text?: string;
     thinking?: string;
   };
+  // For files_persisted event (SDK v0.2.23)
+  files?: Array<{ filename: string; file_id: string }>;
+  failed?: Array<{ filename: string; error: string }>;
+  processed_at?: string;
 }
 
 export interface ClaudeStreamEvent {

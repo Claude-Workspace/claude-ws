@@ -178,12 +178,17 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
           <DialogFooter>
             <Button
               variant="outline"
+              value="cancel"
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isCreating}>
+            <Button
+              value="create"
+              onClick={handleCreate}
+              disabled={isCreating}
+            >
               {isCreating ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

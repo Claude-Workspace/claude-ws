@@ -9,11 +9,57 @@ import type { ClaudeOutput, ClaudeContentBlock, ClaudeOutputType } from '@/types
 
 // SDK message types (from @anthropic-ai/claude-agent-sdk)
 // These are the actual types emitted by the SDK query() iterator
+
+// MCP server configuration types
+export interface MCPStdioServerConfig {
+  type?: 'stdio';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+export interface MCPHttpServerConfig {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export interface MCPSSEServerConfig {
+  type: 'sse';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export interface McpClaudeAIProxyServerConfig {
+  type: 'claudeai-proxy';
+  url: string;
+  id: string;
+}
+
+export type MCPServerConfig =
+  | MCPStdioServerConfig
+  | MCPHttpServerConfig
+  | MCPSSEServerConfig
+  | McpClaudeAIProxyServerConfig;
+
+export interface MCPToolMetadata {
+  name: string;
+  description?: string;
+  annotations?: {
+    readOnly?: boolean;
+    destructive?: boolean;
+    openWorld?: boolean;
+  };
+}
+
 export interface MCPServerStatus {
   name: string;
-  status: 'connected' | 'failed' | 'connecting';
+  status: 'connected' | 'failed' | 'connecting' | 'disabled';
   error?: string;
   tools?: string[];
+  config?: MCPServerConfig;
+  scope?: string;
+  toolsMetadata?: MCPToolMetadata[];
 }
 
 export interface SDKSystemMessage {
@@ -77,6 +123,22 @@ export interface SDKStreamEvent {
   };
 }
 
+export interface SDKFilesPersistedEvent {
+  type: 'system';
+  subtype: 'files_persisted';
+  files: {
+    filename: string;
+    file_id: string;
+  }[];
+  failed: {
+    filename: string;
+    error: string;
+  }[];
+  processed_at: string;
+  uuid: string;
+  session_id: string;
+}
+
 export interface SDKContentBlock {
   type: 'text' | 'thinking' | 'tool_use' | 'tool_result';
   text?: string;
@@ -95,6 +157,7 @@ export type SDKMessage =
   | SDKUserMessage
   | SDKResultMessage
   | SDKStreamEvent
+  | SDKFilesPersistedEvent
   | { type: string; [key: string]: unknown }; // Fallback for other types
 
 /**
@@ -265,16 +328,40 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
       if (sys.subtype === 'init' && sys.session_id) {
         result.sessionId = sys.session_id;
       }
+      // Handle files_persisted event
+      if (sys.subtype === 'files_persisted') {
+        const fp = message as SDKFilesPersistedEvent;
+        console.log(`[SDK Adapter] Files persisted:`, {
+          success: fp.files.length,
+          failed: fp.failed.length,
+          processed_at: fp.processed_at,
+        });
+        result.output = {
+          type: 'system',
+          subtype: 'files_persisted',
+          files: fp.files,
+          failed: fp.failed,
+          processed_at: fp.processed_at,
+        };
+      }
       // Log MCP server connection status
       if (sys.subtype === 'init' && sys.mcp_servers && sys.mcp_servers.length > 0) {
         console.log(`[SDK Adapter] MCP servers status:`);
         for (const server of sys.mcp_servers) {
           if (server.status === 'connected') {
             console.log(`  ✓ ${server.name}: connected (${server.tools?.length || 0} tools)`);
+            if (server.scope) {
+              console.log(`    Scope: ${server.scope}`);
+            }
+            if (server.config) {
+              console.log(`    Config: ${JSON.stringify(server.config).substring(0, 100)}`);
+            }
           } else if (server.status === 'failed') {
             console.error(`  ✗ ${server.name}: failed - ${server.error || 'Unknown error'}`);
+          } else if (server.status === 'disabled') {
+            console.log(`  ○ ${server.name}: disabled`);
           } else {
-            console.log(`  ○ ${server.name}: ${server.status}`);
+            console.log(`  … ${server.name}: ${server.status}`);
           }
         }
       }

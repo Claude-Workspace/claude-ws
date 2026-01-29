@@ -248,15 +248,30 @@ export function FileDiffResolverModal({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleKeepLocal} className="gap-2">
+          <Button
+            variant="outline"
+            value="keep-local"
+            onClick={handleKeepLocal}
+            className="gap-2"
+          >
             <ArrowLeft className="size-4" />
             Keep Local Only
           </Button>
-          <Button variant="outline" onClick={handleAcceptRemote} className="gap-2">
+          <Button
+            variant="outline"
+            value="accept-remote"
+            onClick={handleAcceptRemote}
+            className="gap-2"
+          >
             Accept Remote Only
           </Button>
           {hasLocalModifications && (
-            <Button variant="default" onClick={handleApplyMerged} className="gap-2">
+            <Button
+              variant="default"
+              value="apply-merged"
+              onClick={handleApplyMerged}
+              className="gap-2"
+            >
               <Check className="size-4" />
               Apply Merged
             </Button>

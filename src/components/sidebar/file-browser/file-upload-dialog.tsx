@@ -365,12 +365,14 @@ export function FileUploadDialog({
         <DialogFooter>
           <Button
             variant="outline"
+            value="cancel"
             onClick={() => handleOpenChange(false)}
             disabled={uploading}
           >
             {t('common:cancel')}
           </Button>
           <Button
+            value="upload"
             onClick={handleUpload}
             disabled={uploading || pendingFiles.length === 0}
           >

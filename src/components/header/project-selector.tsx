@@ -168,10 +168,18 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              value="cancel"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button
+              variant="destructive"
+              value="delete"
+              onClick={confirmDelete}
+            >
               Delete
             </Button>
           </DialogFooter>

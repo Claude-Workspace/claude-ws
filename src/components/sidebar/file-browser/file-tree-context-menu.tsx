@@ -63,6 +63,7 @@ export function FileTreeContextMenuContent({
   itemType = 'context',
 }: FileTreeContextMenuContentProps) {
   const t = useTranslations('sidebar');
+  const tCommon = useTranslations('common');
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -310,11 +311,17 @@ export function FileTreeContextMenuContent({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
-              {t('common:cancel')}
+            <Button
+              variant="outline"
+              value="cancel"
+              onClick={() => setDeleteDialog(false)}
+              disabled={isDeleting}
+            >
+              {tCommon('cancel')}
             </Button>
             <Button
               variant="destructive"
+              value="delete"
               onClick={handleDelete}
               disabled={isDeleting}
             >
@@ -354,12 +361,17 @@ export function FileTreeContextMenuContent({
           <DialogFooter>
             <Button
               variant="outline"
+              value="cancel"
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
-              {t('common:cancel')}
+              {tCommon('cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={isCreating}>
+            <Button
+              value="create"
+              onClick={handleCreate}
+              disabled={isCreating}
+            >
               {isCreating ? 'Creating...' : t('create')}
             </Button>
           </DialogFooter>

@@ -289,10 +289,15 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                value="cancel"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
               <Button
+                value="install"
                 onClick={handleSave}
                 disabled={!hasChanges || isInstalling || isLoading}
               >
