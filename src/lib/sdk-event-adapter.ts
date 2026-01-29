@@ -191,6 +191,7 @@ export interface AdaptedMessage {
     questions: unknown[];
   };
   backgroundShell?: BackgroundShellInfo;
+  detectedTasks?: DetectedTaskTool[];
 }
 
 /**
@@ -222,6 +223,46 @@ function detectAskUserQuestion(
     }
   }
   return undefined;
+}
+
+/**
+ * Detect TaskCreate/TaskUpdate tool use in content blocks
+ * Returns array of detected task tools
+ */
+export interface DetectedTaskTool {
+  toolUseId: string;
+  taskType: 'create' | 'update';
+  toolInput: unknown;
+}
+
+export function detectTaskTools(
+  content: SDKContentBlock[]
+): DetectedTaskTool[] {
+  const detectedTasks: DetectedTaskTool[] = [];
+
+  for (const block of content) {
+    if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
+      const taskInput = block.input as { subagent_type?: string; [key: string]: unknown };
+      // Determine if this is TaskCreate or TaskUpdate based on subagent_type
+      // Default to 'update' if not specified
+      const taskType = taskInput.subagent_type === 'TaskCreate' ? 'create' : 'update';
+
+      detectedTasks.push({
+        toolUseId: block.id,
+        taskType,
+        toolInput: taskInput,
+      });
+
+      console.log('[SDK Adapter] Task tool detected:', {
+        toolUseId: block.id,
+        taskType,
+        hasSubject: 'subject' in taskInput,
+        hasDescription: 'description' in taskInput,
+      });
+    }
+  }
+
+  return detectedTasks;
 }
 
 // Note: BACKGROUND_COMMAND_PATTERNS removed - heuristic detection disabled
@@ -389,6 +430,12 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
       const bgShell = detectBackgroundShell(asst.message.content);
       if (bgShell) {
         result.backgroundShell = bgShell;
+      }
+      // Check for TaskCreate/TaskUpdate tool use
+      const detectedTasks = detectTaskTools(asst.message.content);
+      if (detectedTasks.length > 0) {
+        result.detectedTasks = detectedTasks;
+        console.log(`[SDK Adapter] Detected ${detectedTasks.length} task tool(s)`);
       }
       break;
     }

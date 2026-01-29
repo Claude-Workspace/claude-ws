@@ -5,8 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
 
-// Load environment variables from .env file (will be loaded automatically by Next.js in production, but we load it here for direct script usage)
-const env = config();
+// Load environment variables from .env file quietly (will be loaded automatically by Next.js in production, but we load it here for direct script usage)
+const env = config({ quiet: true });
 
 // Database file path - use DATA_DIR from env if configured, otherwise default to project data dir
 const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');

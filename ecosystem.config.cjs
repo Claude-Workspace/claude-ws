@@ -12,9 +12,12 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load environment variables from .env file
+// Load environment variables from .env file quietly
 const envPath = path.join(__dirname, '.env');
-const envResult = dotenv.config({ path: envPath });
+const envResult = dotenv.config({
+  path: envPath,
+  quiet: true
+});
 const envConfig = envResult.parsed || {};
 
 // Debug: log loaded env variables (without sensitive values)

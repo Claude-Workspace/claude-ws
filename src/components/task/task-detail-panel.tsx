@@ -77,7 +77,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const promptInputRef = useRef<PromptInputRef>(null);
   const { shells } = useShellStore();
   const hasAutoStartedRef = useRef(false);
-  const lastCompletedTaskRef = useRef<string | null>(null);
 
   const { width, isResizing, handleMouseDown: handleResizeMouseDown } = useResizable({
     initialWidth: widths.taskDetail,
@@ -107,23 +106,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showStatusDropdown]);
 
-  // Handle task completion - move to review and show notification
-  const handleTaskComplete = useCallback(
-    async (taskId: string) => {
-      // Prevent duplicate completion for the same task
-      if (lastCompletedTaskRef.current === taskId) {
-        return;
-      }
-      lastCompletedTaskRef.current = taskId;
-
-      await updateTaskStatus(taskId, 'in_review');
-      toast.success(t('taskCompleted'), {
-        description: t('movedToReview'),
-      });
-    },
-    [updateTaskStatus, t]
-  );
-
   const {
     messages,
     startAttempt,
@@ -137,7 +119,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     cancelQuestion,
   } = useAttemptStream({
     taskId: selectedTask?.id,
-    onComplete: handleTaskComplete,
   });
 
   // Auto-start task when pendingAutoStartTask matches the selected task
@@ -195,7 +176,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setCurrentAttemptFiles([]);
     setShellPanelExpanded(false);
     setShowQuestionPrompt(false);
-    lastCompletedTaskRef.current = null;
     hasAutoStartedRef.current = false;
 
     // Auto-focus on chat input when task is selected
@@ -284,9 +264,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       setTaskChatInit(selectedTask.id, true);
       setHasSentFirstMessage(true);
     }
-
-    // Reset completion tracking when starting a new attempt
-    lastCompletedTaskRef.current = null;
 
     // Capture pending files before they get cleared
     const pendingFiles = getPendingFiles(selectedTask.id);

@@ -7,7 +7,6 @@ import { useRunningTasksStore } from '@/stores/running-tasks-store';
 
 interface UseAttemptStreamOptions {
   taskId?: string;
-  onComplete?: (taskId: string) => void;
 }
 
 // Question types for AskUserQuestion
@@ -46,7 +45,6 @@ export function useAttemptStream(
   options?: UseAttemptStreamOptions
 ): UseAttemptStreamResult {
   const taskId = options?.taskId;
-  const onCompleteRef = useRef(options?.onComplete);
   const socketRef = useRef<Socket | null>(null);
   const currentTaskIdRef = useRef<string | null>(null);
   // CRITICAL: Use ref to track currentAttemptId for synchronous filtering in socket callbacks
@@ -59,9 +57,6 @@ export function useAttemptStream(
   const [isRunning, setIsRunning] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState<ActiveQuestion | null>(null);
   const { addRunningTask, removeRunningTask, markTaskCompleted } = useRunningTasksStore();
-
-  // Keep callback ref updated
-  onCompleteRef.current = options?.onComplete;
 
   useEffect(() => {
     const socketInstance = io({
@@ -95,8 +90,6 @@ export function useAttemptStream(
       removeRunningTask(data.taskId);
       if (data.status === 'completed') {
         markTaskCompleted(data.taskId);
-        // Move task to in_review regardless of which task user is viewing
-        onCompleteRef.current?.(data.taskId);
       }
     });
 
@@ -301,7 +294,7 @@ export function useAttemptStream(
       setCurrentAttemptId((currentId) => {
         if (data.attemptId === currentId) {
           setIsRunning(false);
-          // Note: removeRunningTask, markTaskCompleted, and onComplete are now handled by task:finished
+          // Note: removeRunningTask and markTaskCompleted are now handled by task:finished
           // which fires regardless of which task user is viewing
         }
         return currentId;

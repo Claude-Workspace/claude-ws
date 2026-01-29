@@ -1,4 +1,6 @@
-import 'dotenv/config';
+// Load dotenv quietly without debug messages
+import { config } from 'dotenv';
+config({ quiet: true });
 
 // Enable SDK file checkpointing globally
 process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
@@ -722,6 +724,89 @@ app.prepare().then(async () => {
       console.error(`[Server] Failed to spawn background shell:`, error);
     }
   });
+
+  // Handle SDK TaskCreate event - when SDK creates a task via Task tool
+  agentManager.on('taskCreated', async ({ attemptId, projectId, taskData }) => {
+    console.log(`[Server] SDK task created for attempt ${attemptId}:`, taskData.title);
+
+    try {
+      // Convert SDK task data to internal Task format
+      const sdkTask = {
+        ...taskData,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        position: 0, // New tasks go to top
+      };
+
+      const internalTask = {
+        id: sdkTask.id,
+        projectId,
+        title: sdkTask.title,
+        description: sdkTask.description || null,
+        status: mapSDKStatusToInternal(sdkTask.status) as 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled',
+        position: sdkTask.position,
+        chatInit: false,
+        createdAt: sdkTask.createdAt,
+        updatedAt: sdkTask.updatedAt,
+        source: 'sdk' as const,
+        attemptId,
+        blocks: sdkTask.blocks || [],
+        blockedBy: sdkTask.blockedBy || [],
+      };
+
+      // Insert task into database
+      await db.insert(schema.tasks).values(internalTask);
+
+      console.log(`[Server] SDK task inserted into DB: ${internalTask.id}`);
+
+      // Emit socket event to all clients
+      io.emit('task:created', internalTask);
+    } catch (error) {
+      console.error(`[Server] Failed to create SDK task:`, error);
+    }
+  });
+
+  // Handle SDK TaskUpdate event - when SDK updates a task via Task tool
+  agentManager.on('taskUpdated', async ({ attemptId, projectId, taskId, updates }) => {
+    console.log(`[Server] SDK task updated: ${taskId}`, updates);
+
+    try {
+      // Map SDK status to internal status if present
+      const internalUpdates: any = {
+        ...updates,
+        updatedAt: Date.now(),
+      };
+
+      if (updates.status) {
+        internalUpdates.status = mapSDKStatusToInternal(updates.status) as 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled';
+      }
+
+      // Update task in database
+      await db
+        .update(schema.tasks)
+        .set(internalUpdates)
+        .where(eq(schema.tasks.id, taskId));
+
+      console.log(`[Server] SDK task updated in DB: ${taskId}`);
+
+      // Emit socket event to all clients
+      io.emit('task:updated', { taskId, updates: internalUpdates });
+    } catch (error) {
+      console.error(`[Server] Failed to update SDK task:`, error);
+    }
+  });
+
+  // Helper: Map SDK status to internal status
+  function mapSDKStatusToInternal(sdkStatus: string): string {
+    const mapping: Record<string, string> = {
+      'pending': 'todo',
+      'in_progress': 'in_progress',
+      'in_review': 'in_review',
+      'completed': 'done',
+      'cancelled': 'cancelled',
+    };
+    return mapping[sdkStatus] || 'todo';
+  }
 
   // Handle tracked process from BGPID pattern in bash output
   // Track existing process instead of kill-and-respawn to avoid port conflicts

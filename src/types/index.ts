@@ -39,6 +39,24 @@ export interface Project {
   settings?: ProjectSettings;
 }
 
+// SDK Task type from Agent SDK
+export interface SDKTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'in_review' | 'completed' | 'cancelled';
+  position: number;
+  createdAt: number;
+  updatedAt: number;
+  blocks?: string[];
+  blockedBy?: string[];
+  metadata?: {
+    source: 'sdk';
+    attemptId?: string;
+    creator?: string;
+  };
+}
+
 // Task type for Kanban cards
 export interface Task {
   id: string;
@@ -50,6 +68,10 @@ export interface Task {
   chatInit: boolean;
   createdAt: number;
   updatedAt: number;
+  source: 'user' | 'sdk';
+  attemptId?: string;
+  blocks?: string[];
+  blockedBy?: string[];
 }
 
 // Attempt type for Claude interactions
@@ -84,7 +106,8 @@ export type ClaudeOutputType =
   | 'tool_result'
   | 'stream_event'
   | 'content_block_delta'
-  | 'result';
+  | 'result'
+  | 'task_tool_use';
 
 export interface ClaudeContentBlock {
   type: 'text' | 'thinking' | 'tool_use' | 'tool_result';
