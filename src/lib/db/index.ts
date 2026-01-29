@@ -268,6 +268,12 @@ export function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_cache_plugin ON plugin_dependency_cache(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_cache_source ON plugin_dependency_cache(source_path);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
   `);
 }
 

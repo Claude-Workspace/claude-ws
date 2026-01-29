@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Settings, Save, X, Loader2, CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { Settings, Save, X, Loader2, CheckCircle, AlertCircle, Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useProjectStore } from '@/stores/project-store';
 import { ComponentSelector } from './component-selector';
 import { useProjectSettingsStore } from '@/stores/project-settings-store';
+import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useToast } from '@/hooks/use-toast';
 
 interface InstallResult {
@@ -33,6 +34,7 @@ interface ProjectSettingsDialogProps {
 
 export function ProjectSettingsDialog({ open, onOpenChange, projectId }: ProjectSettingsDialogProps) {
   const { projects } = useProjectStore();
+  const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const {
     settings,
     isLoading,
@@ -233,7 +235,19 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
 
               {/* Plugins section */}
               <div className="space-y-2">
-                <Label>Plugins</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Plugins</Label>
+                  <button
+                    onClick={() => {
+                      setAgentFactoryOpen(true);
+                      onOpenChange(false);
+                    }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    Manage in Agent Factory
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                </div>
                 <ComponentSelector
                   type="component"
                   selectedIds={selectedComponents}

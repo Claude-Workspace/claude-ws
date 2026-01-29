@@ -21,6 +21,7 @@ import { processAttachments } from './src/lib/file-processor';
 import { usageTracker } from './src/lib/usage-tracker';
 import { workflowTracker } from './src/lib/workflow-tracker';
 import { gitStatsCache } from './src/lib/git-stats-collector';
+import { tunnelService } from './src/lib/tunnel-service';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -960,6 +961,35 @@ app.prepare().then(async () => {
     return '';
   }
 
+  // ========================================
+  // Tunnel Service Event Handlers
+  // ========================================
+
+  // Forward tunnel status changes to all clients
+  tunnelService.on('status', (state) => {
+    io.emit('tunnel:status', state);
+  });
+
+  tunnelService.on('connected', ({ url }) => {
+    console.log(`[Server] Tunnel connected: ${url}`);
+    io.emit('tunnel:connected', { url });
+  });
+
+  tunnelService.on('error', ({ error }) => {
+    console.error(`[Server] Tunnel error: ${error}`);
+    io.emit('tunnel:error', { error });
+  });
+
+  tunnelService.on('closed', () => {
+    console.log('[Server] Tunnel closed');
+    io.emit('tunnel:closed');
+  });
+
+  // Try to auto-reconnect if tunnel configuration exists in database
+  tunnelService.tryAutoReconnect().catch((err) => {
+    console.error('[Server] Failed to auto-reconnect tunnel:', err);
+  });
+
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
   });
@@ -967,6 +997,10 @@ app.prepare().then(async () => {
   // Graceful shutdown handler
   const shutdown = async (signal: string) => {
     console.log(`\n> ${signal} received, shutting down gracefully...`);
+
+    // Stop tunnel
+    await tunnelService.stop();
+    console.log('> Tunnel stopped');
 
     // Cancel all Claude agents first
     agentManager.cancelAll();

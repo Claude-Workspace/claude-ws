@@ -13,8 +13,10 @@ import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar
 import { RightSidebar } from '@/components/right-sidebar';
 import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { PluginList } from '@/components/agent-factory/plugin-list';
+import { AccessAnywhereWizard } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
+import { useTunnelStore } from '@/stores/tunnel-store';
 import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
@@ -48,6 +50,12 @@ function KanbanApp() {
   useEffect(() => {
     useProjectStore.persist.rehydrate();
     useProjectStore.getState().fetchProjects();
+
+    // Initialize tunnel store
+    const { initSocketListeners, fetchStatus, checkOnboarding } = useTunnelStore.getState();
+    initSocketListeners();
+    fetchStatus();
+    checkOnboarding();
   }, []);
 
   // Read project from URL and select it
@@ -246,6 +254,9 @@ function KanbanApp() {
         projectId={selectedProjectIds[0]}
         onCreateTask={() => setCreateTaskOpen(true)}
       />
+
+      {/* Access Anywhere Wizard */}
+      <AccessAnywhereWizard />
     </div>
   );
 }

@@ -46,9 +46,10 @@ export function SettingsPage() {
         </Button>
       </div>
 
-      {/* Current Project Section */}
-      {currentProject && (
-        <div className="max-w-2xl space-y-6">
+      {/* Settings Sections */}
+      <div className="max-w-2xl space-y-6">
+        {/* Current Project Section */}
+        {currentProject && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Current Project</h2>
             <div className="space-y-3 p-4 border rounded-lg bg-card">
@@ -94,8 +95,8 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

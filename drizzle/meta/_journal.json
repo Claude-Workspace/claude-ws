@@ -15,6 +15,13 @@
       "when": 1768963123539,
       "tag": "0001_calm_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769598154443,
+      "tag": "0002_smooth_magneto",
+      "breakpoints": true
     }
   ]
 }

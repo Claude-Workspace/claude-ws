@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Check, Loader2, Trash2, Download, ExternalLink } from 'lucide-react';
+import { Search, Check, Loader2, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plugin as AgentFactoryPlugin } from '@/types/agent-factory';
-import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
+import { PluginUploadDialog } from './plugin-upload-dialog';
 
 interface ComponentSelectorProps {
   type: 'component' | 'agent_set';
@@ -24,12 +24,12 @@ interface InstalledStatus {
 }
 
 export function ComponentSelector({ type, selectedIds, onChange, projectId, installedIds = [], onRefresh, onCloseDialog }: ComponentSelectorProps) {
-  const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const [components, setComponents] = useState<AgentFactoryPlugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [uninstalling, setUninstalling] = useState<string | null>(null);
   const [installedStatus, setInstalledStatus] = useState<InstalledStatus>({});
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   const checkInstalledStatus = () => {
     const status: InstalledStatus = {};
@@ -139,18 +139,15 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
 
   return (
     <div className="border rounded-lg">
-      {/* Header with Agent Factory link */}
+      {/* Header with Upload button */}
       <div className="p-3 border-b flex items-center justify-between">
         <span className="text-sm font-medium">{title}</span>
         <button
-          onClick={() => {
-            setAgentFactoryOpen(true);
-            onCloseDialog?.();
-          }}
+          onClick={() => setUploadDialogOpen(true)}
           className="text-xs text-primary hover:underline flex items-center gap-1"
         >
-          Manage in Agent Factory
-          <ExternalLink className="h-3 w-3" />
+          <Upload className="h-3 w-3" />
+          Upload Plugins
         </button>
       </div>
 
@@ -260,6 +257,17 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
           )}
         </div>
       )}
+
+      {/* Upload Dialog */}
+      <PluginUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        projectId={projectId}
+        onUploadSuccess={() => {
+          fetchComponents();
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 }

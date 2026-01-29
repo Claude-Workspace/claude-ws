@@ -27,6 +27,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    // Force single instance of @codemirror packages to avoid instanceof issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@codemirror/state': path.resolve(__dirname, 'node_modules/@codemirror/state'),
+      '@codemirror/view': path.resolve(__dirname, 'node_modules/@codemirror/view'),
+      '@codemirror/language': path.resolve(__dirname, 'node_modules/@codemirror/language'),
+    };
+    return config;
+  },
 };
 
 export default withNextIntl(nextConfig);

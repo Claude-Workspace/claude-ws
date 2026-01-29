@@ -273,6 +273,15 @@ export const shells = sqliteTable(
   ]
 );
 
+// App Settings table - global application settings
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at', { mode: 'number' })
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
 // Type exports for queries
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -296,3 +305,5 @@ export type PluginDependencyCache = typeof pluginDependencyCache.$inferSelect;
 export type NewPluginDependencyCache = typeof pluginDependencyCache.$inferInsert;
 export type Shell = typeof shells.$inferSelect;
 export type NewShell = typeof shells.$inferInsert;
+export type AppSetting = typeof appSettings.$inferSelect;
+export type NewAppSetting = typeof appSettings.$inferInsert;
