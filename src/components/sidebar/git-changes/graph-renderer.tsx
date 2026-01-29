@@ -32,28 +32,47 @@ interface GraphRendererProps {
   commits?: GitCommit[]; // New: for rendering branch badges
 }
 
+interface RemoteBranch {
+  name: string;
+  remote: string;
+}
+
 // Parse refs to extract branch/tag names
-function parseRefs(refs: string[]): { branches: string[]; tags: string[] } {
-  const branches: string[] = [];
+function parseRefs(refs: string[]): {
+  localBranches: string[];
+  remoteBranches: RemoteBranch[];
+  tags: string[];
+  isHead: boolean;
+} {
+  const localBranches: string[] = [];
+  const remoteBranches: RemoteBranch[] = [];
   const tags: string[] = [];
+  let isHead = false;
 
   for (const ref of refs) {
     if (ref.startsWith('HEAD -> ')) {
-      branches.push(ref.replace('HEAD -> ', ''));
+      const branch = ref.replace('HEAD -> ', '');
+      localBranches.push(branch);
+      isHead = true;
     } else if (ref.startsWith('tag: ')) {
       tags.push(ref.replace('tag: ', ''));
     } else if (ref.includes('/')) {
-      // Remote branch like origin/main
-      branches.push(ref.split('/').pop() || ref);
+      // Remote branch like origin/main or origin/dev
+      const parts = ref.split('/');
+      const branchName = parts[parts.length - 1];
+      const remoteName = parts.slice(0, -1).join('/');
+      remoteBranches.push({ name: branchName, remote: remoteName });
     } else {
-      branches.push(ref);
+      // Local branch
+      localBranches.push(ref);
     }
   }
 
-  // Deduplicate
   return {
-    branches: [...new Set(branches)],
+    localBranches: [...new Set(localBranches)],
+    remoteBranches: remoteBranches,
     tags: [...new Set(tags)],
+    isHead,
   };
 }
 
@@ -107,7 +126,12 @@ export function GraphRenderer({
       {lanes.map((lane, idx) => {
         const isHighlighted = lane.commitHash === highlightedCommit;
         const commit = commits[idx];
-        const { branches, tags } = commit ? parseRefs(commit.refs) : { branches: [], tags: [] };
+        const { localBranches, remoteBranches, tags, isHead } = commit ? parseRefs(commit.refs) : {
+          localBranches: [],
+          remoteBranches: [],
+          tags: [],
+          isHead: false
+        };
         const dotX = lane.lane * LANE_WIDTH + offsetX;
         const dotY = idx * ROW_HEIGHT + ROW_HEIGHT / 2;
 
@@ -142,30 +166,47 @@ export function GraphRenderer({
             )}
 
             {/* Branch badges inline with dot */}
-            {(branches.length > 0 || tags.length > 0) && (
+            {(localBranches.length > 0 || remoteBranches.length > 0 || tags.length > 0) && (
               <foreignObject
                 x={badgeX}
                 y={badgeY - 10}
-                width={120}
+                width={180}
                 height={20}
                 className="overflow-visible"
               >
                 <div className="flex items-center gap-1" style={{ fontSize: '10px' }}>
-                  {/* Show max 2 badges */}
-                  {branches.slice(0, 2).map((branch) => (
+                  {/* Local branches - show first */}
+                  {localBranches.slice(0, 2).map((branch) => (
                     <span
-                      key={branch}
+                      key={`local-${branch}`}
                       className={cn(
                         'px-1 py-0.5 rounded shrink-0 leading-none font-medium',
-                        branch === 'main' || branch === 'master'
-                          ? 'bg-blue-500/20 text-blue-400'
-                          : 'bg-green-500/20 text-green-400'
+                        'bg-green-500/20 text-green-400 border border-green-500/30'
                       )}
                       style={{ fontSize: '10px' }}
+                      title={`Local branch: ${branch}${isHead && branch === localBranches[0] ? ' (HEAD)' : ''}`}
                     >
-                      {branch.length > 12 ? branch.slice(0, 12) + '...' : branch}
+                      {branch.length > 10 ? branch.slice(0, 10) + '...' : branch}
                     </span>
                   ))}
+
+                  {/* Remote branches - show with remote prefix */}
+                  {remoteBranches.slice(0, 2).map((remoteBranch: any) => (
+                    <span
+                      key={`remote-${remoteBranch.name}-${remoteBranch.remote}`}
+                      className={cn(
+                        'px-1 py-0.5 rounded shrink-0 leading-none font-medium',
+                        'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      )}
+                      style={{ fontSize: '10px' }}
+                      title={`Remote branch: ${remoteBranch.remote}/${remoteBranch.name}`}
+                    >
+                      {remoteBranch.name.length > 8 ? remoteBranch.name.slice(0, 8) + '...' : remoteBranch.name}
+                      <span className="text-[8px] ml-0.5 opacity-70">🌐</span>
+                    </span>
+                  ))}
+
+                  {/* Tags */}
                   {tags.slice(0, 1).map((tag) => (
                     <span
                       key={tag}
@@ -175,13 +216,14 @@ export function GraphRenderer({
                       {tag.length > 8 ? tag.slice(0, 8) + '...' : tag}
                     </span>
                   ))}
+
                   {/* Overflow indicator */}
-                  {branches.length + tags.length > 3 && (
+                  {localBranches.length + remoteBranches.length + tags.length > 4 && (
                     <span
                       className="text-muted-foreground/50 text-[9px]"
-                      title={`${branches.length + tags.length - 3} more`}
+                      title={`${localBranches.length + remoteBranches.length + tags.length - 4} more`}
                     >
-                      +{branches.length + tags.length - 3}
+                      +{localBranches.length + remoteBranches.length + tags.length - 4}
                     </span>
                   )}
                 </div>
