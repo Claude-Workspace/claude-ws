@@ -29,6 +29,7 @@ export function GitPanel() {
   const [commitDescription, setCommitDescription] = useState('');
   const [committing, setCommitting] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<string>('');
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -250,6 +251,7 @@ export function GitPanel() {
     if (!activeProject?.path) return;
 
     setGeneratingMessage(true);
+    setGenerationProgress('Analyzing changes...');
     try {
       const res = await fetch('/api/git/generate-message', {
         method: 'POST',
@@ -262,11 +264,14 @@ export function GitPanel() {
         throw new Error(data.error || 'Failed to generate message');
       }
 
+      setGenerationProgress('Processing response...');
       const { title, description } = await res.json();
       setCommitTitle(title || '');
       setCommitDescription(description || '');
+      setGenerationProgress('');
     } catch (err) {
       console.error('AI generation error:', err);
+      setGenerationProgress('');
       alert(err instanceof Error ? err.message : 'Failed to generate commit message');
     } finally {
       setGeneratingMessage(false);
@@ -509,12 +514,12 @@ export function GitPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="px-2"
+                      className="px-2 relative"
                       title={
                         totalChanges === 0
                           ? 'No changes to generate commit message for'
                           : generatingMessage
-                          ? 'Generating...'
+                          ? generationProgress || 'Generating...'
                           : 'Generate commit message with AI'
                       }
                       onClick={handleGenerateMessage}

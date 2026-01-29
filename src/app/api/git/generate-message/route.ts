@@ -4,11 +4,18 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import crypto from 'crypto';
 
 const execFileAsync = promisify(execFile);
 
 // Timeout for git commands (5 seconds)
 const GIT_TIMEOUT = 5000;
+
+// Max diff size to send to AI (50KB of actual diff content)
+const MAX_DIFF_SIZE = 50 * 1024;
+
+// In-memory cache for commit messages (24hr TTL)
+const commitMessageCache = new Map<string, { data: any; expiresAt: number }>();
 
 // POST /api/git/generate-message
 export async function POST(request: NextRequest) {
@@ -45,25 +52,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get diff of all changes (both staged and unstaged)
+    // Get diff of all changes (both staged and unstaged) - PARALLEL for speed
     let diffOutput: string;
     try {
-      // First get staged changes
-      const { stdout: stagedDiff } = await execFileAsync('git', ['diff', '--cached'], {
-        cwd: resolvedPath,
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large diffs
-        timeout: GIT_TIMEOUT,
-      });
-
-      // Then get unstaged changes
-      const { stdout: unstagedDiff } = await execFileAsync('git', ['diff'], {
-        cwd: resolvedPath,
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: GIT_TIMEOUT,
-      });
+      // Run both git commands in parallel for faster execution
+      const [stagedResult, unstagedResult] = await Promise.all([
+        execFileAsync('git', ['diff', '--cached'], {
+          cwd: resolvedPath,
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: GIT_TIMEOUT,
+        }),
+        execFileAsync('git', ['diff'], {
+          cwd: resolvedPath,
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: GIT_TIMEOUT,
+        }),
+      ]);
 
       // Combine both diffs
-      diffOutput = stagedDiff + unstagedDiff;
+      diffOutput = stagedResult.stdout + unstagedResult.stdout;
     } catch (error) {
       const err = error as { code?: string; message?: string };
       if (err.code === 'ETIMEDOUT') {
@@ -79,6 +86,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create hash of diff for caching
+    const diffHash = crypto.createHash('md5').update(diffOutput).digest('hex');
+
+    // Check cache first (24hr TTL)
+    const cached = commitMessageCache.get(diffHash);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log('[CommitMessage] Cache hit for diff hash:', diffHash);
+      return NextResponse.json(cached.data);
+    }
+
     // Check if there are any changes
     if (!diffOutput || diffOutput.trim().length === 0) {
       return NextResponse.json(
@@ -90,8 +107,12 @@ export async function POST(request: NextRequest) {
     // Count additions and deletions
     const { additions, deletions } = countDiffStats(diffOutput);
 
+    // Smart diff truncation - only send first N KB to AI
+    const truncatedDiff = truncateDiff(diffOutput, MAX_DIFF_SIZE);
+    const wasTruncated = truncatedDiff.length < diffOutput.length;
+
     // Build prompt for Claude
-    const prompt = buildCommitMessagePrompt(diffOutput);
+    const prompt = buildCommitMessagePrompt(truncatedDiff, wasTruncated);
 
     // Call Claude SDK to generate commit message
     try {
@@ -146,16 +167,33 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return NextResponse.json({
+      const responseData = {
         title,
         description,
-        // Keep 'message' for backwards compatibility (title only)
-        message: title,
+        message: title, // backwards compatibility
         diff: {
           additions,
           deletions,
         },
+      };
+
+      // Cache the result for 24 hours
+      commitMessageCache.set(diffHash, {
+        data: responseData,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000),
       });
+
+      // Clean up old cache entries periodically
+      if (commitMessageCache.size > 100) {
+        const now = Date.now();
+        for (const [key, value] of commitMessageCache.entries()) {
+          if (value.expiresAt < now) {
+            commitMessageCache.delete(key);
+          }
+        }
+      }
+
+      return NextResponse.json(responseData);
     } catch (error) {
       console.error('Error calling Claude SDK:', error);
 
@@ -183,10 +221,76 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * Truncate diff to max size while preserving file structure
+ * Keeps file headers and truncates content uniformly
+ */
+function truncateDiff(diff: string, maxSize: number): string {
+  if (diff.length <= maxSize) return diff;
+
+  // Calculate truncation ratio
+  const ratio = maxSize / diff.length;
+
+  // Split into hunks (preserve diff structure)
+  const lines = diff.split('\n');
+  const result: string[] = [];
+  let currentSize = 0;
+
+  // Keep file headers intact, truncate content
+  let inHunk = false;
+  let hunkLines: string[] = [];
+  const targetHunkSize = Math.floor(200 * ratio); // Target lines per hunk
+
+  for (const line of lines) {
+    // Always keep diff headers
+    if (line.startsWith('diff ') ||
+        line.startsWith('index ') ||
+        line.match(/^---\s/) ||
+        line.match(/^\+\+\+\s/) ||
+        line.startsWith('@@')) {
+      if (hunkLines.length > 0) {
+        result.push(...hunkLines.slice(0, targetHunkSize));
+        hunkLines = [];
+      }
+      result.push(line);
+      inHunk = line.startsWith('@@');
+      currentSize += line.length + 1;
+      continue;
+    }
+
+    if (inHunk && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' '))) {
+      hunkLines.push(line);
+      if (hunkLines.length <= targetHunkSize) {
+        currentSize += line.length + 1;
+      }
+      continue;
+    }
+
+    // Empty line between hunks
+    if (line === '' && hunkLines.length > 0) {
+      result.push(...hunkLines.slice(0, targetHunkSize));
+      hunkLines = [];
+      result.push(line);
+      inHunk = false;
+      continue;
+    }
+  }
+
+  // Add remaining hunk
+  if (hunkLines.length > 0) {
+    result.push(...hunkLines.slice(0, targetHunkSize));
+  }
+
+  return result.join('\n');
+}
+
+/**
  * Build prompt for Claude to generate commit message with title and description
  */
-function buildCommitMessagePrompt(diff: string): string {
-  return `Generate a git commit message with title and description.
+function buildCommitMessagePrompt(diff: string, wasTruncated: boolean): string {
+  const truncationNote = wasTruncated ?
+    '\n\nNOTE: Diff is truncated for performance. Focus on visible patterns.\n' : '';
+
+  return `Generate a git commit message with title and description.${truncationNote}
 
 TITLE RULES:
 - Format: type(scope): description
