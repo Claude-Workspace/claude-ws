@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ChevronRight, ChevronDown, RefreshCw, Loader2, ArrowUpFromLine, ArrowDownToLine, RotateCcw } from 'lucide-react';
 import { GitCommitItem } from './git-commit-item';
 import { GraphRenderer } from './graph-renderer';
@@ -22,7 +22,11 @@ interface GitCommit {
   isMerge?: boolean;
 }
 
-export function GitGraph() {
+export interface GitGraphRef {
+  refresh: () => void;
+}
+
+export const GitGraph = forwardRef<GitGraphRef>((props, ref) => {
   const activeProject = useActiveProject();
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [head, setHead] = useState<string>('');
@@ -58,8 +62,22 @@ export function GitGraph() {
     }
   }, [activeProject?.path, filter]);
 
+  // Expose refresh function to parent
+  useImperativeHandle(ref, () => ({
+    refresh: fetchLog,
+  }), [fetchLog]);
+
   useEffect(() => {
     fetchLog();
+  }, [fetchLog]);
+
+  // Auto-refresh on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchLog();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [fetchLog]);
 
   // Calculate graph data when commits change
@@ -367,4 +385,6 @@ export function GitGraph() {
       />
     </div>
   );
-}
+});
+
+GitGraph.displayName = 'GitGraph';
