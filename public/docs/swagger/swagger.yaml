@@ -906,6 +906,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/files/upload:
+    post:
+      tags:
+        - Files
+      summary: Upload files to directory
+      description: |
+        Upload one or more files to a target directory. Supports optional decompression of archive files.
+
+        **Supported archive formats for decompression:**
+        - `.zip` - ZIP archives
+        - `.tar` - TAR archives
+        - `.tar.gz`, `.tgz` - Compressed TAR archives
+        - `.gz` - GZIP compressed files
+
+        **Security:**
+        - Path traversal validation via `path.relative()` check
+        - Target directory existence check
+        - Permission error handling (EACCES -> 403)
+        - Filename sanitization (removes path separators)
+      operationId: uploadFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+                - targetPath
+                - rootPath
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Files to upload (supports multiple files)
+                targetPath:
+                  type: string
+                  description: Absolute path to target directory
+                  example: /home/user/project/uploads
+                rootPath:
+                  type: string
+                  description: Root directory path for security validation
+                  example: /home/user/project
+                decompress:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "false"
+                  description: Whether to decompress archive files after upload
+      responses:
+        "200":
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Uploaded filename
+                          example: document.pdf
+                        path:
+                          type: string
+                          description: Full path where file was saved
+                          example: /home/user/project/uploads/document.pdf
+                        decompressed:
+                          type: boolean
+                          description: Whether the file was decompressed (only present for archives when decompress=true)
+                          example: true
+        "400":
+          description: Bad request (missing files, invalid target)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                noFiles:
+                  summary: No files provided
+                  value:
+                    error: No files provided
+                notDirectory:
+                  summary: Target is not a directory
+                  value:
+                    error: Target path is not a directory
+        "403":
+          description: Path traversal detected or permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Target directory not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/git/discard:
     post:
       tags:
