@@ -30,6 +30,7 @@ interface GraphRendererProps {
   highlightedCommit?: string;
   onCommitClick?: (hash: string) => void;
   commits?: GitCommit[]; // New: for rendering branch badges
+  allRemoteBranches?: string[]; // All remote branches like ['origin/dev', 'origin/main']
 }
 
 interface RemoteBranch {
@@ -38,7 +39,7 @@ interface RemoteBranch {
 }
 
 // Parse refs to extract branch/tag names
-function parseRefs(refs: string[]): {
+function parseRefs(refs: string[], allRemoteBranches: string[] = []): {
   localBranches: string[];
   remoteBranches: RemoteBranch[];
   tags: string[];
@@ -48,6 +49,14 @@ function parseRefs(refs: string[]): {
   const remoteBranches: RemoteBranch[] = [];
   const tags: string[] = [];
   let isHead = false;
+
+  // Create a Set of remote branch names for quick lookup
+  const remoteBranchSet = new Set(
+    allRemoteBranches.map(ref => {
+      const parts = ref.split('/');
+      return parts[parts.length - 1]; // Extract branch name from 'origin/dev'
+    })
+  );
 
   for (const ref of refs) {
     if (ref.startsWith('HEAD -> ')) {
@@ -68,6 +77,22 @@ function parseRefs(refs: string[]): {
     }
   }
 
+  // If we have local branches but no remote branches in refs,
+  // check if corresponding remote branches exist
+  if (localBranches.length > 0 && remoteBranches.length === 0 && allRemoteBranches.length > 0) {
+    for (const localBranch of localBranches) {
+      if (remoteBranchSet.has(localBranch)) {
+        // Find the full remote ref
+        const fullRemoteRef = allRemoteBranches.find(ref => ref.endsWith(`/${localBranch}`));
+        if (fullRemoteRef) {
+          const parts = fullRemoteRef.split('/');
+          const remoteName = parts.slice(0, -1).join('/');
+          remoteBranches.push({ name: localBranch, remote: remoteName });
+        }
+      }
+    }
+  }
+
   return {
     localBranches: [...new Set(localBranches)],
     remoteBranches: remoteBranches,
@@ -83,6 +108,7 @@ export function GraphRenderer({
   highlightedCommit,
   onCommitClick,
   commits = [],
+  allRemoteBranches = [],
 }: GraphRendererProps) {
   const offsetX = 6; // Reduced offset for more compact layout
   const width = (maxLane + 1) * LANE_WIDTH + offsetX + 150; // Extra space for branch badges
@@ -126,7 +152,7 @@ export function GraphRenderer({
       {lanes.map((lane, idx) => {
         const isHighlighted = lane.commitHash === highlightedCommit;
         const commit = commits[idx];
-        const { localBranches, remoteBranches, tags, isHead } = commit ? parseRefs(commit.refs) : {
+        const { localBranches, remoteBranches, tags, isHead } = commit ? parseRefs(commit.refs, allRemoteBranches) : {
           localBranches: [],
           remoteBranches: [],
           tags: [],

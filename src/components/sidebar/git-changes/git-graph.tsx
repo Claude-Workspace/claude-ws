@@ -30,6 +30,7 @@ export const GitGraph = forwardRef<GitGraphRef>((props, ref) => {
   const activeProject = useActiveProject();
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [head, setHead] = useState<string>('');
+  const [allRemoteBranches, setAllRemoteBranches] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +46,29 @@ export const GitGraph = forwardRef<GitGraphRef>((props, ref) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/git/log?path=${encodeURIComponent(activeProject.path)}&limit=30&filter=${filter}`
-      );
-      if (!res.ok) {
-        const data = await res.json();
+      // Fetch both log and remote branches in parallel
+      const [logRes, branchesRes] = await Promise.all([
+        fetch(`/api/git/log?path=${encodeURIComponent(activeProject.path)}&limit=30&filter=${filter}`),
+        fetch(`/api/git/branches?path=${encodeURIComponent(activeProject.path)}`)
+      ]);
+
+      if (!logRes.ok) {
+        const data = await logRes.json();
         throw new Error(data.error || 'Failed to fetch git log');
       }
-      const data = await res.json();
-      setCommits(data.commits || []);
-      setHead(data.head || '');
+
+      const logData = await logRes.json();
+      setCommits(logData.commits || []);
+      setHead(logData.head || '');
+
+      // Parse remote branches from response
+      if (branchesRes.ok) {
+        const branchesData = await branchesRes.json();
+        const remotes = (branchesData.branches || [])
+          .filter((b: any) => b.isRemote)
+          .map((b: any) => b.name);
+        setAllRemoteBranches(remotes);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -362,6 +376,7 @@ export const GitGraph = forwardRef<GitGraphRef>((props, ref) => {
                         color={lane.color}
                         isMerge={commit.parents.length > 1}
                         showLine={false}
+                        allRemoteBranches={allRemoteBranches}
                         onClick={() => {
                           setSelectedCommit(commit.hash);
                           setModalOpen(true);
