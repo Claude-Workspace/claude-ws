@@ -7,6 +7,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { RunningDots } from '@/components/ui/running-dots';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from './code-block';
+import { ClickableFilePath } from './clickable-file-path';
+import { isValidFilePath } from '@/lib/file-path-detector';
 
 interface MessageBlockProps {
   content: string;
@@ -55,6 +57,25 @@ const markdownComponents = {
     if (!inline && (match || isMultiLine)) {
       return <CodeBlock code={codeString} language={match?.[1]} />;
     }
+
+    // Check if inline code is a file path - make it clickable
+    if (inline && isValidFilePath(codeString)) {
+      // Parse line number suffix like :123 or :123:45
+      const lineMatch = codeString.match(/:(\d+)(?::(\d+))?$/);
+      const filePath = lineMatch ? codeString.replace(/:(\d+)(?::(\d+))?$/, '') : codeString;
+      const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
+      const column = lineMatch?.[2] ? parseInt(lineMatch[2], 10) : undefined;
+
+      return (
+        <ClickableFilePath
+          filePath={filePath}
+          lineNumber={lineNumber}
+          column={column}
+          displayText={codeString}
+        />
+      );
+    }
+
     return (
       <code className="px-1.5 py-0.5 bg-muted rounded text-[13px] font-mono" {...props}>
         {children}

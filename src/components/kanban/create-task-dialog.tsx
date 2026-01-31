@@ -22,6 +22,7 @@ import { PromptInput } from '@/components/task/prompt-input';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
+import { useModelStore } from '@/stores/model-store';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 
@@ -47,6 +48,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
     getSelectedProjects
   } = useProjectStore();
   const { getUploadedFileIds, clearFiles, getPendingFiles, moveFiles, hasUploadingFiles } = useAttachmentStore();
+  const { taskModels, setModel } = useModelStore();
 
   const [title, setTitle] = useState('');
   const [chatPrompt, setChatPrompt] = useState('');
@@ -139,6 +141,11 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
       // Move files from temp task to the real task
       if (tempTaskId && fileIds.length > 0) {
         moveFiles(tempTaskId, task.id);
+      }
+
+      // Transfer model selection from temp task to real task
+      if (tempTaskId && taskModels[tempTaskId]) {
+        await setModel(taskModels[tempTaskId], task.id);
       }
 
       // Notify parent that task was created (with fileIds)

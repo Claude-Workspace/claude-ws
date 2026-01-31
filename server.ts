@@ -98,6 +98,7 @@ app.prepare().then(async () => {
         projectRootPath?: string;
         outputFormat?: 'json' | 'html' | 'markdown' | 'yaml' | 'raw' | 'custom';
         outputSchema?: string;
+        model?: string;  // Optional: model ID for this attempt
       }) => {
         const {
           taskId,
@@ -110,7 +111,8 @@ app.prepare().then(async () => {
           taskTitle,
           projectRootPath,
           outputFormat,
-          outputSchema
+          outputSchema,
+          model
         } = data;
 
         console.log('[Socket] attempt:start received:', {
@@ -306,6 +308,7 @@ app.prepare().then(async () => {
             attemptId,
             projectPath: project.path,
             prompt,
+            model: model || undefined,  // Pass model to agent-manager
             sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
             filePaths: filePaths.length > 0 ? filePaths : undefined,
             outputFormat,

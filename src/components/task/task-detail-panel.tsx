@@ -20,6 +20,7 @@ import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store'
 import { useAttemptStream } from '@/hooks/use-attempt-stream';
 import { useAttachmentStore } from '@/stores/attachment-store';
 import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
+import { useModelStore } from '@/stores/model-store';
 import { cn } from '@/lib/utils';
 import type { TaskStatus, PendingFile } from '@/types';
 
@@ -48,6 +49,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
   const { openWindow } = useFloatingWindowsStore();
+  const { getTaskModel } = useModelStore();
 
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
@@ -147,7 +149,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         if (!isRunning && hasAutoStartedRef.current && selectedTask?.id === pendingAutoStartTask) {
           const promptToSend = pendingAutoStartPrompt || selectedTask.description!;
           const promptToDisplay = pendingAutoStartPrompt ? selectedTask.description! : undefined;
-          startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds);
+          startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds, getTaskModel(selectedTask.id, selectedTask.lastModel));
           clearFiles(selectedTask.id);
         }
         setPendingAutoStartTask(null);
@@ -156,7 +158,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     if (selectedTask?.id !== pendingAutoStartTask) {
       hasAutoStartedRef.current = false;
     }
-  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles]);
+  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles, getTaskModel]);
 
   // Reset state when selectedTask changes
   useEffect(() => {
@@ -257,7 +259,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
 
     const pendingFiles = getPendingFiles(selectedTask.id);
     setCurrentAttemptFiles(pendingFiles);
-    startAttempt(selectedTask.id, prompt, displayPrompt, fileIds);
+    startAttempt(selectedTask.id, prompt, displayPrompt, fileIds, getTaskModel(selectedTask.id, selectedTask.lastModel));
   };
 
   const renderConversation = () => (
@@ -320,6 +322,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               onCancel={cancelAttempt}
               disabled={isRunning}
               taskId={selectedTask.id}
+              taskLastModel={selectedTask.lastModel}
               projectPath={currentProjectPath}
               initialValue={!hasSentFirstMessage && !selectedTask.chatInit && !pendingAutoStartTask && selectedTask.description ? selectedTask.description : undefined}
             />

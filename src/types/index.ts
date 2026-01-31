@@ -48,6 +48,7 @@ export interface Task {
   status: TaskStatus;
   position: number;
   chatInit: boolean;
+  lastModel: string | null;  // Last used model for this task
   createdAt: number;
   updatedAt: number;
 }

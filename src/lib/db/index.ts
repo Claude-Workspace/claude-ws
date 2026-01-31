@@ -170,6 +170,13 @@ export function initDb() {
     // Column already exists, ignore error
   }
 
+  // Migration: Add last_model column to tasks for per-task model selection
+  try {
+    sqlite.exec(`ALTER TABLE tasks ADD COLUMN last_model TEXT`);
+  } catch {
+    // Column already exists, ignore error
+  }
+
   // Migration: Add usage tracking columns to attempts
   const usageColumns = [
     { name: 'total_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },

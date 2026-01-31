@@ -227,6 +227,7 @@ export interface AgentStartOptions {
   attemptId: string;
   projectPath: string;
   prompt: string;
+  model?: string;  // Model ID (e.g., 'claude-opus-4-5-20251101') - falls back to DEFAULT_MODEL
   sessionOptions?: {
     resume?: string;
     resumeSessionAt?: string;  // Message UUID to resume conversation at
@@ -271,7 +272,7 @@ class AgentManager extends EventEmitter {
    * Start a new Claude Agent SDK query
    */
   async start(options: AgentStartOptions): Promise<void> {
-    const { attemptId, projectPath, prompt, sessionOptions, filePaths, outputFormat, outputSchema, maxTurns } = options;
+    const { attemptId, projectPath, prompt, sessionOptions, filePaths, outputFormat, outputSchema, maxTurns, model } = options;
 
     if (this.agents.has(attemptId)) {
       return;
@@ -373,7 +374,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     const checkpointOptions = checkpointManager.getCheckpointingOptions();
 
     // Start SDK query in background
-    this.runQuery(instance, projectPath, fullPrompt, sessionOptions, checkpointOptions, maxTurns);
+    this.runQuery(instance, projectPath, fullPrompt, sessionOptions, checkpointOptions, maxTurns, model);
   }
 
   /**
@@ -385,7 +386,8 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     prompt: string,
     sessionOptions?: { resume?: string; resumeSessionAt?: string },
     checkpointOptions?: ReturnType<typeof checkpointManager.getCheckpointingOptions>,
-    maxTurns?: number
+    maxTurns?: number,
+    model?: string
   ): Promise<void> {
     const { attemptId, controller } = instance;
 
@@ -406,9 +408,11 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       // Configure SDK query options
       // resumeSessionAt: resume conversation at specific message UUID (for rewind)
+      // Model priority: provided model > DEFAULT_MODEL ('opus')
+      const effectiveModel = model || DEFAULT_MODEL;
       const queryOptions = {
         cwd: projectPath,
-        model: DEFAULT_MODEL, // 'opus' - proxy API will handle mapping
+        model: effectiveModel, // Use provided model or fallback to 'opus'
         permissionMode: 'bypassPermissions' as const,
         // Enable skill loading from filesystem (~/.claude/skills/ and .claude/skills/)
         settingSources: ['user', 'project'] as ('user' | 'project')[],
@@ -487,6 +491,18 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           return { behavior: 'allow' as const, updatedInput: input };
         },
       };
+
+      // Log payload and endpoint before sending to SDK
+      console.log('[AgentManager] SDK Query - Endpoint:', process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com');
+      console.log('[AgentManager] SDK Query - Payload:', JSON.stringify({
+        prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
+        model: queryOptions.model,
+        cwd: queryOptions.cwd,
+        permissionMode: queryOptions.permissionMode,
+        allowedTools: queryOptions.allowedTools,
+        resume: queryOptions.resume,
+        maxTurns: queryOptions.maxTurns,
+      }, null, 2));
 
       const response = query({ prompt, options: queryOptions });
 

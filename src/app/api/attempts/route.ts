@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       request_method = 'queue',
       output_format,
       output_schema,
-      timeout
+      timeout,
+      model  // Optional: model ID for this attempt
     } = body;
 
 
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
         request_method,
         output_format,
         output_schema,
-        timeout
+        timeout,
+        model
       );
     }
 
@@ -101,7 +103,8 @@ export async function POST(request: NextRequest) {
         request_method,
         output_format,
         output_schema,
-        timeout
+        timeout,
+        model
       );
     }
 
@@ -208,7 +211,8 @@ export async function POST(request: NextRequest) {
       request_method,
       output_format,
       output_schema,
-      timeout
+      timeout,
+      model
     );
 
   } catch (error: any) {
@@ -234,7 +238,8 @@ async function createAttempt(
   requestMethod: RequestMethod = 'queue',
   outputFormat?: OutputFormat,
   outputSchema?: string,
-  timeout?: number
+  timeout?: number,
+  model?: string
 ) {
   // Get project for agent execution
   const project = await db.query.projects.findFirst({
@@ -281,6 +286,7 @@ async function createAttempt(
     attemptId: newAttempt.id,
     projectPath: project.path,
     prompt,
+    model: model || undefined,  // Pass model to agent-manager
     sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
     outputFormat: outputFormat || undefined,
     outputSchema: outputSchema || undefined,

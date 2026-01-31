@@ -16,6 +16,7 @@ import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useAttemptStream } from '@/hooks/use-attempt-stream';
 import { useAttachmentStore } from '@/stores/attachment-store';
+import { useModelStore } from '@/stores/model-store';
 import { cn } from '@/lib/utils';
 import { DetachableWindow } from '@/components/ui/detachable-window';
 import type { Task, TaskStatus, PendingFile } from '@/types';
@@ -45,6 +46,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
   const { shells } = useShellStore();
+  const { getTaskModel } = useModelStore();
 
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
@@ -113,7 +115,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
         if (!isRunning && hasAutoStartedRef.current && task.id === pendingAutoStartTask) {
           const promptToSend = pendingAutoStartPrompt || task.description!;
           const promptToDisplay = pendingAutoStartPrompt ? task.description! : undefined;
-          startAttempt(task.id, promptToSend, promptToDisplay, fileIds);
+          startAttempt(task.id, promptToSend, promptToDisplay, fileIds, getTaskModel(task.id, task.lastModel));
           clearFiles(task.id);
         }
         setPendingAutoStartTask(null);
@@ -122,7 +124,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     if (task.id !== pendingAutoStartTask) {
       hasAutoStartedRef.current = false;
     }
-  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, task, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles]);
+  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, task, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles, getTaskModel]);
 
   // Auto-show question prompt when activeQuestion appears
   useEffect(() => {
@@ -156,7 +158,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
 
     const pendingFiles = getPendingFiles(task.id);
     setCurrentAttemptFiles(pendingFiles);
-    startAttempt(task.id, prompt, displayPrompt, fileIds);
+    startAttempt(task.id, prompt, displayPrompt, fileIds, getTaskModel(task.id, task.lastModel));
   };
 
   const renderConversation = () => (
@@ -219,6 +221,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
               onCancel={cancelAttempt}
               disabled={isRunning}
               taskId={task.id}
+              taskLastModel={task.lastModel}
               projectPath={currentProjectPath}
               initialValue={!hasSentFirstMessage && !task.chatInit && task.description ? task.description : undefined}
             />

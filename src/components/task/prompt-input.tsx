@@ -11,6 +11,7 @@ import { FileDropZone } from './file-drop-zone';
 import { AttachmentBar } from './attachment-bar';
 import { FileMentionDropdown } from './file-mention-dropdown';
 import { FileIcon } from '@/components/sidebar/file-browser/file-icon';
+import { ChatModelSelector } from './chat-model-selector';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
 import { useContextMentionStore } from '@/stores/context-mention-store';
@@ -29,6 +30,7 @@ interface PromptInputProps {
   placeholder?: string;
   className?: string;
   taskId?: string;
+  taskLastModel?: string | null;
   projectPath?: string;  // Project path for loading project-level commands/skills
   hideSendButton?: boolean;
   disableSubmitShortcut?: boolean;
@@ -46,6 +48,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   placeholder,
   className,
   taskId,
+  taskLastModel,
   projectPath,
   hideSendButton = false,
   disableSubmitShortcut = false,
@@ -586,38 +589,41 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                 })()}
               </div>
 
-              {/* Send/Stop button - right */}
-              {!hideSendButton && (
-                disabled && onCancel ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={onCancel}
-                  >
-                    <Square className="size-4" />
-                    {t('stop')}
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={disabled || (!prompt.trim() && mentions.length === 0)}
-                    size="sm"
-                  >
-                    {disabled ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        {t('running')}
-                      </>
-                    ) : (
-                      <>
-                        <Send className="size-4" />
-                        {t('send')}
-                      </>
-                    )}
-                  </Button>
-                )
-              )}
+              {/* Model selector + Send/Stop button - right */}
+              <div className="flex items-center gap-1">
+                <ChatModelSelector disabled={disabled} taskId={taskId} taskLastModel={taskLastModel} />
+                {!hideSendButton && (
+                  disabled && onCancel ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={onCancel}
+                    >
+                      <Square className="size-4" />
+                      {t('stop')}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      disabled={disabled || (!prompt.trim() && mentions.length === 0)}
+                      size="sm"
+                    >
+                      {disabled ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          {t('running')}
+                        </>
+                      ) : (
+                        <>
+                          <Send className="size-4" />
+                          {t('send')}
+                        </>
+                      )}
+                    </Button>
+                  )
+                )}
+              </div>
             </div>
           </div>
         </div>

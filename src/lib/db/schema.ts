@@ -27,6 +27,8 @@ export const tasks = sqliteTable(
       .default('todo'),
     position: integer('position').notNull(),
     chatInit: integer('chat_init', { mode: 'boolean' }).notNull().default(false),
+    // Last used model for this task (e.g., 'claude-opus-4-5-20251101')
+    lastModel: text('last_model'),
     // Rewind state - cleared after first use
     // Session ID to resume from after rewind
     rewindSessionId: text('rewind_session_id'),
