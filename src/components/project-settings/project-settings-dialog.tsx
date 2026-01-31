@@ -19,6 +19,7 @@ import { ComponentSelector } from './component-selector';
 import { useProjectSettingsStore } from '@/stores/project-settings-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useToast } from '@/hooks/use-toast';
+import { ProviderSelect } from '@/components/providers/provider-select';
 
 interface InstallResult {
   installed: string[];
@@ -33,7 +34,7 @@ interface ProjectSettingsDialogProps {
 }
 
 export function ProjectSettingsDialog({ open, onOpenChange, projectId }: ProjectSettingsDialogProps) {
-  const { projects } = useProjectStore();
+  const { projects, updateProject } = useProjectStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const {
     settings,
@@ -47,6 +48,7 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
 
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [selectedAgentSets, setSelectedAgentSets] = useState<string[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [installResult, setInstallResult] = useState<InstallResult | null>(null);
   const [actuallyInstalledIds, setActuallyInstalledIds] = useState<string[]>([]);
@@ -61,12 +63,20 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
   // Check if there are newly selected components that aren't installed yet
   const allSelected = [...selectedComponents, ...selectedAgentSets];
   const hasPendingInstall = installResult && allSelected.some(id => !installedComponentIds.includes(id));
+
   useEffect(() => {
     if (open && projectId) {
+      // Skip if already fetched for this projectId in this session
+      if (fetchedProjectIdRef.current === projectId) return;
+      fetchedProjectIdRef.current = projectId;
+
       fetchProjectSettings(projectId);
       fetchInstalledComponents(projectId);
+    } else if (!open) {
+      // Reset ref when dialog closes to allow re-fetch on next open
+      fetchedProjectIdRef.current = null;
     }
-  }, [open, projectId]);
+  }, [open, projectId, fetchProjectSettings]);
 
   const fetchInstalledComponents = async (projectId: string) => {
     try {
@@ -94,7 +104,24 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
       setHasChanges(false);
       loadedProjectIdRef.current = projectId;
     }
-  }, [projectId, settings]);
+    // Load provider from project
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setSelectedProvider(project.provider || null);
+    }
+  }, [projectId, settings, projects]);
+
+  // Save provider to project via store (updates both API and local state)
+  const handleProviderChange = async (providerId: string | null) => {
+    setSelectedProvider(providerId);
+    try {
+      await updateProject(projectId, { provider: providerId });
+      toast({ title: 'Provider updated' });
+    } catch (error) {
+      console.error('Failed to update provider:', error);
+      toast({ title: 'Failed to update provider', variant: 'destructive' });
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -184,6 +211,15 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
               <div className="space-y-2">
                 <Label>Project Path</Label>
                 <Input value={selectedProject?.path || ''} readOnly className="font-mono text-sm" />
+              </div>
+
+              {/* AI Provider selection */}
+              <div className="space-y-2">
+                <ProviderSelect
+                  value={selectedProvider}
+                  onChange={handleProviderChange}
+                  disabled={isInstalling}
+                />
               </div>
 
               {/* Installation status */}

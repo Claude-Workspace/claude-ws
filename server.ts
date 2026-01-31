@@ -98,6 +98,8 @@ app.prepare().then(async () => {
         projectRootPath?: string;
         outputFormat?: 'json' | 'html' | 'markdown' | 'yaml' | 'raw' | 'custom';
         outputSchema?: string;
+        providerId?: string;
+        modelId?: string;
       }) => {
         const {
           taskId,
@@ -110,7 +112,9 @@ app.prepare().then(async () => {
           taskTitle,
           projectRootPath,
           outputFormat,
-          outputSchema
+          outputSchema,
+          providerId,
+          modelId
         } = data;
 
         console.log('[Socket] attempt:start received:', {
@@ -122,7 +126,9 @@ app.prepare().then(async () => {
           taskTitle,
           projectRootPath,
           outputFormat,
-          hasOutputSchema: !!outputSchema
+          hasOutputSchema: !!outputSchema,
+          providerId,
+          modelId
         });
 
         try {
@@ -301,16 +307,63 @@ app.prepare().then(async () => {
           // Join attempt room
           socket.join(`attempt:${attemptId}`);
 
+          // Resolve providerId: explicit > project default > system default
+          // Note: We use project.provider, not task.provider, so changing project settings affects all tasks
+          const resolvedProviderId = providerId || project.provider || undefined;
+
+          // Check if task has existing sessions - if so, enforce same provider
+          // This prevents cross-provider session resume failures (e.g., resuming Gemini session with Claude SDK)
+          if (sessionOptions.resume && task.provider) {
+            const defaultProvider = 'claude-sdk';
+            const attemptProvider = resolvedProviderId || defaultProvider;
+            if (task.provider !== attemptProvider) {
+              console.warn(`[Socket] Provider mismatch: task locked to ${task.provider}, attempt requested ${attemptProvider}`);
+              socket.emit('error', {
+                message: `Cannot switch provider. This task uses ${task.provider}. Create a new task to use ${attemptProvider}.`
+              });
+              return;
+            }
+          }
+
+          console.log('[Socket] Provider resolution:', {
+            clientProviderId: providerId,
+            projectProvider: project.provider,
+            resolved: resolvedProviderId,
+            projectId: project.id,
+            projectName: project.name,
+            modelId,
+          });
+
           // Start Claude Agent SDK query
           agentManager.start({
             attemptId,
+            taskId, // Pass taskId for provider session management (e.g., Gemini CLI)
             projectPath: project.path,
             prompt,
             sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
             filePaths: filePaths.length > 0 ? filePaths : undefined,
             outputFormat,
             outputSchema,
+            providerId: resolvedProviderId,
+            modelId,
           });
+
+          // Lock provider on task when first session is started
+          // This prevents cross-provider session resume failures
+          const finalProviderId = resolvedProviderId || 'claude-sdk';
+          if (!task.provider) {
+            await db.update(schema.tasks)
+              .set({ provider: finalProviderId, updatedAt: Date.now() })
+              .where(eq(schema.tasks.id, taskId));
+            console.log(`[Socket] Locked task ${taskId} to provider: ${finalProviderId}`);
+          }
+
+          // Save modelId to task for persistence
+          if (modelId) {
+            await db.update(schema.tasks)
+              .set({ modelId })
+              .where(eq(schema.tasks.id, taskId));
+          }
 
           // Log session mode
           const sessionMode = sessionOptions.resumeSessionAt

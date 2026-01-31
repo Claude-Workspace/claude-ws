@@ -9,6 +9,7 @@ import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { useTunnelStore } from '@/stores/tunnel-store';
+import { useZIndexStore } from '@/stores/z-index-store';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { clearStoredApiKey } from '@/components/auth/api-key-dialog';
 import {
@@ -43,6 +44,9 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
   const [mounted, setMounted] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // Get z-index on mount
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
+
   // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
@@ -72,17 +76,19 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
     <>
       {/* Overlay for mobile */}
       <div
-        className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+        className="fixed inset-0 bg-black/50 sm:hidden"
+        style={{ zIndex }}
         onClick={closeRightSidebar}
       />
 
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed right-0 top-0 h-full w-64 bg-background border-l shadow-lg z-50',
+          'fixed right-0 top-0 h-full w-64 bg-background border-l shadow-lg',
           'flex flex-col p-4 gap-2',
           className
         )}
+        style={{ zIndex: zIndex + 1 }}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

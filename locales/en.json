@@ -280,7 +280,7 @@
     "stop": "Stop",
     "running": "Running...",
     "attachFilesTitle": "Attach files",
-    "describeWhatYouWant": "Describe what you want Claude to do...",
+    "describeWhatYouWant": "Describe what you want to do...",
     "pasteImageOrText": "Paste image or text",
     "dropFilesHere": "Drop files here",
     "commandsHint": "commands",
@@ -367,5 +367,22 @@
     "addDnsRecord": "Add DNS Record",
     "runTunnel": "Run Tunnel",
     "orInstallAsService": "Or install as a service:"
+  },
+  "providers": {
+    "label": "AI Provider",
+    "useDefault": "Use Default",
+    "inheritFromProject": "Inherit from Project",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "tokens": "tokens",
+    "capabilities": {
+      "title": "Capabilities",
+      "context": "Context Window",
+      "streaming": "Streaming",
+      "sessionResume": "Session Resume",
+      "toolCalling": "Tool Calling",
+      "mcpSupport": "MCP Support",
+      "thinkingBlocks": "Thinking"
+    }
   }
 }

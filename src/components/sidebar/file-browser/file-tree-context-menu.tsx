@@ -109,7 +109,7 @@ export function FileTreeContextMenuContent({
 
       // Close tab if file is open in editor
       if (entry.type === 'file') {
-        closeTabByFilePath(fullPath);
+        closeTabByFilePath(entry.path);
       }
 
       toast.success(

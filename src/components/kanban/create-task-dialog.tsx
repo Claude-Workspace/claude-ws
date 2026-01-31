@@ -30,7 +30,7 @@ import { Task } from '@/types';
 interface CreateTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTaskCreated?: (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[]) => void;
+  onTaskCreated?: (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => void;
 }
 
 // Temporary task ID prefix for create dialog file uploads
@@ -51,6 +51,8 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
   const [title, setTitle] = useState('');
   const [chatPrompt, setChatPrompt] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined);
+  const [selectedModelId, setSelectedModelId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,13 +143,15 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
         moveFiles(tempTaskId, task.id);
       }
 
-      // Notify parent that task was created (with fileIds)
-      onTaskCreated?.(task, startNow, processedPrompt, fileIds.length > 0 ? fileIds : undefined);
+      // Notify parent that task was created (with fileIds, provider, model)
+      onTaskCreated?.(task, startNow, processedPrompt, fileIds.length > 0 ? fileIds : undefined, selectedProviderId, selectedModelId);
 
       // Reset form and clear temp task ID before closing dialog
       // This ensures PromptInput gets a new key and clears its state
       setTitle('');
       setChatPrompt('');
+      setSelectedProviderId(undefined);
+      setSelectedModelId(undefined);
       setTempTaskId('');
       onOpenChange(false);
     } catch (err) {
@@ -167,6 +171,8 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
         setTitle('');
         setChatPrompt('');
         setSelectedProjectId('');
+        setSelectedProviderId(undefined);
+        setSelectedModelId(undefined);
         setError(null);
         setTempTaskId('');
       }
@@ -211,7 +217,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t('selectProject')} />
                 </SelectTrigger>
-                <SelectContent className="z-[200]" position="popper" side="bottom">
+                <SelectContent position="popper" side="bottom">
                   {availableProjects.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -230,12 +236,17 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
               key={open ? `create-task-input-${tempTaskId}` : 'closed'}
               onSubmit={() => handleSubmit(false)}
               onChange={setChatPrompt}
+              onModelChange={(providerId, modelId) => {
+                setSelectedProviderId(providerId);
+                setSelectedModelId(modelId);
+              }}
               placeholder={t('typeForCommands')}
               disabled={isSubmitting}
               hideSendButton
               hideStats
               taskId={tempTaskId}
               projectPath={projects.find(p => p.id === selectedProjectId)?.path}
+              projectProviderId={projects.find(p => p.id === selectedProjectId)?.provider || undefined}
               minRows={2}
               maxRows={4}
             />

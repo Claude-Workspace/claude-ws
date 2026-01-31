@@ -10,10 +10,12 @@ import { CommandSelector } from './command-selector';
 import { FileDropZone } from './file-drop-zone';
 import { AttachmentBar } from './attachment-bar';
 import { FileMentionDropdown } from './file-mention-dropdown';
+import { ModelSelector } from './model-selector';
 import { FileIcon } from '@/components/sidebar/file-browser/file-icon';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
 import { useContextMentionStore } from '@/stores/context-mention-store';
+import { useProvidersStore } from '@/stores/providers-store';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 
@@ -23,17 +25,22 @@ export interface PromptInputRef {
 }
 
 interface PromptInputProps {
-  onSubmit: (prompt: string, displayPrompt?: string, fileIds?: string[]) => void;
+  onSubmit: (prompt: string, displayPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => void;
   onCancel?: () => void;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
   taskId?: string;
+  taskModelId?: string | null;  // Last selected model for this task
+  taskProviderId?: string | null;  // Provider locked by task (has existing sessions)
   projectPath?: string;  // Project path for loading project-level commands/skills
+  projectProviderId?: string;  // Provider configured at project level
   hideSendButton?: boolean;
   disableSubmitShortcut?: boolean;
   hideStats?: boolean;
+  hideModelSelector?: boolean;  // Hide the model selector (e.g., for simple inputs)
   onChange?: (prompt: string) => void;
+  onModelChange?: (providerId: string, modelId: string) => void;  // Called when provider/model selection changes
   initialValue?: string;
   minRows?: number;
   maxRows?: number;
@@ -46,11 +53,16 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   placeholder,
   className,
   taskId,
+  taskModelId,
+  taskProviderId,
   projectPath,
+  projectProviderId,
   hideSendButton = false,
   disableSubmitShortcut = false,
   hideStats = false,
+  hideModelSelector = false,
   onChange,
+  onModelChange,
   initialValue,
   minRows = 1,
   maxRows = 5,
@@ -65,6 +77,65 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const [showFileMention, setShowFileMention] = useState(false);
   const [fileMentionQuery, setFileMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+
+  // Provider/Model selection state - initialized in effect after providers load
+  const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined);
+  const [selectedModelId, setSelectedModelId] = useState<string | undefined>(undefined);
+  // Track if user has manually selected a model (don't overwrite with auto-init)
+  const [userSelectedModel, setUserSelectedModel] = useState(false);
+  const { defaultProviderId, getDefaultModel, fetchProviders, providers, findModelProvider } = useProvidersStore();
+
+  // Fetch providers on mount
+  useEffect(() => {
+    fetchProviders();
+  }, [fetchProviders]);
+
+  // Reset userSelectedModel when task changes
+  useEffect(() => {
+    setUserSelectedModel(false);
+  }, [taskId]);
+
+  // Compute initial provider/model with proper fallback chain:
+  // 1. taskModelId exists in any provider -> use that provider + model
+  // 2. taskProviderId is set (locked provider) -> use that provider's default model
+  // 3. No valid task model -> use projectProviderId's default model
+  // 4. No project provider -> use claude-sdk's default model
+  useEffect(() => {
+    if (providers.length === 0) return; // Wait for providers to load
+    if (userSelectedModel) return; // Don't overwrite user's manual selection
+
+    // 1. Try to use taskModelId if it exists in any available provider
+    if (taskModelId) {
+      const found = findModelProvider(taskModelId);
+      if (found) {
+        setSelectedProviderId(found.providerId);
+        setSelectedModelId(taskModelId);
+        return;
+      }
+    }
+
+    // 2. If task has a locked provider, use that provider's default model
+    if (taskProviderId) {
+      const defaultModel = getDefaultModel(taskProviderId);
+      setSelectedProviderId(taskProviderId);
+      setSelectedModelId(defaultModel?.id || undefined);
+      return;
+    }
+
+    // 3. Fallback to project's provider default model
+    const effectiveProviderId = projectProviderId || defaultProviderId || 'claude-sdk';
+    const defaultModel = getDefaultModel(effectiveProviderId);
+
+    setSelectedProviderId(effectiveProviderId);
+    setSelectedModelId(defaultModel?.id || undefined);
+  }, [taskModelId, taskProviderId, projectProviderId, defaultProviderId, providers.length, findModelProvider, getDefaultModel, userSelectedModel]);
+
+  // Notify parent when model selection changes (from init or user selection)
+  useEffect(() => {
+    if (selectedProviderId && selectedModelId) {
+      onModelChange?.(selectedProviderId, selectedModelId);
+    }
+  }, [selectedProviderId, selectedModelId, onModelChange]);
 
   // Context mention store (for both @file and @file#lines from Cmd+L)
   const { getMentions, addFileMention, removeMention, clearMentions, buildPromptWithMentions } = useContextMentionStore();
@@ -325,7 +396,11 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     // Get uploaded file IDs
     const fileIds = taskId ? getUploadedFileIds(taskId) : [];
 
-    onSubmit(finalPrompt, displayPrompt, fileIds.length > 0 ? fileIds : undefined);
+    // Determine provider/model to use
+    const providerId = selectedProviderId || projectProviderId || defaultProviderId || undefined;
+    const modelId = selectedModelId || getDefaultModel(providerId || 'claude-sdk')?.id;
+
+    onSubmit(finalPrompt, displayPrompt, fileIds.length > 0 ? fileIds : undefined, providerId, modelId);
 
     // Clear state - but keep mentions for persistent file references
     updatePrompt('');
@@ -587,37 +662,55 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
               </div>
 
               {/* Send/Stop button - right */}
-              {!hideSendButton && (
-                disabled && onCancel ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={onCancel}
-                  >
-                    <Square className="size-4" />
-                    {t('stop')}
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={disabled || (!prompt.trim() && mentions.length === 0)}
-                    size="sm"
-                  >
-                    {disabled ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        {t('running')}
-                      </>
-                    ) : (
-                      <>
-                        <Send className="size-4" />
-                        {t('send')}
-                      </>
-                    )}
-                  </Button>
-                )
-              )}
+              <div className="flex items-center gap-1">
+                {/* Model selector - left of send button */}
+                {!hideModelSelector && (
+                  <ModelSelector
+                    selectedProviderId={selectedProviderId}
+                    selectedModelId={selectedModelId}
+                    onSelect={(providerId, modelId) => {
+                      setSelectedProviderId(providerId);
+                      setSelectedModelId(modelId);
+                      setUserSelectedModel(true); // Prevent auto-init from overwriting
+                      onModelChange?.(providerId, modelId); // Notify parent of selection
+                    }}
+                    disabled={disabled}
+                    lockedProviderId={taskProviderId || undefined}
+                  />
+                )}
+
+                {!hideSendButton && (
+                  disabled && onCancel ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={onCancel}
+                    >
+                      <Square className="size-4" />
+                      {t('stop')}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      disabled={disabled || (!prompt.trim() && mentions.length === 0)}
+                      size="sm"
+                    >
+                      {disabled ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          {t('running')}
+                        </>
+                      ) : (
+                        <>
+                          <Send className="size-4" />
+                          {t('send')}
+                        </>
+                      )}
+                    </Button>
+                  )
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -17,6 +17,8 @@ import { AccessAnywhereWizard } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useTunnelStore } from '@/stores/tunnel-store';
+import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
+import { useZIndexStore } from '@/stores/z-index-store';
 import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
@@ -30,8 +32,13 @@ function KanbanApp() {
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
 
+  // Get z-index for fullscreen panels
+  const [agentFactoryZIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
+  const [settingsZIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
+
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
   const { selectedTask, fetchTasks, setSelectedTask, setPendingAutoStartTask } = useTaskStore();
+  const isFloatingMode = useFloatingWindowsStore((s) => s.isFloatingMode);
   const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
   const isOpen = useSidebarStore((s) => s.isOpen);
   const setIsOpen = useSidebarStore((s) => s.setIsOpen);
@@ -102,10 +109,18 @@ function KanbanApp() {
   }, [selectedProjectIds, projectLoading]);
 
   // Handle task created event - select task if startNow is true
-  const handleTaskCreated = (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[]) => {
+  const handleTaskCreated = (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => {
     if (startNow) {
-      setSelectedTask(task);
-      setPendingAutoStartTask(task.id, processedPrompt, fileIds);
+      // Set pending auto-start first (needed for both modes)
+      setPendingAutoStartTask(task.id, processedPrompt, fileIds, providerId, modelId);
+
+      // In floating mode, open a new floating window for the task
+      if (isFloatingMode) {
+        useFloatingWindowsStore.getState().openWindow(task);
+      } else {
+        // In normal mode, select the task in the main panel
+        setSelectedTask(task);
+      }
     }
   };
 
@@ -223,8 +238,8 @@ function KanbanApp() {
           )}
         </main>
 
-        {/* Task detail panel - right sidebar */}
-        {selectedTask && <TaskDetailPanel />}
+        {/* Task detail panel - right sidebar or floating windows */}
+        {(selectedTask || isFloatingMode) && <TaskDetailPanel />}
       </div>
 
       {/* Dialogs */}
@@ -237,14 +252,14 @@ function KanbanApp() {
 
       {/* Agent Factory Dialog */}
       {agentFactoryOpen && (
-        <div className="fixed inset-0 z-50 bg-background">
+        <div className="fixed inset-0 bg-background" style={{ zIndex: agentFactoryZIndex }}>
           <PluginList />
         </div>
       )}
 
       {/* Settings Page */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-50 bg-background">
+        <div className="fixed inset-0 bg-background" style={{ zIndex: settingsZIndex }}>
           <SettingsPage />
         </div>
       )}

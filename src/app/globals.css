@@ -127,6 +127,11 @@
     @apply bg-background text-foreground;
   }
 
+  /* Light mode: 2px border for floating chat windows */
+  :root .detachable-window {
+    border-width: 2px;
+  }
+
   /* Emoji/flag rendering fix for cross-platform compatibility */
   .emoji-flag {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "EmojiOne Color", "Android Emoji", sans-serif;

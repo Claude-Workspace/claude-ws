@@ -145,6 +145,15 @@ paths:
                   type: integer
                   description: "Timeout in milliseconds for sync mode (default: 300000)"
                   default: 300000
+                modelId:
+                  type: string
+                  description: |
+                    Model ID to use for the agent execution (e.g., "opus", "sonnet", "haiku").
+                    If not provided, falls back to the task's last selected model, then the default model.
+                  examples:
+                    - opus
+                    - sonnet
+                    - haiku
       responses:
         "201":
           description: Attempt created successfully (queue mode)

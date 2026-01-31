@@ -280,7 +280,7 @@
     "stop": "Dừng",
     "running": "Đang chạy...",
     "attachFilesTitle": "Đính kèm tập tin",
-    "describeWhatYouWant": "Mô tả những gì bạn muốn Claude làm...",
+    "describeWhatYouWant": "Mô tả những gì bạn muốn làm...",
     "pasteImageOrText": "Dán hình ảnh hoặc văn bản",
     "dropFilesHere": "Thả tập tin vào đây",
     "commandsHint": "lệnh",
@@ -367,5 +367,27 @@
     "addDnsRecord": "Thêm Bản ghi DNS",
     "runTunnel": "Chạy Tunnel",
     "orInstallAsService": "Hoặc cài đặt như dịch vụ:"
+  },
+  "providers": {
+    "label": "Nhà cung cấp AI",
+    "useDefault": "Sử dụng Mặc định",
+    "inheritFromProject": "Kế thừa từ Dự án",
+    "available": "Khả dụng",
+    "unavailable": "Không khả dụng",
+    "tokens": "tokens",
+    "capabilities": {
+      "title": "Khả năng",
+      "context": "Cửa sổ Ngữ cảnh",
+      "streaming": "Streaming",
+      "sessionResume": "Tiếp tục Phiên",
+      "toolCalling": "Gọi Công cụ",
+      "mcpSupport": "Hỗ trợ MCP",
+      "thinkingBlocks": "Suy nghĩ"
+    }
+  },
+  "Welcome": {
+    "title": "Chào mừng đến với Claude Workspace",
+    "noProjects": "Bạn chưa có dự án nào.",
+    "getStarted": "Bắt đầu bằng cách tạo một dự án mới."
   }
 }

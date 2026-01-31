@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { X, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useZIndexStore } from '@/stores/z-index-store';
 
 interface DetachableWindowProps {
   isOpen: boolean;
   onClose?: () => void;
+  onFocus?: () => void;
   children: React.ReactNode;
   className?: string;
   initialSize?: { width: number; height: number };
@@ -16,6 +18,7 @@ interface DetachableWindowProps {
   title?: React.ReactNode;
   titleCenter?: React.ReactNode;
   headerEnd?: React.ReactNode;
+  zIndex?: number;
   key?: string;
 }
 
@@ -108,6 +111,7 @@ function saveWindowData(storageKey: string, position: { x: number; y: number }, 
 export function DetachableWindow({
   isOpen,
   onClose,
+  onFocus,
   children,
   className,
   initialSize = DEFAULT_SIZE,
@@ -116,6 +120,7 @@ export function DetachableWindow({
   title,
   titleCenter,
   headerEnd,
+  zIndex: propZIndex,
   key,
 }: DetachableWindowProps) {
   const [{ position, size }, setWindowState] = useState(() =>
@@ -129,6 +134,27 @@ export function DetachableWindow({
   const windowRef = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const [isOpenState, setIsOpenState] = useState(isOpen);
+
+  // For uncontrolled z-index (when propZIndex is undefined)
+  const initialZIndexRef = useRef<number | null>(null);
+  const [localZIndex, setLocalZIndex] = useState<number | null>(null);
+
+  // Get initial z-index on first render if not controlled
+  if (propZIndex === undefined && initialZIndexRef.current === null) {
+    initialZIndexRef.current = useZIndexStore.getState().getNextZIndex();
+  }
+
+  // Effective z-index: prop takes precedence, then local state, then initial ref
+  const effectiveZIndex = propZIndex ?? localZIndex ?? initialZIndexRef.current ?? 60;
+
+  // Handle focus - bring to front
+  const handleFocus = () => {
+    // Only update z-index if not controlled by prop
+    if (propZIndex === undefined) {
+      setLocalZIndex(useZIndexStore.getState().getNextZIndex());
+    }
+    onFocus?.();
+  };
 
   // Sync isOpen prop with internal state
   useEffect(() => {
@@ -222,8 +248,8 @@ export function DetachableWindow({
       const dx = e.clientX - dragStartPos.current.x;
       const dy = e.clientY - dragStartPos.current.y;
 
-      let newSize = { ...size };
-      let newPos = { ...position };
+      const newSize = { ...size };
+      const newPos = { ...position };
       const startSize = dragStartSize.current;
       const startPos = dragStartPosition.current;
 
@@ -276,8 +302,8 @@ export function DetachableWindow({
     const viewportHeight = window.innerHeight;
 
     let needsUpdate = false;
-    let newPos = { ...position };
-    let newSize = { ...size };
+    const newPos = { ...position };
+    const newSize = { ...size };
 
     // Constrain size
     if (size.width > viewportWidth) {
@@ -319,8 +345,7 @@ export function DetachableWindow({
     <div
       ref={windowRef}
       className={cn(
-        'fixed bg-background border shadow-lg rounded-lg overflow-hidden flex flex-col',
-        'z-[60]',
+        'fixed bg-background border shadow-lg rounded-lg overflow-hidden flex flex-col detachable-window',
         isDragging && 'cursor-grabbing',
         className
       )}
@@ -329,7 +354,9 @@ export function DetachableWindow({
         top: `${position.y}px`,
         width: `${size.width}px`,
         height: `${size.height}px`,
+        zIndex: effectiveZIndex,
       }}
+      onMouseDown={handleFocus}
     >
       {/* Draggable Header */}
       <div

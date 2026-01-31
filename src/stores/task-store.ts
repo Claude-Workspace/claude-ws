@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Task, TaskStatus } from '@/types';
 import { useInteractiveCommandStore } from './interactive-command-store';
+import { useFloatingWindowsStore } from './floating-windows-store';
 
 interface TaskStore {
   tasks: Task[];
@@ -10,6 +11,8 @@ interface TaskStore {
   pendingAutoStartTask: string | null;
   pendingAutoStartPrompt: string | null;
   pendingAutoStartFileIds: string[] | null;
+  pendingAutoStartProviderId: string | null;
+  pendingAutoStartModelId: string | null;
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -21,7 +24,7 @@ interface TaskStore {
   setSelectedTask: (task: Task | null) => void;
   setCreatingTask: (isCreating: boolean) => void;
   setTaskChatInit: (taskId: string, chatInit: boolean) => Promise<void>;
-  setPendingAutoStartTask: (taskId: string | null, prompt?: string, fileIds?: string[]) => void;
+  setPendingAutoStartTask: (taskId: string | null, prompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => void;
   moveTaskToInProgress: (taskId: string) => Promise<void>;
 
   // API calls
@@ -39,6 +42,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   pendingAutoStartTask: null,
   pendingAutoStartPrompt: null,
   pendingAutoStartFileIds: null,
+  pendingAutoStartProviderId: null,
+  pendingAutoStartModelId: null,
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -46,11 +51,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     tasks: [...state.tasks, task]
   })),
 
-  updateTask: (id, updates) => set((state) => ({
-    tasks: state.tasks.map((task) =>
+  updateTask: (id, updates) => set((state) => {
+    const updatedTasks = state.tasks.map((task) =>
       task.id === id ? { ...task, ...updates } : task
-    ),
-  })),
+    );
+    // Also update selectedTask if it's the same task
+    const updatedSelectedTask = state.selectedTask?.id === id
+      ? { ...state.selectedTask, ...updates }
+      : state.selectedTask;
+    return { tasks: updatedTasks, selectedTask: updatedSelectedTask };
+  }),
 
   deleteTask: (id) => set((state) => ({
     tasks: state.tasks.filter((task) => task.id !== id),
@@ -89,6 +99,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
 
     const task = id ? get().tasks.find((t) => t.id === id) || null : null;
+
+    // Check if floating mode is active
+    const floatingStore = useFloatingWindowsStore.getState();
+    if (floatingStore.isFloatingMode && task) {
+      // In floating mode, open a new floating window instead of selecting in main panel
+      floatingStore.openWindow(task);
+      return; // Don't update selectedTask - keep main panel unchanged
+    }
+
     set({ selectedTaskId: id, selectedTask: task });
   },
 
@@ -96,10 +115,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   setCreatingTask: (isCreating) => set({ isCreatingTask: isCreating }),
 
-  setPendingAutoStartTask: (taskId, prompt, fileIds) => set({
+  setPendingAutoStartTask: (taskId, prompt, fileIds, providerId, modelId) => set({
     pendingAutoStartTask: taskId,
     pendingAutoStartPrompt: prompt || null,
-    pendingAutoStartFileIds: fileIds || null
+    pendingAutoStartFileIds: fileIds || null,
+    pendingAutoStartProviderId: providerId || null,
+    pendingAutoStartModelId: modelId || null
   }),
 
   moveTaskToInProgress: async (taskId: string) => {

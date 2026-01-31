@@ -20,6 +20,9 @@ import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store'
 import { useAttemptStream } from '@/hooks/use-attempt-stream';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
+import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
+import { useZIndexStore } from '@/stores/z-index-store';
+import { FloatingChatWindow } from './floating-chat-window';
 import { cn } from '@/lib/utils';
 import { DetachableWindow } from '@/components/ui/detachable-window';
 import type { TaskStatus, PendingFile } from '@/types';
@@ -44,10 +47,11 @@ const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'can
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const t = useTranslations('chat');
   const tk = useTranslations('kanban');
-  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
+  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, pendingAutoStartProviderId, pendingAutoStartModelId, setPendingAutoStartTask, moveTaskToInProgress, updateTask } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
+  const { windows, isFloatingMode, setFloatingMode, openWindow, closeWindow, focusWindow } = useFloatingWindowsStore();
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -55,23 +59,19 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [shellPanelExpanded, setShellPanelExpanded] = useState(false);
   const [showQuestionPrompt, setShowQuestionPrompt] = useState(false);
-  const [isDetached, setIsDetached] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return localStorage.getItem('chat-window-detached') === 'true';
-    } catch {
-      return false;
-    }
-  });
 
-  // Persist detached state
+  // Get z-index on mount for mobile mode
+  const [mobileZIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
+
+
+  // Persist floating mode state
   useEffect(() => {
     try {
-      localStorage.setItem('chat-window-detached', String(isDetached));
+      localStorage.setItem('chat-window-detached', String(isFloatingMode));
     } catch {
       // Ignore storage errors
     }
-  }, [isDetached]);
+  }, [isFloatingMode]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
@@ -165,6 +165,20 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       const pendingFiles = getPendingFiles(selectedTask.id);
       setCurrentAttemptFiles(pendingFiles);
 
+      // Use pending provider from dialog, or fallback to project's provider
+      const taskProject = projects.find((p) => p.id === selectedTask.projectId);
+      const providerId = pendingAutoStartProviderId || taskProject?.provider || undefined;
+      const modelId = pendingAutoStartModelId || undefined;
+
+      // Lock provider on task immediately (before starting attempt)
+      const finalProviderId = providerId || 'claude-sdk';
+      if (!selectedTask.provider) {
+        updateTask(selectedTask.id, { provider: finalProviderId });
+      }
+      if (modelId) {
+        updateTask(selectedTask.id, { modelId });
+      }
+
       // Small delay to ensure component and socket are ready
       setTimeout(() => {
         // Double-check isRunning and hasAutoStartedRef to prevent duplicate starts
@@ -173,7 +187,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           // For regular messages: use the same for both
           const promptToSend = pendingAutoStartPrompt || selectedTask.description!;
           const promptToDisplay = pendingAutoStartPrompt ? selectedTask.description! : undefined;
-          startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds);
+          startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds, finalProviderId, modelId);
 
           // Clear files from attachment store after starting (they're now part of the attempt)
           clearFiles(selectedTask.id);
@@ -185,7 +199,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     if (selectedTask?.id !== pendingAutoStartTask) {
       hasAutoStartedRef.current = false;
     }
-  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles]);
+  }, [pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, pendingAutoStartProviderId, pendingAutoStartModelId, selectedTask, isRunning, isConnected, setPendingAutoStartTask, startAttempt, setTaskChatInit, moveTaskToInProgress, getPendingFiles, clearFiles, projects, updateTask]);
 
   // Reset state when selectedTask changes
   useEffect(() => {
@@ -196,7 +210,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setShellPanelExpanded(false);
     setShowQuestionPrompt(false);
     lastCompletedTaskRef.current = null;
-    hasAutoStartedRef.current = false;
+    hasAutoStartedRef.current = false; // Reset auto-start flag when selected task changes
 
     // Auto-focus on chat input when task is selected
     // Small delay to ensure component is mounted
@@ -262,6 +276,27 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [shellPanelExpanded, hasShells]);
 
+  // Render floating windows when in floating mode (check this BEFORE selectedTask check)
+  const renderFloatingWindows = () => (
+    <>
+      {windows.map((window) => (
+        <FloatingChatWindow
+          key={window.id}
+          task={window.task}
+          zIndex={window.zIndex}
+          onClose={() => closeWindow(window.id)}
+          onFocus={() => focusWindow(window.id)}
+        />
+      ))}
+    </>
+  );
+
+  // When in floating mode, only render the floating windows (no inline panel)
+  // This check must come BEFORE the selectedTask check
+  if (isFloatingMode) {
+    return renderFloatingWindows();
+  }
+
   if (!selectedTask) {
     return null;
   }
@@ -270,11 +305,20 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const statusLabel = tk(statusConfig.label as any);
 
   const handleClose = () => {
-    setIsDetached(false);
+    setFloatingMode(false);
     setSelectedTask(null);
   };
 
-  const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
+  // Handle entering floating mode - open current task as floating window
+  const handleDetach = () => {
+    if (selectedTask) {
+      setFloatingMode(true);
+      openWindow(selectedTask);
+      setSelectedTask(null); // Clear inline panel
+    }
+  };
+
+  const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => {
     // Move task to In Progress when sending a message
     if (selectedTask?.status !== 'in_progress') {
       moveTaskToInProgress(selectedTask.id);
@@ -291,7 +335,25 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     // Capture pending files before they get cleared
     const pendingFiles = getPendingFiles(selectedTask.id);
     setCurrentAttemptFiles(pendingFiles);
-    startAttempt(selectedTask.id, prompt, displayPrompt, fileIds);
+
+    // Use provided providerId from selector, or fallback to task's project setting
+    const taskProject = projects.find((p) => p.id === selectedTask.projectId);
+    const resolvedProviderId = providerId || taskProject?.provider || undefined;
+
+    startAttempt(selectedTask.id, prompt, displayPrompt, fileIds, resolvedProviderId, modelId);
+
+    // Lock provider on first attempt - update local state immediately
+    // This ensures the model selector shows only this provider's models
+    if (!selectedTask.provider && resolvedProviderId) {
+      const finalProvider = resolvedProviderId || 'claude-sdk';
+      useTaskStore.getState().updateTask(selectedTask.id, { provider: finalProvider });
+    }
+
+    // Update local task store with selected model for persistence
+    // This keeps the UI in sync with the DB update that happens on the server
+    if (modelId) {
+      useTaskStore.getState().updateTask(selectedTask.id, { modelId });
+    }
   };
 
   // Render just the conversation view
@@ -366,7 +428,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               onCancel={cancelAttempt}
               disabled={isRunning}
               taskId={selectedTask.id}
+              taskModelId={selectedTask.modelId}
+              taskProviderId={selectedTask.provider}
               projectPath={currentProjectPath}
+              projectProviderId={projects.find((p) => p.id === selectedTask.projectId)?.provider || undefined}
               initialValue={!hasSentFirstMessage && !selectedTask.chatInit && !pendingAutoStartTask && selectedTask.description ? selectedTask.description : undefined}
             />
             <InteractiveCommandOverlay />
@@ -393,91 +458,20 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     </>
   );
 
-  // When detached, render only the floating window
-  if (isDetached) {
-    return (
-      <DetachableWindow
-        isOpen={isDetached}
-        onClose={() => {
-          setIsDetached(false);
-          setSelectedTask(null);
-        }}
-        initialSize={{ width: 500, height: 600 }}
-        footer={renderFooter()}
-        storageKey="chat"
-        titleCenter={selectedTask.title}
-        title={
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-              >
-                <Badge variant={statusConfig.variant} className="cursor-pointer">
-                  {statusLabel}
-                </Badge>
-                <ChevronDown className="size-3 text-muted-foreground" />
-              </button>
-              {showStatusDropdown && (
-                <div className="absolute top-full left-0 mt-1.5 z-[9999] bg-popover border rounded-lg shadow-lg min-w-[140px] py-1 overflow-hidden">
-                  {STATUSES.map((status) => (
-                    <button
-                      key={status}
-                      onClick={async () => {
-                        setShowStatusDropdown(false);
-                        if (status !== selectedTask.status) {
-                          await updateTaskStatus(selectedTask.id, status);
-                        }
-                      }}
-                      className={cn(
-                        'w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2',
-                        status === selectedTask.status && 'bg-accent/50'
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Badge variant={STATUS_CONFIG[status].variant} className="text-xs">
-                          {tk(STATUS_CONFIG[status].label as any)}
-                        </Badge>
-                      </span>
-                      {status === selectedTask.status && (
-                        <Check className="size-4 text-primary" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        }
-        headerEnd={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setIsDetached(false)}
-            title="Maximize to panel"
-          >
-            <Maximize2 className="size-4" />
-          </Button>
-        }
-      >
-        {renderConversation()}
-      </DetachableWindow>
-    );
-  }
-
   // Normal inline panel
   return (
     <div
       ref={panelRef}
       className={cn(
         'h-full bg-background border-l flex flex-col shrink-0 relative overflow-x-hidden',
-        isMobile && 'fixed inset-0 z-50 border-l-0 overflow-x-hidden',
+        isMobile && 'fixed inset-0 border-l-0 overflow-x-hidden',
         isResizing && 'select-none',
         className
       )}
       style={{
         width: isMobile ? '100vw' : `${width}px`,
         maxWidth: isMobile ? '100vw' : undefined,
+        ...(isMobile ? { zIndex: mobileZIndex } : {}),
       }}
     >
       {/* Resize handle - left edge, hidden on mobile */}
@@ -537,8 +531,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setIsDetached(!isDetached)}
-                title={isDetached ? "Attach window" : "Detach window"}
+                onClick={handleDetach}
+                title="Detach to floating window"
               >
                 <Minimize2 className="size-4" />
               </Button>

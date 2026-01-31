@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       request_method = 'queue',
       output_format,
       output_schema,
-      timeout
+      timeout,
+      modelId
     } = body;
 
 
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
         request_method,
         output_format,
         output_schema,
-        timeout
+        timeout,
+        modelId
       );
     }
 
@@ -101,7 +103,8 @@ export async function POST(request: NextRequest) {
         request_method,
         output_format,
         output_schema,
-        timeout
+        timeout,
+        modelId
       );
     }
 
@@ -208,7 +211,8 @@ export async function POST(request: NextRequest) {
       request_method,
       output_format,
       output_schema,
-      timeout
+      timeout,
+      modelId
     );
 
   } catch (error: any) {
@@ -234,7 +238,8 @@ async function createAttempt(
   requestMethod: RequestMethod = 'queue',
   outputFormat?: OutputFormat,
   outputSchema?: string,
-  timeout?: number
+  timeout?: number,
+  modelId?: string
 ) {
   // Get project for agent execution
   const project = await db.query.projects.findFirst({
@@ -277,6 +282,8 @@ async function createAttempt(
 
   // Start the agent execution
   // Note: agentManager.start() will add system guidelines internally
+  // Use provided modelId, or fall back to task's saved modelId
+  const effectiveModelId = modelId || task.modelId || undefined;
   agentManager.start({
     attemptId: newAttempt.id,
     projectPath: project.path,
@@ -284,6 +291,7 @@ async function createAttempt(
     sessionOptions: Object.keys(sessionOptions).length > 0 ? sessionOptions : undefined,
     outputFormat: outputFormat || undefined,
     outputSchema: outputSchema || undefined,
+    modelId: effectiveModelId,
   });
 
   // Queue mode: return attempt ID immediately (existing behavior)

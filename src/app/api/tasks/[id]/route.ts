@@ -45,9 +45,9 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, description, status, position, chatInit } = body;
+    const { title, description, status, position, chatInit, provider } = body;
 
-    if (!title && !description && !status && position === undefined && chatInit === undefined) {
+    if (!title && !description && !status && position === undefined && chatInit === undefined && provider === undefined) {
       return NextResponse.json(
         { error: 'At least one field is required' },
         { status: 400 }
@@ -72,6 +72,7 @@ export async function PUT(
     if (status !== undefined) updateData.status = status;
     if (position !== undefined) updateData.position = position;
     if (chatInit !== undefined) updateData.chatInit = chatInit ? 1 : 0;
+    if (provider !== undefined) updateData.provider = provider;
 
     const result = await db
       .update(schema.tasks)

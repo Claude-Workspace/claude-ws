@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FileCode } from 'lucide-react';
+import { useZIndexStore } from '@/stores/z-index-store';
 
 /**
  * Definition information to display
@@ -124,6 +125,9 @@ export function DefinitionPopup({
 }: DefinitionPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
 
+  // Get z-index on mount
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
+
   // Close on escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -200,12 +204,13 @@ export function DefinitionPopup({
   return createPortal(
     <div
       ref={popupRef}
-      className="fixed z-[9999] bg-popover border border-border rounded-md shadow-lg overflow-hidden"
+      className="fixed bg-popover border border-border rounded-md shadow-lg overflow-hidden"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
         maxWidth: 'min(630px, calc(100vw - 40px))',
         maxHeight: 'min(360px, calc(100vh - 40px))',
+        zIndex,
       }}
     >
       {/* Header - file path only */}

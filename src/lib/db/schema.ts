@@ -5,6 +5,7 @@ export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   path: text('path').notNull().unique(),
+  provider: text('provider'), // LLM provider ID (nullable, null = use default)
   createdAt: integer('created_at', { mode: 'number' })
     .notNull()
     .$defaultFn(() => Date.now()),
@@ -32,6 +33,8 @@ export const tasks = sqliteTable(
     rewindSessionId: text('rewind_session_id'),
     // Message UUID to resume at (for conversation context rewind)
     rewindMessageUuid: text('rewind_message_uuid'),
+    provider: text('provider'), // LLM provider override (nullable, null = inherit from project)
+    modelId: text('model_id'), // Last selected model for this task
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .$defaultFn(() => Date.now()),
@@ -282,6 +285,28 @@ export const appSettings = sqliteTable('app_settings', {
     .$defaultFn(() => Date.now()),
 });
 
+// Gemini Sessions table - maps task IDs to Gemini CLI session UUIDs
+export const geminiSessions = sqliteTable(
+  'gemini_sessions',
+  {
+    id: text('id').primaryKey(),
+    taskId: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    projectPath: text('project_path').notNull(), // Session is per task + project path
+    sessionUuid: text('session_uuid').notNull(), // Gemini CLI session UUID from init event
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_gemini_sessions_task').on(table.taskId, table.projectPath),
+  ]
+);
+
 // Type exports for queries
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -307,3 +332,5 @@ export type Shell = typeof shells.$inferSelect;
 export type NewShell = typeof shells.$inferInsert;
 export type AppSetting = typeof appSettings.$inferSelect;
 export type NewAppSetting = typeof appSettings.$inferInsert;
+export type GeminiSession = typeof geminiSessions.$inferSelect;
+export type NewGeminiSession = typeof geminiSessions.$inferInsert;

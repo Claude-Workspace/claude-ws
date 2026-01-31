@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProjectStore } from '@/stores/project-store';
+import { useZIndexStore } from '@/stores/z-index-store';
 
 interface CommandInfo {
   name: string;
@@ -54,6 +55,9 @@ export function CommandSelector({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const { getActiveProject } = useProjectStore();
+
+  // Get z-index on mount
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
 
   // Fetch commands (including project-level commands/skills)
   useEffect(() => {
@@ -157,7 +161,7 @@ export function CommandSelector({
         'absolute bottom-full left-0 mb-1 w-72 bg-popover border rounded-md shadow-lg overflow-hidden',
         className
       )}
-      style={{ zIndex: 9999 }}
+      style={{ zIndex }}
     >
       {/* Command list */}
       <div ref={listRef} className="max-h-48 overflow-y-auto py-1">

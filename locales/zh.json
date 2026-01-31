@@ -280,7 +280,7 @@
     "stop": "停止",
     "running": "运行中...",
     "attachFilesTitle": "附加文件",
-    "describeWhatYouWant": "描述您希望 Claude 做什么...",
+    "describeWhatYouWant": "描述您想要做什么...",
     "pasteImageOrText": "粘贴图片或文本",
     "dropFilesHere": "将文件拖放到此处",
     "commandsHint": "命令",
@@ -367,5 +367,10 @@
     "addDnsRecord": "添加 DNS 记录",
     "runTunnel": "运行隧道",
     "orInstallAsService": "或作为服务安装："
+  },
+  "Welcome": {
+    "title": "欢迎来到 Claude 工作区",
+    "noProjects": "您还没有任何项目。",
+    "getStarted": "通过创建新项目来开始。"
   }
 }

@@ -280,7 +280,7 @@
     "stop": "중지",
     "running": "실행 중...",
     "attachFilesTitle": "파일 첨부",
-    "describeWhatYouWant": "Claude에게 원하는 것을 설명하세요...",
+    "describeWhatYouWant": "원하는 것을 설명하세요...",
     "pasteImageOrText": "이미지 또는 텍스트 붙여넣기",
     "dropFilesHere": "파일을 여기에 놓으세요",
     "commandsHint": "명령어",
@@ -367,5 +367,10 @@
     "addDnsRecord": "DNS 레코드 추가",
     "runTunnel": "터널 실행",
     "orInstallAsService": "또는 서비스로 설치:"
+  },
+  "Welcome": {
+    "title": "Claude Workspace에 오신 것을 환영합니다",
+    "noProjects": "아직 프로젝트가 없습니다.",
+    "getStarted": "새 프로젝트를 만들어 시작하세요."
   }
 }

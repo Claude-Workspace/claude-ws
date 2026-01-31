@@ -32,7 +32,7 @@ interface ActiveQuestion {
 interface UseAttemptStreamResult {
   messages: ClaudeOutput[];
   isConnected: boolean;
-  startAttempt: (taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[]) => void;
+  startAttempt: (taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => void;
   cancelAttempt: () => void;
   currentAttemptId: string | null;
   currentPrompt: string | null;
@@ -515,7 +515,7 @@ export function useAttemptStream(
     checkRunningAttempt();
   }, [taskId, checkForUnansweredQuestion]); // Remove isConnected from deps - we handle it inside
 
-  const startAttempt = useCallback((taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[]) => {
+  const startAttempt = useCallback((taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[], providerId?: string, modelId?: string) => {
     const socket = socketRef.current;
     if (!socket || !isConnected) return;
     currentTaskIdRef.current = taskId;
@@ -528,7 +528,7 @@ export function useAttemptStream(
       setCurrentAttemptId(data.attemptId);
       socket.emit('attempt:subscribe', { attemptId: data.attemptId });
     });
-    socket.emit('attempt:start', { taskId, prompt, displayPrompt, fileIds });
+    socket.emit('attempt:start', { taskId, prompt, displayPrompt, fileIds, providerId, modelId });
   }, [isConnected]);
 
   const answerQuestion = useCallback(async (questions: Question[], answers: Record<string, string>) => {

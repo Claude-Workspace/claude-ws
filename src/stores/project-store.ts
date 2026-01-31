@@ -4,6 +4,7 @@ import type { Project } from '@/types';
 import { useTaskStore } from './task-store';
 import { useInteractiveCommandStore } from './interactive-command-store';
 import { useSidebarStore } from './sidebar-store';
+import { useFloatingWindowsStore } from './floating-windows-store';
 
 interface ProjectState {
   projects: Project[];
@@ -28,7 +29,7 @@ interface ProjectActions {
   // CRUD actions
   fetchProjects: () => Promise<void>;
   createProject: (data: { name: string; path: string }) => Promise<Project>;
-  updateProject: (id: string, data: Partial<Pick<Project, 'name' | 'path'>>) => Promise<void>;
+  updateProject: (id: string, data: Partial<Pick<Project, 'name' | 'path' | 'provider'>>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
 
   // Deprecated - for backward compat
@@ -57,38 +58,49 @@ export const useProjectStore = create<ProjectStore>()(
 
       // Selection actions
       toggleProjectSelection: (projectId) => {
-        const { selectedProjectIds, projects, activeProjectId } = get();
+        const { selectedProjectIds, activeProjectId } = get();
+        let newSelectedIds: string[];
 
         if (selectedProjectIds.length === 0) {
           // Currently "all projects" - switch to single select
+          newSelectedIds = [projectId];
           set({
-            selectedProjectIds: [projectId],
+            selectedProjectIds: newSelectedIds,
             activeProjectId: projectId
           });
         } else if (selectedProjectIds.includes(projectId)) {
           // Deselect this project
-          const newIds = selectedProjectIds.filter(id => id !== projectId);
+          newSelectedIds = selectedProjectIds.filter(id => id !== projectId);
           // Update activeProjectId if needed
-          const newActiveId = newIds.length === 1
-            ? newIds[0]
-            : (newIds.includes(activeProjectId || '') ? activeProjectId : null);
+          const newActiveId = newSelectedIds.length === 1
+            ? newSelectedIds[0]
+            : (newSelectedIds.includes(activeProjectId || '') ? activeProjectId : null);
           set({
-            selectedProjectIds: newIds,
+            selectedProjectIds: newSelectedIds,
             activeProjectId: newActiveId
           });
         } else {
           // Add to selection
-          const newIds = [...selectedProjectIds, projectId];
+          newSelectedIds = [...selectedProjectIds, projectId];
           // Auto-set activeProjectId if only 1 selected
-          const newActiveId = newIds.length === 1 ? newIds[0] : activeProjectId;
+          const newActiveId = newSelectedIds.length === 1 ? newSelectedIds[0] : activeProjectId;
           set({
-            selectedProjectIds: newIds,
+            selectedProjectIds: newSelectedIds,
             activeProjectId: newActiveId
           });
         }
 
-        // Close chat window and interactive commands when project selection changes
-        useTaskStore.getState().selectTask(null);
+        // Close floating windows for tasks NOT in selected projects
+        useFloatingWindowsStore.getState().closeWindowsNotInProjects(newSelectedIds);
+
+        // Close inline chat panel only if the selected task is NOT in the new project selection
+        const taskStore = useTaskStore.getState();
+        const selectedTask = taskStore.selectedTask;
+        if (selectedTask && newSelectedIds.length > 0 && !newSelectedIds.includes(selectedTask.projectId)) {
+          taskStore.selectTask(null);
+        }
+
+        // Close interactive commands
         useInteractiveCommandStore.getState().closeCommand();
 
         // Close file explorer and all open editor tabs
@@ -102,8 +114,17 @@ export const useProjectStore = create<ProjectStore>()(
         const activeId = ids.length === 1 ? ids[0] : null;
         set({ selectedProjectIds: ids, activeProjectId: activeId });
 
-        // Close chat window and interactive commands when project selection changes
-        useTaskStore.getState().selectTask(null);
+        // Close floating windows for tasks NOT in selected projects
+        useFloatingWindowsStore.getState().closeWindowsNotInProjects(ids);
+
+        // Close inline chat panel only if the selected task is NOT in the new project selection
+        const taskStore = useTaskStore.getState();
+        const selectedTask = taskStore.selectedTask;
+        if (selectedTask && ids.length > 0 && !ids.includes(selectedTask.projectId)) {
+          taskStore.selectTask(null);
+        }
+
+        // Close interactive commands
         useInteractiveCommandStore.getState().closeCommand();
 
         // Close file explorer and all open editor tabs
@@ -116,8 +137,10 @@ export const useProjectStore = create<ProjectStore>()(
       selectAllProjects: () => {
         set({ selectedProjectIds: [], activeProjectId: null });
 
-        // Close chat window and interactive commands when showing all projects
-        useTaskStore.getState().selectTask(null);
+        // In "all projects" mode, keep all floating windows open (no filtering needed)
+        // closeWindowsNotInProjects with empty array will keep all windows
+
+        // Close interactive commands
         useInteractiveCommandStore.getState().closeCommand();
       },
 

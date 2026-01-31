@@ -295,7 +295,10 @@ export async function PATCH(request: NextRequest) {
       await writeFile(newPath, '', { encoding: 'utf-8' });
     }
 
-    return NextResponse.json({ success: true, path: newPath });
+    // Return relative path for frontend consistency
+    const relativeNewPath = path.relative(rootPath, newPath);
+
+    return NextResponse.json({ success: true, path: relativeNewPath });
   } catch (error: unknown) {
     // Handle known error types
     if (error instanceof Error) {
@@ -384,7 +387,10 @@ export async function PUT(request: NextRequest) {
     // Rename file/folder
     await rename(resolved, newPath);
 
-    return NextResponse.json({ success: true, newPath });
+    // Return relative path for frontend consistency
+    const relativeNewPath = path.relative(rootPath, newPath);
+
+    return NextResponse.json({ success: true, newPath: relativeNewPath });
   } catch (error: unknown) {
     // Handle known error types
     if (error instanceof Error) {

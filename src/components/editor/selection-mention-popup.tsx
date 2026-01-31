@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AtSign } from 'lucide-react';
 import { EditorView } from '@codemirror/view';
 import { cn } from '@/lib/utils';
+import { useZIndexStore } from '@/stores/z-index-store';
 
 interface SelectionMentionPopupProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -21,6 +22,9 @@ export function SelectionMentionPopup({
   const [selection, setSelection] = useState<{ startLine: number; endLine: number } | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get z-index on mount
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
 
   const getSelectionInfo = useCallback(() => {
     const view = editorViewRef.current;
@@ -129,7 +133,7 @@ export function SelectionMentionPopup({
     <div
       ref={popupRef}
       className={cn(
-        'fixed z-50 flex items-center gap-1 px-2 py-1',
+        'fixed flex items-center gap-1 px-2 py-1',
         'bg-primary text-primary-foreground',
         'rounded-md shadow-lg',
         'cursor-pointer hover:bg-primary/90',
@@ -140,6 +144,7 @@ export function SelectionMentionPopup({
         left: `${position.x}px`,
         top: `${position.y + 8}px`, // 8px below selection
         transform: 'translateX(-100%)', // Align to right
+        zIndex,
       }}
       onClick={handleClick}
       title={`Add ${lineRange} to chat context`}

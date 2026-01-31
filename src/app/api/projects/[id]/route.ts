@@ -41,11 +41,11 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, path } = body;
+    const { name, path, provider } = body;
 
-    if (!name && !path) {
+    if (!name && !path && provider === undefined) {
       return NextResponse.json(
-        { error: 'At least one field (name or path) is required' },
+        { error: 'At least one field (name, path, or provider) is required' },
         { status: 400 }
       );
     }
@@ -53,6 +53,7 @@ export async function PUT(
     const updateData: any = {};
     if (name) updateData.name = name;
     if (path) updateData.path = path;
+    if (provider !== undefined) updateData.provider = provider;
 
     const result = await db
       .update(schema.projects)
@@ -89,6 +90,14 @@ export async function PUT(
       { status: 500 }
     );
   }
+}
+
+// PATCH /api/projects/[id] - Partial update a project (alias to PUT)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PUT(request, { params });
 }
 
 // DELETE /api/projects/[id] - Delete a project

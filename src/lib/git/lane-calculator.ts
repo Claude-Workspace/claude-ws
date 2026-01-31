@@ -111,6 +111,21 @@ export function calculateLanes(commits: GitCommit[]): GraphData {
   const activeLanes: (string | null)[] = []; // Track expected commits per lane
   const commitColors: Map<string, string> = new Map(); // Track color per commit
 
+  // Pre-populate colors from refs so descendants can correctly inherit them
+  for (const commit of commits) {
+    if (commit.refs.length > 0) {
+      // Check for main/master first
+      const mainRef = commit.refs.find(ref =>
+        ref.includes('main') || ref.includes('master')
+      );
+      if (mainRef) {
+        commitColors.set(commit.hash, COLOR_SCHEME.main);
+      } else {
+        commitColors.set(commit.hash, getBranchColor(commit.refs[0]));
+      }
+    }
+  }
+
   for (let i = 0; i < commits.length; i++) {
     const commit = commits[i];
 
@@ -126,8 +141,9 @@ export function calculateLanes(commits: GitCommit[]): GraphData {
     }
 
     // Assign color based on branch refs, not lane
+    // Override propagated color if this commit has its own refs
     let color = commitColors.get(commit.hash);
-    if (!color) {
+    if (!color || commit.refs.length > 0) {
       color = assignCommitColor(commit, lane, commitColors);
       commitColors.set(commit.hash, color);
     }
@@ -151,16 +167,22 @@ export function calculateLanes(commits: GitCommit[]): GraphData {
     // Update active lanes and propagate colors
     if (commit.parents.length > 0) {
       activeLanes[lane] = commit.parents[0];
-      commitColors.set(commit.parents[0], color);
+      
+      // Only propagate color to parent if it doesn't have one yet
+      if (!commitColors.has(commit.parents[0])) {
+        commitColors.set(commit.parents[0], color);
+      }
 
       // Additional parents - assign to available lanes
       for (let p = 1; p < commit.parents.length; p++) {
         const parentLane = p < 4 ? p : (lane === 0 ? 1 : 0);
         activeLanes[parentLane] = commit.parents[p];
 
-        // Assign different color for merge parent
-        const parentColor = COLOR_SCHEME.palette[(lane + p) % COLOR_SCHEME.palette.length];
-        commitColors.set(commit.parents[p], parentColor);
+        // Assign different color for merge parent if it doesn't have one
+        if (!commitColors.has(commit.parents[p])) {
+          const parentColor = COLOR_SCHEME.palette[(lane + p) % COLOR_SCHEME.palette.length];
+          commitColors.set(commit.parents[p], parentColor);
+        }
       }
     } else {
       activeLanes[lane] = null;

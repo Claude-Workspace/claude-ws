@@ -6,6 +6,7 @@ import { ResizeHandle } from '@/components/ui/resize-handle';
 import { useResizable } from '@/hooks/use-resizable';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store';
+import { useZIndexStore } from '@/stores/z-index-store';
 import { cn } from '@/lib/utils';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.diffPreview;
@@ -16,6 +17,9 @@ export function DiffPreviewPanel() {
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const [isMobile, setIsMobile] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Get z-index on mount for mobile fullscreen mode
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
 
   const { width, isResizing, handleMouseDown } = useResizable({
     initialWidth: widths.diffPreview,
@@ -41,16 +45,18 @@ export function DiffPreviewPanel() {
       <>
         {/* Overlay backdrop */}
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-black/50"
+          style={{ zIndex }}
           onClick={closeDiff}
         />
         {/* Fullscreen panel */}
         <div
           ref={panelRef}
           className={cn(
-            'fixed inset-0 z-50 bg-background flex flex-col',
+            'fixed inset-0 bg-background flex flex-col',
             'animate-in slide-in-from-bottom duration-200'
           )}
+          style={{ zIndex: zIndex + 1 }}
         >
           <DiffViewer filePath={diffFile} staged={diffStaged} onClose={closeDiff} />
         </div>

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X, Loader2, Check, RotateCcw } from 'lucide-react';
 import { useInlineEditStore } from '@/stores/inline-edit-store';
+import { useZIndexStore } from '@/stores/z-index-store';
 
 interface InlineEditDialogProps {
   filePath: string;
@@ -27,6 +28,9 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
 
   const { dialogOpen, dialogFilePath, dialogPosition, closeDialog, getSession } = useInlineEditStore();
   const session = getSession(filePath);
+
+  // Get z-index on mount
+  const [zIndex] = useState(() => useZIndexStore.getState().getNextZIndex());
 
   const isOpen = dialogOpen && dialogFilePath === filePath;
   const isGenerating = session?.status === 'generating';
@@ -137,10 +141,11 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
     return createPortal(
       <div
         ref={popupRef}
-        className="fixed z-[9999] w-[450px] max-w-[calc(100vw-40px)]"
+        className="fixed w-[450px] max-w-[calc(100vw-40px)]"
         style={{
           left: adjustedPosition.x,
           top: adjustedPosition.y,
+          zIndex,
         }}
       >
         <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg shadow-xl p-2 flex items-center gap-2">
@@ -182,10 +187,11 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
   return createPortal(
     <div
       ref={popupRef}
-      className="fixed z-[9999] w-[450px] max-w-[calc(100vw-40px)]"
+      className="fixed w-[450px] max-w-[calc(100vw-40px)]"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
+        zIndex,
       }}
     >
       <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg shadow-xl p-2 flex items-center gap-2">

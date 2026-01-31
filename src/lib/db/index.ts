@@ -206,6 +206,27 @@ export function initDb() {
     }
   }
 
+  // Migration: Add provider column to projects for provider selection
+  try {
+    sqlite.exec(`ALTER TABLE projects ADD COLUMN provider TEXT`);
+  } catch {
+    // Column already exists, ignore error
+  }
+
+  // Migration: Add provider column to tasks for per-task provider override
+  try {
+    sqlite.exec(`ALTER TABLE tasks ADD COLUMN provider TEXT`);
+  } catch {
+    // Column already exists, ignore error
+  }
+
+  // Migration: Add model_id column to tasks for remembering last selected model
+  try {
+    sqlite.exec(`ALTER TABLE tasks ADD COLUMN model_id TEXT`);
+  } catch {
+    // Column already exists, ignore error
+  }
+
   // Agent Factory tables
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS agent_factory_plugins (
@@ -274,6 +295,17 @@ export function initDb() {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
+
+    CREATE TABLE IF NOT EXISTS gemini_sessions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      project_path TEXT NOT NULL,
+      session_uuid TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_gemini_sessions_task ON gemini_sessions(task_id, project_path);
   `);
 }
 

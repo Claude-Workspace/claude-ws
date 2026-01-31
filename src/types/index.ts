@@ -35,6 +35,7 @@ export interface Project {
   id: string;
   name: string;
   path: string;
+  provider?: string | null; // LLM provider ID (null = use default)
   createdAt: number;
   settings?: ProjectSettings;
 }
@@ -48,6 +49,8 @@ export interface Task {
   status: TaskStatus;
   position: number;
   chatInit: boolean;
+  provider?: string | null; // LLM provider override (null = inherit from project)
+  modelId?: string | null; // Last selected model for this task
   createdAt: number;
   updatedAt: number;
 }
