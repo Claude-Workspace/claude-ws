@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Task, TaskStatus } from '@/types';
 import { useInteractiveCommandStore } from './interactive-command-store';
+import { useFloatingWindowsStore } from './floating-windows-store';
 
 interface TaskStore {
   tasks: Task[];
@@ -19,6 +20,7 @@ interface TaskStore {
   deleteTasksByStatus: (status: TaskStatus) => Promise<void>;
   selectTask: (id: string | null) => void;
   setSelectedTask: (task: Task | null) => void;
+  setSelectedTaskId: (id: string | null) => void;  // Update ID only (for floating windows)
   setCreatingTask: (isCreating: boolean) => void;
   setTaskChatInit: (taskId: string, chatInit: boolean) => Promise<void>;
   setPendingAutoStartTask: (taskId: string | null, prompt?: string, fileIds?: string[]) => void;
@@ -89,10 +91,46 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
 
     const task = id ? get().tasks.find((t) => t.id === id) || null : null;
+
+    // Check if we should open as floating window:
+    // 1. There are already floating windows open, OR
+    // 2. User preference is set to floating (last closed was floating)
+    const floatingWindowsStore = useFloatingWindowsStore.getState();
+    const hasFloatingWindows = floatingWindowsStore.windows.size > 0;
+    const preferFloating = floatingWindowsStore.preferFloating;
+
+    if (task && (hasFloatingWindows || preferFloating)) {
+      // Check if this task already has a floating window
+      if (floatingWindowsStore.isWindowOpen(task.id)) {
+        // Bring existing window to front
+        floatingWindowsStore.bringToFront(task.id);
+      } else {
+        // Open new floating window for this task
+        floatingWindowsStore.openWindow(task.id, 'chat', task.projectId);
+      }
+      // Update selectedTaskId but keep selectedTask null (panel closed)
+      set({ selectedTaskId: id, selectedTask: null });
+      return;
+    }
+
+    // Opening in panel - set preference to panel
+    if (task) {
+      floatingWindowsStore.setPreferFloating(false);
+    }
+
     set({ selectedTaskId: id, selectedTask: task });
   },
 
-  setSelectedTask: (task) => set({ selectedTask: task }),
+  setSelectedTask: (task) => {
+    // Opening in panel - set preference to panel
+    if (task) {
+      useFloatingWindowsStore.getState().setPreferFloating(false);
+    }
+    set({ selectedTask: task, selectedTaskId: task?.id || null });
+  },
+
+  // Update selectedTaskId only (for floating windows - doesn't open panel)
+  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
 
   setCreatingTask: (isCreating) => set({ isCreatingTask: isCreating }),
 

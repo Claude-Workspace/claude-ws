@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, ChevronDown, Minimize2, Maximize2, Check } from 'lucide-react';
+import { X, ChevronDown, Minimize2, Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,9 @@ import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store';
 import { useAttemptStream } from '@/hooks/use-attempt-stream';
-import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { useAttachmentStore } from '@/stores/attachment-store';
+import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
 import { cn } from '@/lib/utils';
-import { DetachableWindow } from '@/components/ui/detachable-window';
 import type { TaskStatus, PendingFile } from '@/types';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.taskDetail;
@@ -48,6 +47,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
+  const { openWindow } = useFloatingWindowsStore();
+
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -55,23 +56,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [shellPanelExpanded, setShellPanelExpanded] = useState(false);
   const [showQuestionPrompt, setShowQuestionPrompt] = useState(false);
-  const [isDetached, setIsDetached] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return localStorage.getItem('chat-window-detached') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  // Persist detached state
-  useEffect(() => {
-    try {
-      localStorage.setItem('chat-window-detached', String(isDetached));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [isDetached]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
@@ -110,10 +94,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   // Handle task completion - move to review and show notification
   const handleTaskComplete = useCallback(
     async (taskId: string) => {
-      // Prevent duplicate completion for the same task
-      if (lastCompletedTaskRef.current === taskId) {
-        return;
-      }
+      if (lastCompletedTaskRef.current === taskId) return;
       lastCompletedTaskRef.current = taskId;
 
       await updateTaskStatus(taskId, 'in_review');
@@ -151,37 +132,27 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       (pendingAutoStartPrompt || selectedTask.description)
     ) {
       hasAutoStartedRef.current = true;
-      // Move task to In Progress when auto-starting
       if (selectedTask.status !== 'in_progress') {
         moveTaskToInProgress(selectedTask.id);
       }
-      // Set chatInit to true on auto-start
       if (!selectedTask.chatInit) {
         setTaskChatInit(selectedTask.id, true);
         setHasSentFirstMessage(true);
       }
-      // Capture fileIds and pending files before clearing
       const fileIds = pendingAutoStartFileIds || undefined;
       const pendingFiles = getPendingFiles(selectedTask.id);
       setCurrentAttemptFiles(pendingFiles);
 
-      // Small delay to ensure component and socket are ready
       setTimeout(() => {
-        // Double-check isRunning and hasAutoStartedRef to prevent duplicate starts
         if (!isRunning && hasAutoStartedRef.current && selectedTask?.id === pendingAutoStartTask) {
-          // For commands: use processed prompt to send, original command for display
-          // For regular messages: use the same for both
           const promptToSend = pendingAutoStartPrompt || selectedTask.description!;
           const promptToDisplay = pendingAutoStartPrompt ? selectedTask.description! : undefined;
           startAttempt(selectedTask.id, promptToSend, promptToDisplay, fileIds);
-
-          // Clear files from attachment store after starting (they're now part of the attempt)
           clearFiles(selectedTask.id);
         }
         setPendingAutoStartTask(null);
       }, 50);
     }
-    // Reset the flag when task changes
     if (selectedTask?.id !== pendingAutoStartTask) {
       hasAutoStartedRef.current = false;
     }
@@ -198,8 +169,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     lastCompletedTaskRef.current = null;
     hasAutoStartedRef.current = false;
 
-    // Auto-focus on chat input when task is selected
-    // Small delay to ensure component is mounted
     setTimeout(() => {
       promptInputRef.current?.focus();
     }, 100);
@@ -212,12 +181,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     }
   }, [activeQuestion]);
 
-  // Listen for rewind-complete event to soft refresh conversation
+  // Listen for rewind-complete event
   useEffect(() => {
     const handleRewindComplete = () => {
-      // Increment key to force ConversationView re-mount and reload history
       setConversationKey(prev => prev + 1);
-      // Focus on input after rewind
       setTimeout(() => {
         promptInputRef.current?.focus();
       }, 100);
@@ -227,7 +194,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     return () => window.removeEventListener('rewind-complete', handleRewindComplete);
   }, []);
 
-  // Get current project ID and path for commands/skills loading
+  // Get current project context
   const currentProjectId = activeProjectId || selectedProjectIds[0] || selectedTask?.projectId;
   const currentProjectPath = currentProjectId
     ? projects.find(p => p.id === currentProjectId)?.path
@@ -236,15 +203,13 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     ? Array.from(shells.values()).some((s) => s.projectId === currentProjectId)
     : false;
 
-  // Arrow down to open shell panel (when typing in input at end)
+  // Arrow down to open shell panel
   useEffect(() => {
     if (shellPanelExpanded || !hasShells) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
-
-      // Only handle ArrowDown if the input is within this panel
       const isWithinPanel = panelRef.current?.contains(target);
 
       if (e.key === 'ArrowDown' && isTyping && !e.shiftKey && !e.ctrlKey && !e.metaKey && isWithinPanel) {
@@ -270,31 +235,31 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const statusLabel = tk(statusConfig.label as any);
 
   const handleClose = () => {
-    setIsDetached(false);
+    setSelectedTask(null);
+  };
+
+  // Detach: open floating window and deselect from panel
+  const handleDetach = () => {
+    openWindow(selectedTask.id, 'chat', selectedTask.projectId);
     setSelectedTask(null);
   };
 
   const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
-    // Move task to In Progress when sending a message
     if (selectedTask?.status !== 'in_progress') {
       moveTaskToInProgress(selectedTask.id);
     }
-    // Set chatInit to true on first message send
     if (!selectedTask.chatInit && !hasSentFirstMessage) {
       setTaskChatInit(selectedTask.id, true);
       setHasSentFirstMessage(true);
     }
 
-    // Reset completion tracking when starting a new attempt
     lastCompletedTaskRef.current = null;
 
-    // Capture pending files before they get cleared
     const pendingFiles = getPendingFiles(selectedTask.id);
     setCurrentAttemptFiles(pendingFiles);
     startAttempt(selectedTask.id, prompt, displayPrompt, fileIds);
   };
 
-  // Render just the conversation view
   const renderConversation = () => (
     <div className="flex-1 overflow-hidden min-w-0 relative z-0">
       <ConversationView
@@ -311,48 +276,37 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     </div>
   );
 
-  // Render the input area footer
   const renderFooter = () => (
     <>
       <Separator />
-      {/* Prompt Input with Interactive Command Overlay or Question Prompt */}
       <div className="relative">
         {showQuestionPrompt ? (
           <div className="border-t bg-muted/30">
             {activeQuestion ? (
-              <>
-                <QuestionPrompt
-                  questions={activeQuestion.questions}
-                  onAnswer={(answers) => {
-                    // Move task to In Progress when answering a question
-                    if (selectedTask?.status !== 'in_progress') {
-                      moveTaskToInProgress(selectedTask.id);
-                    }
-                    // Pass questions and answers in SDK format
-                    // answers is Record<string, string> keyed by question text
-                    answerQuestion(activeQuestion.questions, answers as Record<string, string>);
-                    setShowQuestionPrompt(false);
-                  }}
-                  onCancel={() => {
-                    cancelQuestion();
-                    setShowQuestionPrompt(false);
-                  }}
-                />
-              </>
+              <QuestionPrompt
+                questions={activeQuestion.questions}
+                onAnswer={(answers) => {
+                  if (selectedTask?.status !== 'in_progress') {
+                    moveTaskToInProgress(selectedTask.id);
+                  }
+                  answerQuestion(activeQuestion.questions, answers as Record<string, string>);
+                  setShowQuestionPrompt(false);
+                }}
+                onCancel={() => {
+                  cancelQuestion();
+                  setShowQuestionPrompt(false);
+                }}
+              />
             ) : (
-              <>
-                {/* Loading state while waiting for question data */}
-                <div className="py-8 px-4 text-center">
-                  <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-                    <div className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    <span>Loading question...</span>
-                  </div>
+              <div className="py-8 px-4 text-center">
+                <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
+                  <div className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span>Loading question...</span>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ) : shellPanelExpanded && currentProjectId ? (
-          /* Shell Panel - replaces input when expanded */
           <ShellExpandedPanel
             projectId={currentProjectId}
             onClose={() => setShellPanelExpanded(false)}
@@ -374,7 +328,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         )}
       </div>
 
-      {/* Shell Toggle Bar - always visible when shells exist */}
       {currentProjectId && (
         <ShellToggleBar
           projectId={currentProjectId}
@@ -385,7 +338,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     </>
   );
 
-  // Render the main content (conversation + input) - used for inline panel
   const renderContent = () => (
     <>
       {renderConversation()}
@@ -393,79 +345,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     </>
   );
 
-  // When detached, render only the floating window
-  if (isDetached) {
-    return (
-      <DetachableWindow
-        isOpen={isDetached}
-        onClose={() => {
-          setIsDetached(false);
-          setSelectedTask(null);
-        }}
-        initialSize={{ width: 500, height: 600 }}
-        footer={renderFooter()}
-        storageKey="chat"
-        titleCenter={selectedTask.title}
-        title={
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-              >
-                <Badge variant={statusConfig.variant} className="cursor-pointer">
-                  {statusLabel}
-                </Badge>
-                <ChevronDown className="size-3 text-muted-foreground" />
-              </button>
-              {showStatusDropdown && (
-                <div className="absolute top-full left-0 mt-1.5 z-[9999] bg-popover border rounded-lg shadow-lg min-w-[140px] py-1 overflow-hidden">
-                  {STATUSES.map((status) => (
-                    <button
-                      key={status}
-                      onClick={async () => {
-                        setShowStatusDropdown(false);
-                        if (status !== selectedTask.status) {
-                          await updateTaskStatus(selectedTask.id, status);
-                        }
-                      }}
-                      className={cn(
-                        'w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2',
-                        status === selectedTask.status && 'bg-accent/50'
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Badge variant={STATUS_CONFIG[status].variant} className="text-xs">
-                          {tk(STATUS_CONFIG[status].label as any)}
-                        </Badge>
-                      </span>
-                      {status === selectedTask.status && (
-                        <Check className="size-4 text-primary" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        }
-        headerEnd={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setIsDetached(false)}
-            title="Maximize to panel"
-          >
-            <Maximize2 className="size-4" />
-          </Button>
-        }
-      >
-        {renderConversation()}
-      </DetachableWindow>
-    );
-  }
-
-  // Normal inline panel
   return (
     <div
       ref={panelRef}
@@ -480,7 +359,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
         maxWidth: isMobile ? '100vw' : undefined,
       }}
     >
-      {/* Resize handle - left edge, hidden on mobile */}
       {!isMobile && (
         <ResizeHandle
           position="left"
@@ -488,7 +366,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           isResizing={isResizing}
         />
       )}
-      {/* Header */}
       <div className="px-3 sm:px-4 py-2 border-b w-full max-w-full overflow-visible relative z-10">
         <div className="flex items-center justify-between gap-2 mb-1 w-full">
           <div className="flex items-center gap-2">
@@ -537,8 +414,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setIsDetached(!isDetached)}
-                title={isDetached ? "Attach window" : "Detach window"}
+                onClick={handleDetach}
+                title="Detach to floating window"
               >
                 <Minimize2 className="size-4" />
               </Button>

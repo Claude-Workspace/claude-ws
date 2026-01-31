@@ -7,6 +7,7 @@ import { Header } from '@/components/header';
 import { Board } from '@/components/kanban/board';
 import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
 import { TaskDetailPanel } from '@/components/task/task-detail-panel';
+import { FloatingChatWindowsContainer } from '@/components/task/floating-chat-windows-container';
 import { SettingsPage } from '@/components/settings/settings-page';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
@@ -16,6 +17,7 @@ import { PluginList } from '@/components/agent-factory/plugin-list';
 import { AccessAnywhereWizard } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
+import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
 import { useTunnelStore } from '@/stores/tunnel-store';
 import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
@@ -31,7 +33,7 @@ function KanbanApp() {
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
-  const { selectedTask, fetchTasks, setSelectedTask, setPendingAutoStartTask } = useTaskStore();
+  const { selectedTask, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
   const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
   const isOpen = useSidebarStore((s) => s.isOpen);
   const setIsOpen = useSidebarStore((s) => s.setIsOpen);
@@ -104,7 +106,15 @@ function KanbanApp() {
   // Handle task created event - select task if startNow is true
   const handleTaskCreated = (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[]) => {
     if (startNow) {
-      setSelectedTask(task);
+      const { preferFloating, openWindow } = useFloatingWindowsStore.getState();
+      if (preferFloating) {
+        // Open as floating window
+        openWindow(task.id, 'chat', task.projectId);
+        setSelectedTaskId(task.id);
+      } else {
+        // Open in panel
+        setSelectedTask(task);
+      }
       setPendingAutoStartTask(task.id, processedPrompt, fileIds);
     }
   };
@@ -257,6 +267,9 @@ function KanbanApp() {
 
       {/* Access Anywhere Wizard */}
       <AccessAnywhereWizard />
+
+      {/* Floating Chat Windows - rendered independently */}
+      <FloatingChatWindowsContainer />
     </div>
   );
 }

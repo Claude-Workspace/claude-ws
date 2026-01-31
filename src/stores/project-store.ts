@@ -4,6 +4,7 @@ import type { Project } from '@/types';
 import { useTaskStore } from './task-store';
 import { useInteractiveCommandStore } from './interactive-command-store';
 import { useSidebarStore } from './sidebar-store';
+import { useFloatingWindowsStore } from './floating-windows-store';
 
 interface ProjectState {
   projects: Project[];
@@ -66,7 +67,9 @@ export const useProjectStore = create<ProjectStore>()(
             activeProjectId: projectId
           });
         } else if (selectedProjectIds.includes(projectId)) {
-          // Deselect this project
+          // Deselect this project - close floating windows belonging to it
+          useFloatingWindowsStore.getState().closeWindowsByProject(projectId);
+
           const newIds = selectedProjectIds.filter(id => id !== projectId);
           // Update activeProjectId if needed
           const newActiveId = newIds.length === 1
@@ -99,6 +102,14 @@ export const useProjectStore = create<ProjectStore>()(
       },
 
       setSelectedProjectIds: (ids) => {
+        const { selectedProjectIds } = get();
+        // Close floating windows for projects being deselected
+        const deselectedProjects = selectedProjectIds.filter(id => !ids.includes(id));
+        const floatingStore = useFloatingWindowsStore.getState();
+        deselectedProjects.forEach(projectId => {
+          floatingStore.closeWindowsByProject(projectId);
+        });
+
         const activeId = ids.length === 1 ? ids[0] : null;
         set({ selectedProjectIds: ids, activeProjectId: activeId });
 

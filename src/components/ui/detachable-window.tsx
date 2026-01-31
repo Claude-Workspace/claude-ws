@@ -17,6 +17,10 @@ interface DetachableWindowProps {
   titleCenter?: React.ReactNode;
   headerEnd?: React.ReactNode;
   key?: string;
+  /** Dynamic z-index for window layering (default: 60) */
+  zIndex?: number;
+  /** Callback when window is clicked/focused to bring to front */
+  onFocus?: () => void;
 }
 
 const DEFAULT_SIZE = { width: 500, height: 800 };
@@ -117,6 +121,8 @@ export function DetachableWindow({
   titleCenter,
   headerEnd,
   key,
+  zIndex = 60,
+  onFocus,
 }: DetachableWindowProps) {
   const [{ position, size }, setWindowState] = useState(() =>
     loadWindowData(storageKey, initialSize)
@@ -315,12 +321,17 @@ export function DetachableWindow({
 
   if (!isOpenState) return null;
 
+  // Handle bringing window to front on mousedown
+  const handleWindowFocus = () => {
+    onFocus?.();
+  };
+
   return (
     <div
       ref={windowRef}
+      onMouseDown={handleWindowFocus}
       className={cn(
-        'fixed bg-background border shadow-lg rounded-lg overflow-hidden flex flex-col',
-        'z-[60]',
+        'fixed bg-background border-2 shadow-lg rounded-lg overflow-hidden flex flex-col',
         isDragging && 'cursor-grabbing',
         className
       )}
@@ -329,6 +340,7 @@ export function DetachableWindow({
         top: `${position.y}px`,
         width: `${size.width}px`,
         height: `${size.height}px`,
+        zIndex: zIndex,
       }}
     >
       {/* Draggable Header */}
