@@ -8,9 +8,38 @@ import { config } from 'dotenv';
 // Load environment variables from .env file quietly (will be loaded automatically by Next.js in production, but we load it here for direct script usage)
 const env = config({ quiet: true });
 
-// Database file path - use DATA_DIR from env if configured, otherwise default to project data dir
-const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+// Database file path - use DATA_DIR from env if configured.
+// In production (Tauri desktop app), default to OS-standard app data directory
+// to avoid writing into read-only .app bundle on macOS.
+function isProductionBundle(): boolean {
+  // Detect if running from a bundled app by checking cwd or executable path
+  // macOS: cwd contains .app/Contents or /Applications/
+  // Also check NODE_ENV as fallback
+  const cwd = process.cwd();
+  const isAppBundle = cwd.includes('.app/') || cwd.includes('/Applications/');
+  const isNodeEnvProd = process.env.NODE_ENV === 'production';
+  return isAppBundle || isNodeEnvProd;
+}
+
+function getDefaultDataDir(): string {
+  if (isProductionBundle()) {
+    const platform = process.platform;
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    if (platform === 'darwin') {
+      return path.join(home, 'Library', 'Application Support', 'Claude Workspace', 'data');
+    } else if (platform === 'win32') {
+      return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude Workspace', 'data');
+    } else {
+      return path.join(process.env.XDG_DATA_HOME || path.join(home, '.local', 'share'), 'claude-workspace', 'data');
+    }
+  }
+  return path.join(process.cwd(), 'data');
+}
+const DB_DIR = process.env.DATA_DIR || getDefaultDataDir();
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
+
+// Debug log for production database path
+console.log(`[Database] isProductionBundle=${isProductionBundle()}, cwd=${process.cwd()}, DB_PATH=${DB_PATH}`);
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);

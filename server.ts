@@ -29,6 +29,17 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = parseInt(process.env.PORT || '8556', 10);
 
+/** Get OS-standard app data directory for production (Tauri desktop) */
+function getAppDataDir(): string {
+  const home = homedir();
+  if (process.platform === 'darwin') {
+    return `${home}/Library/Application Support/Claude Workspace/data`;
+  } else if (process.platform === 'win32') {
+    return `${process.env.APPDATA || `${home}/AppData/Roaming`}/Claude Workspace/data`;
+  }
+  return `${process.env.XDG_DATA_HOME || `${home}/.local/share`}/claude-workspace/data`;
+}
+
 // API authentication key (optional)
 const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
 
@@ -166,7 +177,7 @@ app.prepare().then(async () => {
               const projectDirName = `${projectId}-${projectName}`;
               const projectPath = projectRootPath
                 ? join(projectRootPath, projectDirName)
-                : join(process.cwd(), 'data', 'projects', projectDirName);
+                : join(process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? getAppDataDir() : join(process.cwd(), 'data')), 'projects', projectDirName);
 
               try {
                 await mkdir(projectPath, { recursive: true });
@@ -740,6 +751,16 @@ app.prepare().then(async () => {
         return;
       }
 
+      // Get the parent task to find the correct project ID
+      const parentTask = await db.query.tasks.findFirst({
+        where: eq(schema.tasks.id, attempt.taskId),
+      });
+
+      if (!parentTask) {
+        console.error(`[Server] Cannot create SDK task: parent task not found`);
+        return;
+      }
+
       // Convert SDK task data to internal Task format
       const sdkTask = {
         ...taskData,
@@ -750,7 +771,7 @@ app.prepare().then(async () => {
 
       const internalTask = {
         id: sdkTask.id,
-        projectId: attempt.taskId, // Use the actual task ID from attempt
+        projectId: parentTask.projectId, // Use the project ID from parent task
         title: sdkTask.title,
         description: sdkTask.description || null,
         status: mapSDKStatusToInternal(sdkTask.status) as 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled',
@@ -767,7 +788,7 @@ app.prepare().then(async () => {
       // Insert task into database
       await db.insert(schema.tasks).values(internalTask);
 
-      console.log(`[Server] SDK task inserted into DB: ${internalTask.id} for project ${attempt.taskId}`);
+      console.log(`[Server] SDK task inserted into DB: ${internalTask.id} for project ${parentTask.projectId}`);
 
       // Emit socket event to all clients
       io.emit('task:created', internalTask);

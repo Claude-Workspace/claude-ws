@@ -66,7 +66,11 @@
     "start": "NODE_ENV=production tsx server.ts",
     "db:generate": "drizzle-kit generate",
     "db:fix": "tsx scripts/db-fix-columns.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "tauri:dev": "node scripts/build-sidecar.mjs --dev && npx tauri dev",
+    "tauri:build": "node scripts/build-sidecar.mjs && npx tauri build",
+    "sidecar:dev": "node scripts/build-sidecar.mjs --dev",
+    "sidecar:build": "node scripts/build-sidecar.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.23",
@@ -106,6 +110,10 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-visually-hidden": "^1.2.4",
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.4",
+    "@tauri-apps/plugin-updater": "^2.9.0",
     "@types/adm-zip": "^0.5.7",
     "@types/better-sqlite3": "^7.6.13",
     "@types/busboy": "^1.5.4",
@@ -154,6 +162,7 @@
   },
   "packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6",
     "@types/js-yaml": "^4.0.9"
   }
 }

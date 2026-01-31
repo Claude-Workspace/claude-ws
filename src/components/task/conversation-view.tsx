@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBlock } from '@/components/claude/message-block';
-import { ToolUseBlock } from '@/components/claude/tool-use-block';
+import { ToolUseBlock, extractTasksFromBlocks, ConsolidatedTaskListBlock } from '@/components/claude/tool-use-block';
 import { RunningDots, useRandomStatusVerb } from '@/components/ui/running-dots';
 import { PendingQuestionIndicator } from '@/components/task/pending-question-indicator';
 import { cn } from '@/lib/utils';
@@ -473,15 +473,73 @@ export function ConversationView({
     lastToolUseId: string | null
   ) => {
     // Handle assistant messages - render ALL content blocks in order (text, thinking, tool_use)
-    // This preserves the natural order of Claude's response
+    // Group consecutive TaskCreate/TaskUpdate blocks into a single consolidated todo list
     if (output.type === 'assistant' && output.message?.content) {
       const blocks = output.message.content;
+      const renderedElements: React.ReactNode[] = [];
+      let i = 0;
+
+      while (i < blocks.length) {
+        const block = blocks[i];
+        const isTaskTool = block.type === 'tool_use' &&
+          (block.name === 'TaskCreate' || block.name === 'TaskUpdate');
+
+        if (isTaskTool) {
+          // Collect consecutive task tool blocks
+          const taskBlocks: { name: string; input: any; id?: string }[] = [];
+          while (i < blocks.length) {
+            const b = blocks[i];
+            if (b.type === 'tool_use' && (b.name === 'TaskCreate' || b.name === 'TaskUpdate')) {
+              taskBlocks.push({ name: b.name!, input: b.input, id: b.id });
+              i++;
+            } else {
+              break;
+            }
+          }
+
+          // Render consolidated task list
+          const tasks = extractTasksFromBlocks(taskBlocks);
+          if (tasks.length > 0) {
+            // Show a single status line for the group, then the consolidated list
+            const groupKey = taskBlocks.map(b => b.id).join('-') || `task-group-${renderedElements.length}`;
+            renderedElements.push(
+              <div key={groupKey} className="w-full max-w-full overflow-hidden">
+                {/* Individual tool status lines (collapsed) */}
+                {taskBlocks.map((tb, tbIdx) => {
+                  const toolId = tb.id || '';
+                  const toolResult = toolResultsMap.get(toolId);
+                  const executing = isToolExecuting(toolId, lastToolUseId, toolResultsMap, isStreaming);
+                  return (
+                    <ToolUseBlock
+                      key={toolId || `tb-${tbIdx}`}
+                      name={tb.name}
+                      input={tb.input}
+                      result={toolResult?.result}
+                      isError={toolResult?.isError}
+                      isStreaming={executing}
+                      hideTaskTodoList
+                    />
+                  );
+                })}
+                {/* Single consolidated task list */}
+                <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
+                  <ConsolidatedTaskListBlock tasks={tasks} />
+                </div>
+              </div>
+            );
+          }
+        } else {
+          // Render non-task blocks normally
+          renderedElements.push(
+            renderContentBlock(block, i, lastToolUseId, toolResultsMap, isStreaming)
+          );
+          i++;
+        }
+      }
 
       return (
         <div key={(output as any)._msgId || index} className="space-y-1 w-full max-w-full overflow-hidden">
-          {blocks.map((block, blockIndex) =>
-            renderContentBlock(block, blockIndex, lastToolUseId, toolResultsMap, isStreaming)
-          )}
+          {renderedElements}
         </div>
       );
     }
@@ -585,6 +643,79 @@ export function ConversationView({
     </div>
   );
 
+  // Render a list of messages with consecutive TaskCreate/TaskUpdate grouping
+  const renderMessagesWithTaskGrouping = (
+    messages: ClaudeOutput[],
+    isStreaming: boolean,
+    toolResultsMap: Map<string, { result: string; isError: boolean }>,
+    lastToolUseId: string | null
+  ): React.ReactNode[] => {
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < messages.length) {
+      const msg = messages[i];
+      const isTopLevelTaskTool = msg.type === 'tool_use' &&
+        (msg.tool_name === 'TaskCreate' || msg.tool_name === 'TaskUpdate');
+
+      if (isTopLevelTaskTool) {
+        // Collect consecutive top-level TaskCreate/TaskUpdate messages
+        const taskMsgs: ClaudeOutput[] = [];
+        while (i < messages.length) {
+          const m = messages[i];
+          if (m.type === 'tool_use' && (m.tool_name === 'TaskCreate' || m.tool_name === 'TaskUpdate')) {
+            taskMsgs.push(m);
+            i++;
+          } else {
+            break;
+          }
+        }
+
+        // Build task blocks for extraction
+        const taskBlocks = taskMsgs.map(m => ({
+          name: m.tool_name || 'TaskCreate',
+          input: m.tool_data,
+          id: m.id,
+        }));
+        const tasks = extractTasksFromBlocks(taskBlocks);
+        const groupKey = taskBlocks.map(b => b.id).join('-') || `task-group-${elements.length}`;
+
+        elements.push(
+          <div key={groupKey} className="w-full max-w-full overflow-hidden">
+            {/* Individual tool status lines (no JSON, no todo list) */}
+            {taskMsgs.map((tm, tmIdx) => {
+              const toolId = tm.id || '';
+              const toolResult = toolResultsMap.get(toolId);
+              const executing = isToolExecuting(toolId, lastToolUseId, toolResultsMap, isStreaming);
+              return (
+                <ToolUseBlock
+                  key={toolId || `tm-${tmIdx}`}
+                  name={tm.tool_name || 'TaskCreate'}
+                  input={tm.tool_data}
+                  result={toolResult?.result}
+                  isError={toolResult?.isError}
+                  isStreaming={executing}
+                  hideTaskTodoList
+                />
+              );
+            })}
+            {/* Single consolidated task list */}
+            {tasks.length > 0 && (
+              <div className="mt-1.5 ml-5 w-full max-w-full overflow-hidden pr-5">
+                <ConsolidatedTaskListBlock tasks={tasks} />
+              </div>
+            )}
+          </div>
+        );
+      } else {
+        elements.push(renderMessage(msg, i, isStreaming, toolResultsMap, lastToolUseId));
+        i++;
+      }
+    }
+
+    return elements;
+  };
+
   // Assistant response - clean text flow
   // Pre-compute maps once per turn to avoid O(n²) complexity
   const renderAssistantTurn = (turn: ConversationTurn) => {
@@ -592,7 +723,7 @@ export function ConversationView({
     const lastToolUseId = findLastToolUseId(turn.messages);
     return (
       <div key={`assistant-${turn.attemptId}`} className="space-y-4 w-full max-w-full overflow-hidden">
-        {turn.messages.map((msg, idx) => renderMessage(msg, idx, false, toolResultsMap, lastToolUseId))}
+        {renderMessagesWithTaskGrouping(turn.messages, false, toolResultsMap, lastToolUseId)}
       </div>
     );
   };
@@ -684,7 +815,7 @@ export function ConversationView({
                 )}
                 {/* Streaming response */}
                 <div className="space-y-4 w-full max-w-full overflow-hidden">
-                  {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentToolResultsMap, currentLastToolUseId))}
+                  {renderMessagesWithTaskGrouping(currentMessages, true, currentToolResultsMap, currentLastToolUseId)}
                 </div>
 
                 {/* Pending question indicator - shown when question is interrupted */}

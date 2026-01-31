@@ -30,6 +30,8 @@ interface ToolUseBlockProps {
   isStreaming?: boolean;
   className?: string;
   onOpenPanel?: () => void;
+  /** When true, suppress the inline todo list for TaskCreate/TaskUpdate (used when grouped) */
+  hideTaskTodoList?: boolean;
 }
 
 // Get icon for tool type
@@ -275,27 +277,40 @@ function TodoListBlock({ todos }: { todos: TodoItem[] }) {
   );
 }
 
-// Extract tasks from TaskUpdate/TaskCreate input
-function extractTasksFromTaskTool(input: any): TodoItem[] | null {
-  // TaskUpdate/TaskCreate has a different structure than TodoWrite
-  // SDK Task tool input format: { prompt, subject, description, status, activeForm }
+// Extract a single task from TaskUpdate/TaskCreate input
+function extractSingleTask(input: any): TodoItem | null {
   if (!input) return null;
-
-  const tasks: TodoItem[] = [];
-
-  // Single task update - check for subject or prompt (SDK uses prompt as fallback)
   const taskContent = input.subject || input.prompt || input.description;
-  if (taskContent) {
-    tasks.push({
-      content: taskContent,
-      status: input.status === 'completed' ? 'completed' :
-              input.status === 'in_progress' ? 'in_progress' :
-              input.status === 'in_progress' ? 'in_progress' : 'pending',
-      activeForm: input.activeForm,
-    });
-  }
+  if (!taskContent) return null;
+  return {
+    content: taskContent,
+    status: input.status === 'completed' ? 'completed' :
+            input.status === 'in_progress' ? 'in_progress' : 'pending',
+    activeForm: input.activeForm,
+  };
+}
 
-  return tasks.length > 0 ? tasks : null;
+// Extract tasks from TaskUpdate/TaskCreate input (returns array or null)
+function extractTasksFromTaskTool(input: any): TodoItem[] | null {
+  const task = extractSingleTask(input);
+  return task ? [task] : null;
+}
+
+// Extract tasks from multiple TaskCreate/TaskUpdate content blocks (grouped)
+export function extractTasksFromBlocks(blocks: { name: string; input: any }[]): TodoItem[] {
+  const tasks: TodoItem[] = [];
+  for (const block of blocks) {
+    if (block.name === 'TaskCreate' || block.name === 'TaskUpdate') {
+      const task = extractSingleTask(block.input);
+      if (task) tasks.push(task);
+    }
+  }
+  return tasks;
+}
+
+// Consolidated task list for grouped TaskCreate/TaskUpdate blocks
+export function ConsolidatedTaskListBlock({ tasks }: { tasks: TodoItem[] }) {
+  return <TodoListBlock todos={tasks} />;
 }
 
 // Edit tool diff display
@@ -314,7 +329,7 @@ function EditBlock({ input, result, isError }: { input: any; result?: string; is
 }
 
 // Memoized ToolUseBlock - prevents unnecessary re-renders for completed tool calls
-export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, isError, isStreaming, className, onOpenPanel }: ToolUseBlockProps) {
+export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, isError, isStreaming, className, onOpenPanel, hideTaskTodoList }: ToolUseBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const Icon = getToolIcon(name);
   const displayText = getToolDisplay(name, input);
@@ -330,13 +345,14 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, is
   const isAskUserQuestion = name === 'AskUserQuestion';
   const hasEditDiff = isEdit && Boolean(inputObj?.old_string) && Boolean(inputObj?.new_string);
   const hasTodos = isTodoWrite && Array.isArray(inputObj?.todos) && (inputObj.todos as TodoItem[]).length > 0;
-  const hasTaskTodos = isTaskUpdate && extractTasksFromTaskTool(inputObj);
+  const hasTaskTodos = isTaskUpdate && !hideTaskTodoList && extractTasksFromTaskTool(inputObj);
 
   // For bash, edit with diff, and todo list, we show expanded content differently
   const showSpecialView = isBash || hasEditDiff || hasTodos || hasTaskTodos;
 
   // For other tools, check if we have expandable details
-  const hasOtherDetails = !showSpecialView && Boolean(result || (inputObj && Object.keys(inputObj).length > 1));
+  // When hideTaskTodoList is set, suppress expandable details for task tools (they're shown in consolidated view)
+  const hasOtherDetails = !showSpecialView && !hideTaskTodoList && Boolean(result || (inputObj && Object.keys(inputObj).length > 1));
 
   // Completed tool with result - show in green like CLI
   const isCompleted = !isStreaming && result && !isError;

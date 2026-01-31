@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { ClaudeOutput, ClaudeContentBlock } from '@/types';
 import { MessageBlock } from './message-block';
-import { ToolUseBlock } from './tool-use-block';
+import { ToolUseBlock, extractTasksFromBlocks, ConsolidatedTaskListBlock } from './tool-use-block';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 

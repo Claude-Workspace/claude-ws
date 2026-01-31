@@ -37,10 +37,15 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next-prod/types/**/*.ts",
+    ".next-prod/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "docs/**/*.ts"
+    "docs/**/*.ts",
+    "src-tauri/resources/**",
+    "src-tauri/target/**",
+    ".next-prod/**"
   ]
 }

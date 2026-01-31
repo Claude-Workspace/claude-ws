@@ -77,3 +77,12 @@ next-env.d.ts
 .pm2/
 .repomixignore
 release-manifest.json
+
+# Tauri
+/src-tauri/target/
+/src-tauri/binaries/
+/src-tauri/resources/
+/src-tauri/gen/
+/.next-prod/
+/sidecar/dist/
+/sidecar/node_modules/

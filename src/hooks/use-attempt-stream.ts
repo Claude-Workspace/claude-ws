@@ -338,17 +338,22 @@ export function useAttemptStream(
   }, [taskId]);
 
   // Helper to scan messages for unanswered AskUserQuestion tools
+  //
+  // ID Mismatch Problem:
+  // - SDK creates tool_use with id="toolu_xxx" (SDK-generated)
+  // - canUseTool creates toolUseId="ask-{timestamp}" (custom)
+  // - user_answer logs save toolUseId="ask-{timestamp}"
+  // - tool_result uses tool_use_id="toolu_xxx"
+  // These IDs DON'T MATCH, so we use two strategies:
+  // 1. tool_result matching (by SDK tool_use_id)
+  // 2. Count-based matching (count user_answer logs = answered questions)
   const checkForUnansweredQuestion = useCallback((messages: ClaudeOutput[], attemptId: string) => {
-    // Build a set of tool_use_ids that have results
-    // Check both top-level tool_result messages (from conversation API)
-    // and tool_result content blocks inside user messages (from running-attempt raw logs)
+    // Strategy 1: Collect tool_use_ids that have tool_result (SDK IDs match)
     const answeredToolIds = new Set<string>();
-
     for (const msg of messages) {
       if (msg.type === 'tool_result' && msg.tool_data?.tool_use_id) {
         answeredToolIds.add(String(msg.tool_data.tool_use_id));
       }
-      // Check user messages with tool_result content blocks (raw streaming logs)
       if (msg.type === 'user' && msg.message?.content) {
         for (const block of msg.message.content) {
           if ((block as any).type === 'tool_result' && (block as any).tool_use_id) {
@@ -356,82 +361,77 @@ export function useAttemptStream(
           }
         }
       }
-      // Detect user_answer logs (saved by /api/attempts/[id]/answer)
-      // Extract toolUseId to mark the specific question as answered
+    }
+
+    // Strategy 2: Count user_answer logs (each = one answered question)
+    let userAnswerCount = 0;
+    for (const msg of messages) {
       if ((msg as any).type === 'user_answer') {
-        const toolUseId = (msg as any).toolUseId;
-        if (toolUseId) {
-          console.log('[checkForUnansweredQuestion] Marking question as answered via user_answer log', toolUseId);
-          answeredToolIds.add(String(toolUseId));
-        }
+        userAnswerCount++;
       }
     }
-    console.log('[checkForUnansweredQuestion] Answered tool IDs', Array.from(answeredToolIds));
 
-    // Collect all AskUserQuestion tool_use_ids from messages (in order)
-    const askQuestionIds: string[] = [];
+    // Collect all AskUserQuestion tool_uses in order
+    const askQuestions: { toolUseId: string; questions: unknown[] }[] = [];
     for (const msg of messages) {
       if (msg.type === 'tool_use' && msg.tool_name === 'AskUserQuestion' && msg.id) {
-        askQuestionIds.push(msg.id);
+        const questions = (msg as any).tool_data?.questions;
+        if (questions && Array.isArray(questions)) {
+          askQuestions.push({ toolUseId: msg.id, questions });
+        }
       }
       if (msg.type === 'assistant' && msg.message?.content) {
         for (const block of msg.message.content) {
           if ((block as any).type === 'tool_use' &&
               (block as any).name === 'AskUserQuestion' &&
               (block as any).id) {
-            askQuestionIds.push(String((block as any).id));
-          }
-        }
-      }
-    }
-
-    // Find LAST unanswered AskUserQuestion (most recent, not first)
-    // We need to scan all messages first to find the last unanswered one
-    let lastUnansweredQuestion: { attemptId: string; toolUseId: string; questions: unknown[] } | null = null;
-
-    for (const msg of messages) {
-      if (msg.type === 'tool_use' && msg.tool_name === 'AskUserQuestion' && msg.id) {
-        if (!answeredToolIds.has(msg.id)) {
-          // Found unanswered question - keep track but continue to find the LAST one
-          const questions = (msg as any).tool_data?.questions;
-          if (questions && Array.isArray(questions)) {
-            lastUnansweredQuestion = {
-              attemptId,
-              toolUseId: msg.id,
-              questions
-            };
-          }
-        }
-      }
-      // Also check assistant messages with content blocks
-      if (msg.type === 'assistant' && msg.message?.content) {
-        for (const block of msg.message.content) {
-          if ((block as any).type === 'tool_use' &&
-              (block as any).name === 'AskUserQuestion' &&
-              (block as any).id) {
-            const toolUseId = String((block as any).id);
-            if (!answeredToolIds.has(toolUseId)) {
-              const questions = (block as any).input?.questions;
-              if (questions && Array.isArray(questions)) {
-                lastUnansweredQuestion = {
-                  attemptId,
-                  toolUseId,
-                  questions
-                };
-              }
+            const questions = (block as any).input?.questions;
+            if (questions && Array.isArray(questions)) {
+              askQuestions.push({ toolUseId: String((block as any).id), questions });
             }
           }
         }
       }
     }
 
+    console.log('[checkForUnansweredQuestion]', {
+      totalQuestions: askQuestions.length,
+      answeredByToolResult: answeredToolIds.size,
+      answeredByUserAnswer: userAnswerCount,
+      askQuestionIds: askQuestions.map(q => q.toolUseId),
+    });
+
+    // Determine how many questions are answered using BOTH strategies
+    // A question is answered if EITHER:
+    // - It has a matching tool_result (Strategy 1)
+    // - It's within the user_answer count (Strategy 2, order-based)
+    let userAnswersUsed = 0;
+    let lastUnansweredQuestion: { attemptId: string; toolUseId: string; questions: unknown[] } | null = null;
+
+    for (const q of askQuestions) {
+      // Check Strategy 1: tool_result match
+      if (answeredToolIds.has(q.toolUseId)) {
+        continue; // Answered via tool_result
+      }
+      // Check Strategy 2: count-based match
+      if (userAnswersUsed < userAnswerCount) {
+        userAnswersUsed++;
+        continue; // Answered via user_answer log
+      }
+      // Not answered by either strategy - this is unanswered
+      lastUnansweredQuestion = { attemptId, toolUseId: q.toolUseId, questions: q.questions };
+    }
+
     // Restore only the LAST unanswered question (most recent)
     if (lastUnansweredQuestion) {
+      console.log('[checkForUnansweredQuestion] Restoring unanswered question', lastUnansweredQuestion.toolUseId);
       setActiveQuestion({
         attemptId: lastUnansweredQuestion.attemptId,
         toolUseId: lastUnansweredQuestion.toolUseId,
         questions: lastUnansweredQuestion.questions as Question[]
       });
+    } else {
+      console.log('[checkForUnansweredQuestion] All questions answered, no restore needed');
     }
   }, []);
 

@@ -5,6 +5,9 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  // Allow production build to use separate dir (avoids dev server lock conflicts)
+  ...(process.env.NEXT_BUILD_DIST_DIR ? { distDir: process.env.NEXT_BUILD_DIST_DIR } : {}),
   outputFileTracingRoot: path.join(__dirname),
   outputFileTracingIncludes: {
     '/': ['./src/**/*'],
