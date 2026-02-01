@@ -1,5 +1,14 @@
 import 'dotenv/config';
 
+// Load ~/.claude/settings.json env vars as fallback
+// This ensures SDK subprocess has API key even if not in .env
+import { applyClaudeCodeSettingsFallback } from './src/lib/claude-code-settings';
+applyClaudeCodeSettingsFallback();
+
+// CRITICAL: Patch fetch BEFORE importing agent-manager or SDK
+// This caches count_tokens responses to reduce API requests
+import { logCacheStats } from './src/lib/fetch-cache-patch';
+
 // Enable SDK file checkpointing globally
 process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
 
@@ -995,6 +1004,11 @@ app.prepare().then(async () => {
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
+
+    // Log cache stats every 5 minutes for monitoring
+    setInterval(() => {
+      logCacheStats();
+    }, 5 * 60 * 1000).unref();
   });
 
   // Graceful shutdown handler

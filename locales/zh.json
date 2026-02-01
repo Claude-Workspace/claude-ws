@@ -35,7 +35,8 @@
     "shell": "Shell",
     "running": "运行中",
     "newTask": "新任务",
-    "agentFactory": "代理工厂",
+    "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "随处访问"
   },
   "header": {
@@ -217,7 +218,7 @@
     "deleteProject": "删除项目",
     "projectPath": "项目路径",
     "projectName": "项目名称",
-    "agentFactory": "代理工厂",
+    "agentFactory": "Agent Factory",
     "plugins": "插件",
     "installPlugin": "安装插件",
     "managePlugins": "管理插件"

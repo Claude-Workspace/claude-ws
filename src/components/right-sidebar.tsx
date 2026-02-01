@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { Plus, Settings, Package, X, Sun, Moon, LogOut, Globe } from 'lucide-react';
+import { Plus, Settings, Package, X, Sun, Moon, LogOut, Globe, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
@@ -11,6 +11,7 @@ import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { useTunnelStore } from '@/stores/tunnel-store';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { clearStoredApiKey } from '@/components/auth/api-key-dialog';
+import { dispatchAgentProviderConfig } from '@/components/auth/agent-provider-dialog';
 import {
   Tooltip,
   TooltipContent,
@@ -157,6 +158,21 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
           <Settings className="h-4 w-4" />
           {t('settings')}
         </Button>
+
+        {/* Agent Provider - submenu item under Settings */}
+        <div className="pl-6">
+          <Button
+            variant="outline"
+            onClick={() => {
+              dispatchAgentProviderConfig();
+              closeRightSidebar();
+            }}
+            className="w-full justify-start gap-2"
+          >
+            <Brain className="h-4 w-4" />
+            {t('agentProvider')}
+          </Button>
+        </div>
 
         {/* Access Anywhere - submenu item under Settings */}
         <div className="pl-6">

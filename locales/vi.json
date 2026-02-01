@@ -36,6 +36,7 @@
     "running": "đang chạy",
     "newTask": "Nhiệm vụ mới",
     "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "Truy cập Mọi nơi"
   },
   "header": {

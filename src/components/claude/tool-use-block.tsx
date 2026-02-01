@@ -21,6 +21,8 @@ import { RunningDots } from '@/components/ui/running-dots';
 import { cn } from '@/lib/utils';
 import { DiffView } from './diff-view';
 import { Button } from '@/components/ui/button';
+import { ConfigProviderButton } from '@/components/auth/auth-error-message';
+import { isProviderAuthError } from '@/components/auth/agent-provider-dialog';
 
 interface ToolUseBlockProps {
   name: string;
@@ -383,6 +385,9 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, is
         )}
 
         {isError && <AlertCircle className="size-3.5 text-destructive shrink-0 mt-1" />}
+        {isError && result && isProviderAuthError(result) && (
+          <ConfigProviderButton className="ml-2 h-7 text-xs" />
+        )}
       </div>
 
       {/* Special view for Bash */}

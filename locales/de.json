@@ -35,7 +35,8 @@
     "shell": "Shell",
     "running": "Läuft",
     "newTask": "Neue Aufgabe",
-    "agentFactory": "Agent-Fabrik",
+    "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "Überall zugreifen"
   },
   "header": {
@@ -217,7 +218,7 @@
     "deleteProject": "Projekt löschen",
     "projectPath": "Projektpfad",
     "projectName": "Projektname",
-    "agentFactory": "Agent-Fabrik",
+    "agentFactory": "Agent Factory",
     "plugins": "Plugins",
     "installPlugin": "Plugin installieren",
     "managePlugins": "Plugins verwalten"

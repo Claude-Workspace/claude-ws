@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { appSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { existsSync, readFileSync } from 'fs';
+import { join, dirname } from 'path';
 import {
   AVAILABLE_MODELS,
   DEFAULT_MODEL_ID,
@@ -12,19 +14,81 @@ import {
 const SELECTED_MODEL_KEY = 'selectedModel';
 
 /**
+ * Get the app root directory (where .env is located)
+ */
+function getAppRoot(): string {
+  // 1. Explicit environment variable
+  if (process.env.APP_ROOT && existsSync(process.env.APP_ROOT)) {
+    return process.env.APP_ROOT;
+  }
+
+  // 2. Common Docker app directory
+  if (existsSync('/app/package.json')) {
+    return '/app';
+  }
+
+  // 3. Try process.cwd()
+  const cwd = process.cwd();
+  if (existsSync(join(cwd, 'package.json'))) {
+    return cwd;
+  }
+
+  // 4. Walk up from __dirname
+  let dir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'package.json'))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return cwd;
+}
+
+/**
+ * Read env values directly from app's .env file
+ */
+function getEnvFromFile(): Record<string, string> {
+  const envPath = join(getAppRoot(), '.env');
+  const result: Record<string, string> = {};
+
+  if (!existsSync(envPath)) {
+    return result;
+  }
+
+  try {
+    const content = readFileSync(envPath, 'utf-8');
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const match = line.match(/^([A-Z_]+)=(.*)$/);
+      if (match) {
+        result[match[1]] = match[2];
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  return result;
+}
+
+/**
  * Build model list based on priority:
- * 1. ENV vars - use all defined models from env
+ * 1. ENV file - use all defined models from .env file
  * 2. Fallback to predefined AVAILABLE_MODELS
  */
 function buildModelList(): Model[] {
+  const envFile = getEnvFromFile();
   const envModels: Model[] = [];
 
-  // Check all env model vars
+  // Check all env model vars from .env file
   const envVars = [
-    { key: 'ANTHROPIC_MODEL', value: process.env.ANTHROPIC_MODEL },
-    { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', value: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL },
-    { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', value: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL },
-    { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', value: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL },
+    { key: 'ANTHROPIC_MODEL', value: envFile.ANTHROPIC_MODEL },
+    { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', value: envFile.ANTHROPIC_DEFAULT_OPUS_MODEL },
+    { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', value: envFile.ANTHROPIC_DEFAULT_SONNET_MODEL },
+    { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', value: envFile.ANTHROPIC_DEFAULT_HAIKU_MODEL },
   ];
 
   for (const { value } of envVars) {
@@ -49,22 +113,24 @@ function buildModelList(): Model[] {
 
 /**
  * Get current model based on priority:
- * 1. ENV vars (ANTHROPIC_MODEL, ANTHROPIC_DEFAULT_*_MODEL)
+ * 1. ENV file (ANTHROPIC_MODEL, ANTHROPIC_DEFAULT_*_MODEL)
  * 2. Cached selection from app_settings
  * 3. Default fallback
  */
 function getCurrentModel(): { modelId: string; source: 'env' | 'cached' | 'default' } {
-  // Priority 1: Check ENV vars - accept ANY model ID from env
-  const envModel = process.env.ANTHROPIC_MODEL;
+  const envFile = getEnvFromFile();
+
+  // Priority 1: Check ENV file - accept ANY model ID from env
+  const envModel = envFile.ANTHROPIC_MODEL;
   if (envModel) {
     return { modelId: envModel, source: 'env' };
   }
 
-  // Check tier-specific env vars
+  // Check tier-specific env vars from file
   const tierEnvVars = {
-    opus: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL,
-    sonnet: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL,
-    haiku: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+    opus: envFile.ANTHROPIC_DEFAULT_OPUS_MODEL,
+    sonnet: envFile.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    haiku: envFile.ANTHROPIC_DEFAULT_HAIKU_MODEL,
   };
 
   for (const [, value] of Object.entries(tierEnvVars)) {

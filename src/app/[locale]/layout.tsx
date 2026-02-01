@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
+import { AgentProviderConfigProvider } from '@/components/providers/agent-provider-config';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -69,7 +70,9 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           <SocketProvider>
             <ThemeProvider>
-              {children}
+              <AgentProviderConfigProvider>
+                {children}
+              </AgentProviderConfigProvider>
               <Toaster position="top-right" richColors closeButton />
             </ThemeProvider>
           </SocketProvider>

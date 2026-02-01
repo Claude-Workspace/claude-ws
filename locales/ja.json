@@ -35,7 +35,8 @@
     "shell": "シェル",
     "running": "実行中",
     "newTask": "新しいタスク",
-    "agentFactory": "エージェントファクトリー",
+    "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "どこからでもアクセス"
   },
   "header": {
@@ -217,7 +218,7 @@
     "deleteProject": "プロジェクトを削除",
     "projectPath": "プロジェクトパス",
     "projectName": "プロジェクト名",
-    "agentFactory": "エージェントファクトリー",
+    "agentFactory": "Agent Factory",
     "plugins": "プラグイン",
     "installPlugin": "プラグインをインストール",
     "managePlugins": "プラグインを管理"

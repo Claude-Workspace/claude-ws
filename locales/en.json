@@ -36,6 +36,7 @@
     "running": "running",
     "newTask": "New Task",
     "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "Access Anywhere"
   },
   "header": {

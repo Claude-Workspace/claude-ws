@@ -35,7 +35,8 @@
     "shell": "셸",
     "running": "실행 중",
     "newTask": "새 작업",
-    "agentFactory": "에이전트 팩토리",
+    "agentFactory": "Agent Factory",
+    "agentProvider": "Agent Provider",
     "accessAnywhere": "어디서나 접근"
   },
   "header": {
@@ -217,7 +218,7 @@
     "deleteProject": "프로젝트 삭제",
     "projectPath": "프로젝트 경로",
     "projectName": "프로젝트 이름",
-    "agentFactory": "에이전트 팩토리",
+    "agentFactory": "Agent Factory",
     "plugins": "플러그인",
     "installPlugin": "플러그인 설치",
     "managePlugins": "플러그인 관리"

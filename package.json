@@ -69,7 +69,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.20",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.29",
     "@anthropic-ai/sdk": "^0.71.2",
     "@codemirror/lang-cpp": "^6.0.3",
     "@codemirror/lang-css": "^6.3.1",

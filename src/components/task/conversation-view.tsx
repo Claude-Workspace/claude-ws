@@ -7,6 +7,8 @@ import { MessageBlock } from '@/components/claude/message-block';
 import { ToolUseBlock } from '@/components/claude/tool-use-block';
 import { RunningDots, useRandomStatusVerb } from '@/components/ui/running-dots';
 import { PendingQuestionIndicator } from '@/components/task/pending-question-indicator';
+import { AuthErrorMessage } from '@/components/auth/auth-error-message';
+import { isProviderAuthError } from '@/components/auth/agent-provider-dialog';
 import { cn } from '@/lib/utils';
 import type { ClaudeOutput, ClaudeContentBlock, AttemptFile, PendingFile } from '@/types';
 
@@ -93,6 +95,28 @@ function hasVisibleContent(messages: ClaudeOutput[]): boolean {
     if (msg.type === 'tool_use') return true;
     return false;
   });
+}
+
+// Check if messages contain an auth/provider error
+function findAuthError(messages: ClaudeOutput[]): string | null {
+  for (const msg of messages) {
+    // Check tool_result errors
+    if (msg.type === 'tool_result' && msg.is_error && msg.result) {
+      const result = typeof msg.result === 'string' ? msg.result : JSON.stringify(msg.result);
+      if (isProviderAuthError(result)) {
+        return result;
+      }
+    }
+    // Check assistant message text content for error messages
+    if (msg.type === 'assistant' && msg.message?.content) {
+      for (const block of msg.message.content) {
+        if (block.type === 'text' && block.text && isProviderAuthError(block.text)) {
+          return block.text;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 // Find the last tool_use ID across all messages (globally)
@@ -707,6 +731,12 @@ export function ConversationView({
               <span className="font-mono text-[14px]" style={{ color: '#b9664a' }}>{statusVerb}...</span>
             </div>
           )}
+
+        {/* Auth error message - show when provider auth error is detected */}
+        {(() => {
+          const authError = findAuthError(currentMessages);
+          return authError ? <AuthErrorMessage message={authError} className="mt-4" /> : null;
+        })()}
       </div>
     </ScrollArea>
   );
