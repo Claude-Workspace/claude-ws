@@ -113,16 +113,37 @@ export const useModelStore = create<ModelStore>((set, get) => ({
 
   // Get model for a specific task
   getTaskModel: (taskId: string, taskLastModel?: string | null) => {
-    const { taskModels, defaultModel } = get();
+    const { taskModels, defaultModel, availableModels } = get();
     // Priority: local state > task.lastModel > default
-    return taskModels[taskId] || taskLastModel || defaultModel;
+    const candidate = taskModels[taskId] || taskLastModel || defaultModel;
+
+    // Validate that the model exists in available models
+    // If not (due to provider change), fall back to default
+    if (availableModels.length > 0 && candidate !== defaultModel) {
+      const modelExists = availableModels.some((m) => m.id === candidate);
+      if (!modelExists) {
+        return defaultModel;
+      }
+    }
+
+    return candidate;
   },
 
   getShortName: (taskId?: string, taskLastModel?: string | null) => {
-    const { taskModels, defaultModel } = get();
-    const model = taskId
+    const { taskModels, defaultModel, availableModels } = get();
+    let model = taskId
       ? taskModels[taskId] || taskLastModel || defaultModel
       : defaultModel;
+
+    // Validate that the model exists in available models
+    // If not (due to provider change), fall back to default
+    if (availableModels.length > 0 && model !== defaultModel) {
+      const modelExists = availableModels.some((m) => m.id === model);
+      if (!modelExists) {
+        model = defaultModel;
+      }
+    }
+
     return getModelShortName(model || defaultModel);
   },
 }));
