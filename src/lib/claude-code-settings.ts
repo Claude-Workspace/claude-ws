@@ -90,6 +90,7 @@ const LLM_CONFIG_KEYS = [
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_PROXIED_BASE_URL',  // Target URL when using proxy
   'ANTHROPIC_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
@@ -101,8 +102,8 @@ const LLM_CONFIG_KEYS = [
  * Apply Claude Code settings from the highest priority available source
  *
  * Priority order (highest to lowest):
- * 1. Project .claude/.env
- * 2. ~/.claude/settings.json → env object
+ * 1. ~/.claude/settings.json → env object (SDK uses this, highest priority)
+ * 2. Project .claude/.env
  * 3. ~/.claude/.env
  * 4. ~/.claude.json → primaryApiKey
  * 5. ~/.claude/.credentials.json → OAuth (handled by SDK internally)
@@ -120,7 +121,16 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
   const userEnvPath = join(userClaudeDir, '.env');
   const claudeJsonPath = join(homeDir, '.claude.json');
 
-  // Priority 1: Project .claude/.env
+  // Priority 1: ~/.claude/settings.json (SDK uses this, highest priority)
+  const settings = loadClaudeCodeSettings();
+  if (settings?.env && hasValidLLMConfig(settings.env)) {
+    applyEnvConfig(settings.env);
+    console.log(`[ClaudeCodeSettings] ✓ Using: ${userSettingsPath}`);
+    logCurrentConfig();
+    return;
+  }
+
+  // Priority 2: Project .claude/.env
   if (projectPath) {
     const projectEnvPath = join(projectPath, '.claude', '.env');
     const projectEnv = loadEnvFile(projectEnvPath);
@@ -130,15 +140,6 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
       logCurrentConfig();
       return;
     }
-  }
-
-  // Priority 2: ~/.claude/settings.json
-  const settings = loadClaudeCodeSettings();
-  if (settings?.env && hasValidLLMConfig(settings.env)) {
-    applyEnvConfig(settings.env);
-    console.log(`[ClaudeCodeSettings] ✓ Using: ${userSettingsPath}`);
-    logCurrentConfig();
-    return;
   }
 
   // Priority 3: ~/.claude/.env
@@ -189,10 +190,11 @@ function hasValidLLMConfig(env: Record<string, string>): boolean {
 
 /**
  * Apply env config to process.env (only LLM keys)
+ * Overwrites existing values since caller already determined this is the highest priority source
  */
 function applyEnvConfig(env: Record<string, string>): void {
   for (const key of LLM_CONFIG_KEYS) {
-    if (env[key] && !process.env[key]) {
+    if (env[key]) {
       process.env[key] = env[key];
     }
   }
@@ -228,7 +230,7 @@ export function getClaudeCodeEnv(projectPath?: string): Record<string, string> {
 
   // Apply in priority order (lowest to highest, later overwrites earlier)
 
-  // 4. ~/.claude.json primaryApiKey
+  // 4. ~/.claude.json primaryApiKey (lowest)
   const claudeJson = loadClaudeJsonConfig();
   if (claudeJson?.primaryApiKey) {
     env.ANTHROPIC_API_KEY = claudeJson.primaryApiKey;
@@ -243,15 +245,7 @@ export function getClaudeCodeEnv(projectPath?: string): Record<string, string> {
     }
   }
 
-  // 2. ~/.claude/settings.json env object
-  const settings = loadClaudeCodeSettings();
-  if (settings?.env) {
-    for (const key of LLM_CONFIG_KEYS) {
-      if (settings.env[key]) env[key] = settings.env[key];
-    }
-  }
-
-  // 1. Project .claude/.env (highest priority)
+  // 2. Project .claude/.env
   if (projectPath) {
     const projectEnvPath = join(projectPath, '.claude', '.env');
     const projectEnv = loadEnvFile(projectEnvPath);
@@ -259,6 +253,14 @@ export function getClaudeCodeEnv(projectPath?: string): Record<string, string> {
       for (const key of LLM_CONFIG_KEYS) {
         if (projectEnv[key]) env[key] = projectEnv[key];
       }
+    }
+  }
+
+  // 1. ~/.claude/settings.json env object (highest priority - SDK uses this)
+  const settings = loadClaudeCodeSettings();
+  if (settings?.env) {
+    for (const key of LLM_CONFIG_KEYS) {
+      if (settings.env[key]) env[key] = settings.env[key];
     }
   }
 

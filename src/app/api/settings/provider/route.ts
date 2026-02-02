@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { agentManager } from '@/lib/agent-manager';
+import { reloadConfigByPriority } from '@/lib/anthropic-proxy-setup';
 
 // Configuration keys we handle
 const CONFIG_KEYS = [
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_PROXIED_BASE_URL',  // Target URL when using proxy
   'ANTHROPIC_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
@@ -125,7 +128,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API] Saved provider configuration to ${envPath}`);
 
-    return NextResponse.json({ success: true, path: envPath });
+    // Cancel all running agents so new ones use updated config
+    const runningCount = agentManager.runningCount;
+    if (runningCount > 0) {
+      console.log(`[API] Cancelling ${runningCount} running agents to apply new provider config`);
+      agentManager.cancelAll();
+    }
+
+    return NextResponse.json({ success: true, path: envPath, cancelledAgents: runningCount });
   } catch (error) {
     console.error('[API] Failed to save provider settings:', error);
     return NextResponse.json(
@@ -154,7 +164,20 @@ export async function GET() {
     const hasCustomKey = existsSync(appEnvPath) &&
       readFileSync(appEnvPath, 'utf-8').includes('ANTHROPIC_AUTH_TOKEN=');
 
-    // Method 2: Anthropic Console (primaryApiKey in ~/.claude.json)
+    // Method 2: Settings.json (ANTHROPIC_AUTH_TOKEN in ~/.claude/settings.json env)
+    let hasSettingsJsonKey = false;
+    if (existsSync(settingsJsonPath)) {
+      try {
+        const content = readFileSync(settingsJsonPath, 'utf-8');
+        const data = JSON.parse(content);
+        // Check if env.ANTHROPIC_AUTH_TOKEN exists
+        hasSettingsJsonKey = !!data.env?.ANTHROPIC_AUTH_TOKEN;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    // Method 3: Anthropic Console (primaryApiKey in ~/.claude.json)
     let hasConsoleKey = false;
     if (existsSync(claudeJsonPath)) {
       try {
@@ -166,7 +189,7 @@ export async function GET() {
       }
     }
 
-    // Method 3: OAuth (credentials.json exists with claudeAiOauth)
+    // Method 4: OAuth (credentials.json exists with claudeAiOauth)
     let hasOAuth = false;
     if (existsSync(credentialsPath)) {
       try {
@@ -183,19 +206,17 @@ export async function GET() {
       (readFileSync(userEnvPath, 'utf-8').includes('ANTHROPIC_AUTH_TOKEN=') ||
        readFileSync(userEnvPath, 'utf-8').includes('ANTHROPIC_API_KEY='));
 
-    const hasSettingsJson = existsSync(settingsJsonPath);
+    // Determine default method based on priority order:
+    // 1. ~/.claude/settings.json env.ANTHROPIC_AUTH_TOKEN - highest priority (SDK uses this)
+    // 2. App's .env (custom key)
+    // 3. ~/.claude.json primaryApiKey -> "console"
+    // 4. ~/.claude/.credentials.json OAuth -> "oauth" - lowest priority
 
-    // Determine default method based on priority order from claude-code-settings.ts:
-    // 1. Project .claude/.env (not in our dialog options)
-    // 2. ~/.claude/settings.json (not in our dialog options)
-    // 3. ~/.claude/.env (not in our dialog options)
-    // 4. ~/.claude.json primaryApiKey -> "console"
-    // 5. ~/.claude/.credentials.json OAuth -> "oauth"
-    // Our custom .env is checked first (highest priority for our app)
+    let defaultMethod: 'custom' | 'settings' | 'console' | 'oauth' | null = null;
 
-    let defaultMethod: 'custom' | 'console' | 'oauth' | null = null;
-
-    if (hasCustomKey) {
+    if (hasSettingsJsonKey) {
+      defaultMethod = 'settings';
+    } else if (hasCustomKey) {
       defaultMethod = 'custom';
     } else if (hasConsoleKey) {
       defaultMethod = 'console';
@@ -203,23 +224,41 @@ export async function GET() {
       defaultMethod = 'oauth';
     }
 
-    // Get current config values from app's .env file directly (not from process.env)
-    const currentConfig: Record<string, string> = {};
+    // Get current process.env values (what's actually being used)
+    const processEnvConfig: Record<string, string> = {};
+    for (const key of CONFIG_KEYS) {
+      const value = process.env[key];
+      if (value) {
+        // Mask sensitive values
+        if (key.includes('KEY') || key.includes('TOKEN')) {
+          processEnvConfig[key] = value.length > 14 ? value.slice(0, 10) + '...' + value.slice(-4) : '***';
+        } else {
+          processEnvConfig[key] = value;
+        }
+      }
+    }
+
+    // Get config values from app's .env file directly (for Custom API Key form)
+    const appEnvConfig: Record<string, string> = {};
     if (existsSync(appEnvPath)) {
-      const envContent = readFileSync(appEnvPath, 'utf-8');
-      const lines = envContent.split('\n');
-      for (const line of lines) {
-        const match = line.match(/^([A-Z_]+)=(.*)$/);
-        if (match && CONFIG_KEYS.includes(match[1])) {
-          const key = match[1];
-          const value = match[2];
-          // Mask sensitive values
-          if (key.includes('KEY') || key.includes('TOKEN')) {
-            currentConfig[key] = value.length > 14 ? value.slice(0, 10) + '...' + value.slice(-4) : '***';
-          } else {
-            currentConfig[key] = value;
+      try {
+        const envContent = readFileSync(appEnvPath, 'utf-8');
+        const lines = envContent.split('\n');
+        for (const line of lines) {
+          const match = line.match(/^([A-Z_]+)=(.*)$/);
+          if (match && CONFIG_KEYS.includes(match[1])) {
+            const key = match[1];
+            const value = match[2];
+            // Mask sensitive values
+            if (key.includes('KEY') || key.includes('TOKEN')) {
+              appEnvConfig[key] = value.length > 14 ? value.slice(0, 10) + '...' + value.slice(-4) : '***';
+            } else {
+              appEnvConfig[key] = value;
+            }
           }
         }
+      } catch {
+        // Ignore read errors
       }
     }
 
@@ -227,16 +266,19 @@ export async function GET() {
       // Provider status
       providers: {
         custom: { configured: hasCustomKey, isDefault: defaultMethod === 'custom' },
+        settings: { configured: hasSettingsJsonKey, isDefault: defaultMethod === 'settings' },
         console: { configured: hasConsoleKey, isDefault: defaultMethod === 'console' },
         oauth: { configured: hasOAuth, isDefault: defaultMethod === 'oauth' },
       },
       // Legacy fields for backward compatibility
       hasAppEnvKey: hasCustomKey,
       hasUserEnvKey,
+      hasSettingsJsonKey,
       hasOAuthCredentials: hasOAuth,
       hasClaudeJson: hasConsoleKey,
       currentMethod: defaultMethod,
-      currentConfig,
+      processEnvConfig,
+      appEnvConfig,  // Values from app's .env file for Custom API Key form
       appRoot: getAppRoot(),
     });
   } catch (error) {
@@ -257,12 +299,9 @@ export async function DELETE() {
     const appRoot = getAppRoot();
     const envPath = join(appRoot, '.env');
 
-    // Clear all config keys from process.env first
-    for (const key of CONFIG_KEYS) {
-      delete process.env[key];
-    }
-
     if (!existsSync(envPath)) {
+      // Still reload from next priority source
+      reloadConfigByPriority();
       return NextResponse.json({ success: true, message: 'No .env file exists' });
     }
 
@@ -288,6 +327,9 @@ export async function DELETE() {
     writeFileSync(envPath, newContent, 'utf-8');
 
     console.log(`[API] Dismissed provider configuration from ${envPath}`);
+
+    // Reload config from next priority source (settings.json > ~/.claude.json > OAuth)
+    reloadConfigByPriority();
 
     return NextResponse.json({ success: true });
   } catch (error) {

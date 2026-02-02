@@ -5,9 +5,13 @@ import 'dotenv/config';
 import { applyClaudeCodeSettingsFallback } from './src/lib/claude-code-settings';
 applyClaudeCodeSettingsFallback();
 
-// CRITICAL: Patch fetch BEFORE importing agent-manager or SDK
-// This caches count_tokens responses to reduce API requests
-import { logCacheStats } from './src/lib/fetch-cache-patch';
+// Initialize Anthropic proxy BEFORE importing agent-manager or SDK
+// This redirects all Anthropic API calls through our proxy for token caching
+import { initAnthropicProxy } from './src/lib/anthropic-proxy-setup';
+initAnthropicProxy();
+
+// Import logCacheStats from shared cache module for monitoring
+import { logCacheStats } from './src/lib/proxy-token-cache';
 
 // Enable SDK file checkpointing globally
 process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
@@ -50,8 +54,9 @@ app.prepare().then(async () => {
     // API authentication check
     const isApiRoute = pathname.startsWith('/api/');
     const isVerifyEndpoint = pathname === '/api/auth/verify';
+    const isProxyEndpoint = pathname.startsWith('/api/proxy/anthropic');
 
-    if (isApiRoute && !isVerifyEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
+    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
       if (!providedKey || providedKey !== API_ACCESS_KEY) {

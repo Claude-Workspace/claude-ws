@@ -9,25 +9,40 @@ interface Model {
   id: string;
   name: string;
   description?: string;
-  isDefault?: boolean;
+  tier?: string;
 }
-
-// Available Claude models
-const AVAILABLE_MODELS: Model[] = [
-  { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', description: 'Most capable model', isDefault: true },
-  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', description: 'Latest Sonnet model' },
-  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Previous Sonnet model' },
-  { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Fast and efficient' },
-];
 
 interface ModelSelectorProps {
   currentModel: string;
 }
 
 export function ModelSelector({ currentModel }: ModelSelectorProps) {
+  const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>(currentModel);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { closeCommand, setError } = useInteractiveCommandStore();
+
+  // Fetch models from API
+  useEffect(() => {
+    async function fetchModels() {
+      try {
+        const res = await fetch('/api/models');
+        if (res.ok) {
+          const data = await res.json();
+          setModels(data.models || []);
+          if (data.current) {
+            setSelectedModel(data.current);
+          }
+        }
+      } catch {
+        // Ignore fetch errors, use empty list
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchModels();
+  }, []);
 
   // Handle model selection
   const handleSelect = async (modelId: string) => {
@@ -40,8 +55,7 @@ export function ModelSelector({ currentModel }: ModelSelectorProps) {
     setSaving(true);
 
     try {
-      // TODO: Implement model switching API
-      const res = await fetch('/api/config/model', {
+      const res = await fetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelId }),
@@ -62,17 +76,19 @@ export function ModelSelector({ currentModel }: ModelSelectorProps) {
 
   // Keyboard navigation
   useEffect(() => {
+    if (models.length === 0) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      const currentIndex = AVAILABLE_MODELS.findIndex((m) => m.id === selectedModel);
+      const currentIndex = models.findIndex((m) => m.id === selectedModel);
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const nextIndex = Math.min(currentIndex + 1, AVAILABLE_MODELS.length - 1);
-        setSelectedModel(AVAILABLE_MODELS[nextIndex].id);
+        const nextIndex = Math.min(currentIndex + 1, models.length - 1);
+        setSelectedModel(models[nextIndex].id);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         const prevIndex = Math.max(currentIndex - 1, 0);
-        setSelectedModel(AVAILABLE_MODELS[prevIndex].id);
+        setSelectedModel(models[prevIndex].id);
       } else if (e.key === 'Enter') {
         e.preventDefault();
         handleSelect(selectedModel);
@@ -81,11 +97,27 @@ export function ModelSelector({ currentModel }: ModelSelectorProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedModel]);
+  }, [selectedModel, models]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (models.length === 0) {
+    return (
+      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+        No models available
+      </div>
+    );
+  }
 
   return (
     <div className="divide-y">
-      {AVAILABLE_MODELS.map((model) => (
+      {models.map((model, index) => (
         <button
           key={model.id}
           onClick={() => handleSelect(model.id)}
@@ -99,14 +131,14 @@ export function ModelSelector({ currentModel }: ModelSelectorProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm">{model.name}</span>
-              {model.isDefault && (
+              {index === 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                   Default
                 </span>
               )}
             </div>
-            {model.description && (
-              <p className="text-xs text-muted-foreground mt-0.5">{model.description}</p>
+            {model.tier && (
+              <p className="text-xs text-muted-foreground mt-0.5 capitalize">{model.tier}</p>
             )}
           </div>
           <div className="shrink-0">

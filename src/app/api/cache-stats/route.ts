@@ -1,12 +1,12 @@
 /**
- * Cache Stats API - Returns fetch cache statistics
+ * Cache Stats API - Returns proxy token cache statistics
  *
  * GET /api/cache-stats
  * Returns: { hits, misses, bypassed, size, hitRate }
  */
 
 import { NextResponse } from 'next/server';
-import { getCacheStats } from '@/lib/fetch-cache-patch';
+import { getCacheStats } from '@/lib/proxy-token-cache';
 
 export async function GET() {
   try {

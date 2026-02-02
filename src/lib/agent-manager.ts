@@ -667,8 +667,12 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
-      // Emit error as stderr
+      // Emit error as stderr with more details
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[AgentManager] SDK Error:', errorMessage);
+      if (error instanceof Error && error.stack) {
+        console.log('[AgentManager] SDK Error Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+      }
       this.emit('stderr', { attemptId, content: errorMessage });
 
       // Determine exit code based on error type
