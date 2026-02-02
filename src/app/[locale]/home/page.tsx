@@ -150,6 +150,20 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
+
+        {/* Credits */}
+        <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-gray-100 text-center">
+          <p className="text-sm text-gray-500">
+            Landing page created by{' '}
+            <Link href="https://github.com/bnopen" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 font-medium">
+              gh/bnopen (AiSon)
+            </Link>
+            {' '}for{' '}
+            <Link href="https://github.com/techcomthanh" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 font-medium">
+              gh/techcomthanh
+            </Link>
+          </p>
+        </div>
       </footer>
     </div>
   );
