@@ -121,14 +121,24 @@ export function TunnelSettingsDialog() {
             <div className="space-y-6">
               {/* Status Badge */}
               <div className="flex items-center gap-2">
-                <Badge variant={status === 'connected' ? 'default' : 'secondary'}>
+                <Badge
+                  variant={status === 'connected' ? 'default' : 'secondary'}
+                  className={status === 'connected' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                >
                   {status === 'connected' ? '● Connected' : '○ Disconnected'}
                 </Badge>
                 {config.subdomain && (
                   <>
-                    <Badge variant="outline">
-                      {config.subdomain}.claude.ws
-                    </Badge>
+                    <a
+                      href={`https://${config.subdomain}.claude.ws`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:opacity-80 transition-opacity"
+                    >
+                      <Badge variant="outline" className="cursor-pointer">
+                        {config.subdomain}.claude.ws
+                      </Badge>
+                    </a>
                     <Button
                       variant="outline"
                       size="sm"
