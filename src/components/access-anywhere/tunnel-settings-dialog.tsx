@@ -40,6 +40,8 @@ export function TunnelSettingsDialog() {
   const [copied, setCopied] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  const wizardOpen = useTunnelStore(state => state.wizardOpen);
+
   const loadConfig = async () => {
     setLoading(true);
     const data = await getTunnelConfig();
@@ -48,10 +50,10 @@ export function TunnelSettingsDialog() {
   };
 
   useEffect(() => {
-    if (useTunnelStore.getState().wizardOpen) {
+    if (wizardOpen) {
       loadConfig();
     }
-  }, []);
+  }, [wizardOpen]);
 
   const handleCopyApiKey = () => {
     if (config?.apiKey) {
@@ -94,8 +96,6 @@ export function TunnelSettingsDialog() {
   const daysRemaining = config?.plan
     ? Math.ceil((new Date(config.plan.ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0;
-
-  const wizardOpen = useTunnelStore(state => state.wizardOpen);
 
   return (
     <Dialog open={wizardOpen} onOpenChange={(open) => { if (!open) useTunnelStore.getState().setWizardOpen(false); }}>
