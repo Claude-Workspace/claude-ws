@@ -156,12 +156,9 @@ export default function LandingPage() {
           <p className="text-sm text-gray-500">
             Landing page created by{' '}
             <Link href="https://github.com/bnopen" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 font-medium">
-              gh/bnopen (AiSon)
+              gh/bnopen
             </Link>
-            {' '}for{' '}
-            <Link href="https://github.com/techcomthanh" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 font-medium">
-              gh/techcomthanh
-            </Link>
+            {', AiSon of gh/techcomthanh'}
           </p>
         </div>
       </footer>
