@@ -18,6 +18,9 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseDotenv } from 'dotenv';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ClaudeCodeSettings');
 
 interface ClaudeCodeSettings {
   env?: Record<string, string>;
@@ -40,7 +43,7 @@ function loadEnvFile(filePath: string): Record<string, string> | null {
     const content = readFileSync(filePath, 'utf-8');
     return parseDotenv(content);
   } catch (error) {
-    console.warn(`[ClaudeCodeSettings] Failed to parse ${filePath}:`, error);
+    log.warn({ filePath, error }, `Failed to parse ${filePath}`);
     return null;
   }
 }
@@ -59,7 +62,7 @@ function loadClaudeCodeSettings(): ClaudeCodeSettings | null {
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content) as ClaudeCodeSettings;
   } catch (error) {
-    console.warn(`[ClaudeCodeSettings] Failed to parse ${settingsPath}:`, error);
+    log.warn({ settingsPath, error }, `Failed to parse ${settingsPath}`);
     return null;
   }
 }
@@ -78,7 +81,7 @@ function loadClaudeJsonConfig(): ClaudeJsonConfig | null {
     const content = readFileSync(configPath, 'utf-8');
     return JSON.parse(content) as ClaudeJsonConfig;
   } catch (error) {
-    console.warn(`[ClaudeCodeSettings] Failed to parse ${configPath}:`, error);
+    log.warn({ configPath, error }, `Failed to parse ${configPath}`);
     return null;
   }
 }
@@ -113,7 +116,7 @@ const LLM_CONFIG_KEYS = [
  * @param projectPath - Optional project path for project-level .claude/.env
  */
 export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
-  console.log('[ClaudeCodeSettings] Loading LLM config...');
+  log.info('Loading LLM config...');
 
   const homeDir = homedir();
   const userClaudeDir = join(homeDir, '.claude');
@@ -125,7 +128,7 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
   const settings = loadClaudeCodeSettings();
   if (settings?.env && hasValidLLMConfig(settings.env)) {
     applyEnvConfig(settings.env);
-    console.log(`[ClaudeCodeSettings] ✓ Using: ${userSettingsPath}`);
+    log.info({ path: userSettingsPath }, '✓ Using settings.json');
     logCurrentConfig();
     return;
   }
@@ -136,7 +139,7 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
     const projectEnv = loadEnvFile(projectEnvPath);
     if (projectEnv && hasValidLLMConfig(projectEnv)) {
       applyEnvConfig(projectEnv);
-      console.log(`[ClaudeCodeSettings] ✓ Using: ${projectEnvPath}`);
+      log.info({ path: projectEnvPath }, '✓ Using project .env');
       logCurrentConfig();
       return;
     }
@@ -146,7 +149,7 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
   const userEnv = loadEnvFile(userEnvPath);
   if (userEnv && hasValidLLMConfig(userEnv)) {
     applyEnvConfig(userEnv);
-    console.log(`[ClaudeCodeSettings] ✓ Using: ${userEnvPath}`);
+    log.info({ path: userEnvPath }, '✓ Using user .env');
     logCurrentConfig();
     return;
   }
@@ -155,7 +158,7 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
   const claudeJson = loadClaudeJsonConfig();
   if (claudeJson?.primaryApiKey) {
     process.env.ANTHROPIC_API_KEY = claudeJson.primaryApiKey;
-    console.log(`[ClaudeCodeSettings] ✓ Using: ${claudeJsonPath} (primaryApiKey)`);
+    log.info({ path: claudeJsonPath }, '✓ Using .claude.json (primaryApiKey)');
     logCurrentConfig();
     return;
   }
@@ -163,11 +166,11 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
   // Priority 5: ~/.claude/.credentials.json (OAuth - handled by SDK internally)
   const credentialsPath = join(userClaudeDir, '.credentials.json');
   if (existsSync(credentialsPath)) {
-    console.log(`[ClaudeCodeSettings] ✓ Using: ${credentialsPath} (OAuth - handled by SDK)`);
+    log.info({ path: credentialsPath }, '✓ Using .credentials.json (OAuth - handled by SDK)');
     return;
   }
 
-  console.log('[ClaudeCodeSettings] ✗ No LLM config found');
+  log.info('✗ No LLM config found');
 }
 
 /**
@@ -215,7 +218,7 @@ function logCurrentConfig(): void {
     }
   }
   if (configLines.length > 0) {
-    console.log(`[ClaudeCodeSettings] Config: ${configLines.join(', ')}`);
+    log.info({ config: configLines.join(', ') }, 'Config loaded');
   }
 }
 

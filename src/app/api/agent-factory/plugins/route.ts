@@ -6,6 +6,9 @@ import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { existsSync } from 'fs';
 import { generatePluginFile, getPluginPath, pluginExists } from '@/lib/plugin-file-generator';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('AFPlugins');
 
 // GET /api/agent-factory/plugins - List all plugins
 export async function GET(request: NextRequest) {
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ plugins: validPlugins });
   } catch (error) {
-    console.error('Error fetching plugins:', error);
+    log.error({ error }, 'Error fetching plugins');
     return NextResponse.json({ error: 'Failed to fetch plugins' }, { status: 500 });
   }
 }
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
       if (error.code === 'PLUGIN_EXISTS') {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
-      console.error('Failed to generate plugin file:', fileError);
+      log.error({ error: fileError }, 'Failed to generate plugin file');
       return NextResponse.json(
         { error: 'Failed to create plugin file on disk' },
         { status: 500 }
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ plugin: newPlugin }, { status: 201 });
   } catch (error) {
-    console.error('Error creating plugin:', error);
+    log.error({ error }, 'Error creating plugin');
     return NextResponse.json({ error: 'Failed to create plugin' }, { status: 500 });
   }
 }

@@ -1,5 +1,9 @@
 import type { LibraryDep } from './dependency-extractor';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('InstallScriptGen');
+
 export interface GeneratedScripts {
   npm?: string;
   pnpm?: string;
@@ -303,7 +307,7 @@ export class InstallScriptGenerator {
       return sanitized;
     }
 
-    console.warn(`Invalid package name for ${manager}: ${name}`);
+    log.warn(`Invalid package name for ${manager}: ${name}`);
     return '';
   }
 
@@ -325,7 +329,7 @@ export class InstallScriptGenerator {
       return sanitized;
     }
 
-    console.warn(`Invalid version for ${manager}: ${version}`);
+    log.warn(`Invalid version for ${manager}: ${version}`);
     return '';
   }
 

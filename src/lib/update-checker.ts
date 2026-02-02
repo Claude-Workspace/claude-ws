@@ -6,6 +6,9 @@
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('UpdateChecker');
 
 export async function checkForUpdates() {
   try {
@@ -21,6 +24,7 @@ export async function checkForUpdates() {
     }).trim();
 
     if (latestVersion && latestVersion !== currentVersion) {
+      log.info({ currentVersion, latestVersion }, 'Update available');
       console.log('');
       console.log('\x1b[33m%s\x1b[0m', '┌─────────────────────────────────────────────┐');
       console.log('\x1b[33m%s\x1b[0m', '│  Update available!                          │');

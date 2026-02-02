@@ -10,6 +10,10 @@ import { createHash } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProxyTokenCache');
+
 // Cache configuration
 const CACHE_MAX_SIZE = 500;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -24,7 +28,7 @@ try {
     mkdirSync(CACHE_DIR, { recursive: true });
   }
 } catch (err) {
-  console.warn('[ProxyTokenCache] Failed to create cache directory:', err);
+  log.warn({ data: err }, '[ProxyTokenCache] Failed to create cache directory:');
 }
 
 export interface CachedResponse {
@@ -74,7 +78,7 @@ function saveToFile(key: string, entry: CachedResponse): void {
     const filePath = getCacheFilePath(key);
     writeFileSync(filePath, JSON.stringify(entry), 'utf-8');
   } catch (err) {
-    console.warn('[ProxyTokenCache] Failed to save cache file:', err);
+    log.warn({ data: err }, '[ProxyTokenCache] Failed to save cache file:');
   }
 }
 
@@ -119,7 +123,7 @@ function loadCacheFromDisk(): void {
     if (loaded > 0 || expired > 0) {
     }
   } catch (err) {
-    console.warn('[ProxyTokenCache] Failed to load cache from disk:', err);
+    log.warn({ data: err }, '[ProxyTokenCache] Failed to load cache from disk:');
   }
 }
 

@@ -7,6 +7,9 @@ import * as tar from 'tar';
 import { createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('FileUpload');
 
 /**
  * Validate path stays within allowed root directory.
@@ -183,7 +186,7 @@ export async function POST(request: NextRequest) {
                 decompressed: true,
               });
             } catch (extractError) {
-              console.error(`Failed to extract ${newFilename}:`, extractError);
+              log.error({ error: extractError, filename: newFilename }, 'Failed to extract archive');
               // Keep the archive if extraction fails
               results.push({
                 name: newFilename,
@@ -274,7 +277,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.error('Upload error:', error);
+    log.error({ error }, 'Upload error');
     return NextResponse.json(
       { error: 'Failed to upload files' },
       { status: 500 }

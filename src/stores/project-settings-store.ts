@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { ProjectSettings } from '@/types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProjectSettingsStore');
 
 interface ProjectSettingsStore {
   settings: Record<string, ProjectSettings>;
@@ -49,7 +52,7 @@ export const useProjectSettingsStore = create<ProjectSettingsStore>((set, get) =
         isLoading: false,
       }));
     } catch (error) {
-      console.error('Error fetching project settings:', error);
+      log.error({ error, projectId }, 'Error fetching project settings');
       set({ isLoading: false });
     }
   },
@@ -86,7 +89,7 @@ export const useProjectSettingsStore = create<ProjectSettingsStore>((set, get) =
         },
       }));
     } catch (error) {
-      console.error('Error updating project settings:', error);
+      log.error({ error, projectId }, 'Error updating project settings');
       throw error;
     }
   },
@@ -114,7 +117,7 @@ export const useProjectSettingsStore = create<ProjectSettingsStore>((set, get) =
         errors: data.errors || [],
       };
     } catch (error) {
-      console.error('Error installing components:', error);
+      log.error({ error, projectId }, 'Error installing components');
       throw error;
     } finally {
       set({ isInstalling: false });

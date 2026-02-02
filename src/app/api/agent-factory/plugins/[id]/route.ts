@@ -6,7 +6,9 @@ import { eq } from 'drizzle-orm';
 import { existsSync } from 'fs';
 import { promisify } from 'util';
 import { dirname } from 'path';
+import { createLogger } from '@/lib/logger';
 
+const log = createLogger('AgentFactoryPluginsAPI');
 const rmAsync = promisify(require('fs').rm);
 const statAsync = promisify(require('fs').stat);
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ plugin });
   } catch (error) {
-    console.error('Error fetching plugin:', error);
+    log.error({ err: error }, 'Error fetching plugin');
     return NextResponse.json({ error: 'Failed to fetch plugin' }, { status: 500 });
   }
 }
@@ -81,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ plugin: updated });
   } catch (error) {
-    console.error('Error updating plugin:', error);
+    log.error({ err: error }, 'Error updating plugin');
     return NextResponse.json({ error: 'Failed to update plugin' }, { status: 500 });
   }
 }
@@ -127,18 +129,18 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
           // Skills: sourcePath points to SKILL.md, delete the parent directory
           const skillDir = dirname(deletePath);
           await rmAsync(skillDir, { recursive: true, force: true });
-          console.log(`Deleted skill directory: ${skillDir}`);
+          log.info({ skillDir }, 'Deleted skill directory');
         } else if (existing.type === 'agent_set') {
           // Agent sets: delete the entire directory
           await rmAsync(deletePath, { recursive: true, force: true });
-          console.log(`Deleted agent set directory: ${deletePath}`);
+          log.info({ path: deletePath }, 'Deleted agent set directory');
         } else {
           // Commands/Agents: delete the single file
           await rmAsync(deletePath, { force: true });
-          console.log(`Deleted plugin file: ${deletePath}`);
+          log.info({ path: deletePath }, 'Deleted plugin file');
         }
       } catch (error) {
-        console.error(`Failed to delete plugin files:`, error);
+        log.error({ err: error }, 'Failed to delete plugin files');
         // Continue with database deletion even if file deletion fails
       }
     }
@@ -147,7 +149,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting plugin:', error);
+    log.error({ err: error }, 'Error deleting plugin');
     return NextResponse.json({ error: 'Failed to delete plugin' }, { status: 500 });
   }
 }

@@ -5,6 +5,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { dependencyExtractor } from '@/lib/dependency-extractor';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('DependencyAnalyzer');
+
 const execAsync = promisify(exec);
 
 export interface LibraryDep {
@@ -72,7 +76,7 @@ export class ClaudeDependencyAnalyzer {
 
       // If Claude returned no results, fall back to regex extraction
       if (parsed.libraries.length === 0 && parsed.plugins.length === 0) {
-        console.warn('Claude returned no results, falling back to regex extraction');
+        log.warn('Claude returned no results, falling back to regex extraction');
         const fallback = await dependencyExtractor.extract(sourcePath, type);
         return {
           libraries: fallback.libraries,
@@ -82,9 +86,9 @@ export class ClaudeDependencyAnalyzer {
 
       return parsed;
     } catch (error) {
-      console.error('Claude analysis failed:', error);
+      log.error({ error: error }, 'Claude analysis failed:');
       // Fallback to regex extraction
-      console.warn('Falling back to regex extraction');
+      log.warn('Falling back to regex extraction');
       const fallback = await dependencyExtractor.extract(sourcePath, type);
       return {
         libraries: fallback.libraries,
@@ -196,7 +200,7 @@ ${fileContents}`;
         return stdout;
       } catch (error: any) {
         lastError = error;
-        console.error(`Claude CLI attempt ${i + 1} failed:`, error);
+        log.error({ error: error }, `Claude CLI attempt ${i + 1} failed:`);
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
@@ -220,7 +224,7 @@ ${fileContents}`;
       }
 
       if (!jsonMatch) {
-        console.warn('No JSON found in Claude response');
+        log.warn('No JSON found in Claude response');
         return { libraries: [], plugins: [] };
       }
 
@@ -240,7 +244,7 @@ ${fileContents}`;
 
       return { libraries, plugins: components };
     } catch (error) {
-      console.error('Failed to parse Claude response:', error);
+      log.error({ error: error }, 'Failed to parse Claude response:');
       return { libraries: [], plugins: [] };
     }
   }

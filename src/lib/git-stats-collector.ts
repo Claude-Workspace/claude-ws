@@ -8,6 +8,10 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('GitStatsCollector');
+
 const execAsync = promisify(exec);
 
 /**
@@ -73,7 +77,7 @@ export async function collectGitStats(cwd: string): Promise<GitStats | null> {
     return parseNumstat(stdout);
   } catch (error) {
     // Not a git repo or git command failed
-    console.error('[GitStats] Failed to collect git stats:', error);
+    log.error({ error: error }, '[GitStats] Failed to collect git stats:');
     return null;
   }
 }

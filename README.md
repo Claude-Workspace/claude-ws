@@ -65,6 +65,7 @@ CLAUDE_PATH=/path/to/claude
 | `PORT` | Server port | `8556` |
 | `API_ACCESS_KEY` | API authentication key | (empty) |
 | `CLAUDE_PATH` | Claude CLI path | Auto-detected |
+| `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error`, `silent` | `debug` (dev), `warn` (prod) |
 
 ---
 

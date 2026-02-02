@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { appSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('SubdomainConfirmationAPI');
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,11 +31,7 @@ export async function POST(req: NextRequest) {
       const newApiKey = data.ctunnel_apikey;
 
       // Log what we're about to save
-      console.log('[Confirmation] === SAVING TO DATABASE ===');
-      console.log('[Confirmation] Subdomain:', subdomain);
-      console.log('[Confirmation] New API Key:', newApiKey?.substring(0, 15) + '...' + newApiKey?.substring(newApiKey.length - 5));
-      console.log('[Confirmation] New API Key length:', newApiKey?.length);
-      console.log('[Confirmation] ===============================');
+      log.info({ subdomain, apiKeyLength: newApiKey?.length }, 'Saving subdomain to database');
 
       // Check if old key exists
       const oldKeyRecord = await db
@@ -42,9 +41,9 @@ export async function POST(req: NextRequest) {
         .limit(1);
 
       if (oldKeyRecord.length > 0) {
-        console.log('[Confirmation] OVERWRITING old API key:', oldKeyRecord[0].value.substring(0, 15) + '...');
+        log.info('Overwriting existing API key');
       } else {
-        console.log('[Confirmation] No existing API key found (first time setup)');
+        log.info('First time setup - no existing API key');
       }
 
       // Save subdomain data to database
@@ -94,16 +93,13 @@ export async function POST(req: NextRequest) {
       if (verifyRecord.length > 0) {
         const savedKey = verifyRecord[0].value;
         const matches = savedKey === newApiKey;
-        console.log('[Confirmation] === VERIFICATION ===');
-        console.log('[Confirmation] Saved API key matches:', matches ? '✅ YES' : '❌ NO');
-        console.log('[Confirmation] Saved key:', savedKey.substring(0, 15) + '...' + savedKey.substring(savedKey.length - 5));
-        console.log('[Confirmation] =======================');
+        log.info({ matches }, 'API key verification complete');
       }
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Failed to confirm subdomain:', error);
+    log.error({ err: error }, 'Failed to confirm subdomain');
     const errorMessage = error instanceof Error ? error.message : 'Failed to confirm subdomain';
     return NextResponse.json(
       { success: false, message: errorMessage },

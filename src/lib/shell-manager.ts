@@ -10,6 +10,9 @@ import { spawn, type ChildProcess } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { createLogBuffer, type LogBuffer, type LogEntry } from './circular-buffer';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ShellManager');
 
 export interface ShellInstance {
   shellId: string;
@@ -67,7 +70,7 @@ class ShellManager extends EventEmitter {
       // Log shells that will continue running
       const running = this.runningCount;
       if (running > 0) {
-        console.log(`[ShellManager] Server exiting, ${running} shells will continue running independently`);
+        log.info({ count: running }, 'Server exiting, shells will continue running independently');
       }
     });
   }
@@ -79,8 +82,7 @@ class ShellManager extends EventEmitter {
     const { projectId, attemptId, command, cwd } = options;
     const shellId = nanoid();
 
-    console.log(`[ShellManager] Spawning shell ${shellId} in ${cwd}`);
-    console.log(`[ShellManager] Command: ${command}`);
+    log.debug({ shellId, cwd, command }, 'Spawning shell');
 
     // Parse command - use shell to handle complex commands
     // detached: true creates new process group, shell survives if parent dies
@@ -95,7 +97,7 @@ class ShellManager extends EventEmitter {
     child.unref();
 
     if (!child.pid) {
-      console.error(`[ShellManager] Failed to spawn process for shell ${shellId}`);
+      log.error({ shellId, command }, 'Failed to spawn process');
       throw new Error(`Failed to spawn process: ${command}`);
     }
 
@@ -141,7 +143,7 @@ class ShellManager extends EventEmitter {
 
     // Handle process exit
     child.on('exit', (code, signal) => {
-      console.log(`[ShellManager] Shell ${shellId} exited with code ${code}, signal ${signal}`);
+      log.debug({ shellId, code, signal }, 'Shell exited');
       instance.exitCode = code;
       instance.exitSignal = signal;
       this.emit('exit', { shellId, projectId, code, signal });
@@ -149,7 +151,7 @@ class ShellManager extends EventEmitter {
 
     // Handle spawn errors
     child.on('error', (error) => {
-      console.error(`[ShellManager] Shell ${shellId} error:`, error);
+      log.error({ shellId, err: error }, 'Shell error');
       const entry: LogEntry = {
         type: 'stderr',
         content: `Process error: ${error.message}`,
@@ -162,7 +164,7 @@ class ShellManager extends EventEmitter {
     // Emit started event
     this.emit('started', { shellId, projectId, pid: child.pid, command });
 
-    console.log(`[ShellManager] Shell ${shellId} started with PID ${child.pid}`);
+    log.debug({ shellId, pid: child.pid }, 'Shell started');
 
     return shellId;
   }
@@ -173,12 +175,12 @@ class ShellManager extends EventEmitter {
   stop(shellId: string, signal: NodeJS.Signals = 'SIGTERM'): boolean {
     const instance = this.shells.get(shellId);
     if (!instance) {
-      console.warn(`[ShellManager] Shell ${shellId} not found`);
+      log.warn({ shellId }, 'Shell not found');
       return false;
     }
 
     if (instance.exitCode !== null) {
-      console.warn(`[ShellManager] Shell ${shellId} already exited`);
+      log.warn({ shellId }, 'Shell already exited');
       return false;
     }
 
@@ -187,7 +189,7 @@ class ShellManager extends EventEmitter {
     const isExternalProcess = !instance.process;
     const killTarget = isExternalProcess ? instance.pid : -instance.pid;
 
-    console.log(`[ShellManager] Stopping shell ${shellId} (PID ${instance.pid}, external: ${isExternalProcess}) with ${signal}`);
+    log.debug({ shellId, pid: instance.pid, isExternalProcess, signal }, 'Stopping shell');
 
     try {
       process.kill(killTarget, signal);
@@ -195,7 +197,7 @@ class ShellManager extends EventEmitter {
       // Force kill after 5 seconds if still running
       setTimeout(() => {
         if (instance.exitCode === null && this.isPidAlive(instance.pid)) {
-          console.log(`[ShellManager] Force killing shell ${shellId}`);
+          log.debug({ shellId }, 'Force killing shell');
           try {
             process.kill(killTarget, 'SIGKILL');
           } catch {
@@ -223,7 +225,7 @@ class ShellManager extends EventEmitter {
 
       return true;
     } catch (error) {
-      console.error(`[ShellManager] Failed to stop shell ${shellId}:`, error);
+      log.error({ shellId, err: error }, 'Failed to stop shell');
       return false;
     }
   }
@@ -296,7 +298,7 @@ class ShellManager extends EventEmitter {
           timestamp: Date.now(),
         }));
       } catch (err) {
-        console.warn(`[ShellManager] Failed to read log file ${shell.logFile}:`, err);
+        log.warn({ logFile: shell.logFile, err }, 'Failed to read log file');
       }
     }
 
@@ -334,7 +336,7 @@ class ShellManager extends EventEmitter {
 
     // Only remove if already exited
     if (shell.exitCode === null) {
-      console.warn(`[ShellManager] Cannot remove running shell ${shellId}`);
+      log.warn({ shellId }, 'Cannot remove running shell');
       return false;
     }
 
@@ -371,12 +373,12 @@ class ShellManager extends EventEmitter {
 
     // Verify PID is alive
     if (!this.isPidAlive(pid)) {
-      console.log(`[ShellManager] Cannot track PID ${pid}: not running`);
+      log.debug({ pid }, 'Cannot track PID: not running');
       return null;
     }
 
     const shellId = nanoid();
-    console.log(`[ShellManager] Tracking external process ${shellId} with PID ${pid}`);
+    log.debug({ shellId, pid }, 'Tracking external process');
 
     const instance: ShellInstance = {
       shellId,
@@ -417,7 +419,7 @@ class ShellManager extends EventEmitter {
       }
 
       if (!this.isPidAlive(pid)) {
-        console.log(`[ShellManager] External process ${shellId} (PID ${pid}) has exited`);
+        log.debug({ shellId, pid }, 'External process has exited');
         instance.exitCode = 0; // Assume clean exit
         this.emit('exit', {
           shellId,
@@ -443,12 +445,12 @@ class ShellManager extends EventEmitter {
     pid: number | null;
   }): boolean {
     if (!shellRecord.pid) {
-      console.log(`[ShellManager] Cannot restore shell ${shellRecord.id}: no PID`);
+      log.debug({ shellId: shellRecord.id }, 'Cannot restore shell: no PID');
       return false;
     }
 
     if (!this.isPidAlive(shellRecord.pid)) {
-      console.log(`[ShellManager] Shell ${shellRecord.id} PID ${shellRecord.pid} is no longer running`);
+      log.debug({ shellId: shellRecord.id, pid: shellRecord.pid }, 'Shell PID is no longer running');
       return false;
     }
 
@@ -457,7 +459,7 @@ class ShellManager extends EventEmitter {
       return true;
     }
 
-    console.log(`[ShellManager] Restoring shell ${shellRecord.id} with PID ${shellRecord.pid}`);
+    log.debug({ shellId: shellRecord.id, pid: shellRecord.pid }, 'Restoring shell');
 
     // Create a partial instance - we can't reattach to process stdio
     // but we know it's running and can track it
@@ -484,10 +486,10 @@ class ShellManager extends EventEmitter {
    * Cleanup all shells on shutdown (only called for hard cleanup)
    */
   cleanup(): void {
-    console.log(`[ShellManager] Cleaning up ${this.shells.size} shells`);
+    log.debug({ count: this.shells.size }, 'Cleaning up shells');
     for (const [shellId, instance] of this.shells) {
       if (instance.exitCode === null) {
-        console.log(`[ShellManager] Killing shell ${shellId}`);
+        log.debug({ shellId }, 'Killing shell');
         try {
           instance.process.kill('SIGTERM');
         } catch (e) {

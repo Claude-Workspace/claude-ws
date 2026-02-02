@@ -162,41 +162,41 @@ export function TunnelSettingsDialog() {
 
               {/* Email */}
               {config?.email && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Email
-                </Label>
-                <Input value={config.email} readOnly className="font-mono text-sm" />
-              </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </Label>
+                  <Input value={config.email} readOnly className="font-mono text-sm" />
+                </div>
               )}
 
               {/* API Key */}
               {config?.apiKey && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
-                  API Key
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={maskApiKey(config.apiKey)}
-                    readOnly
-                    className="font-mono text-sm flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyApiKey}
-                    title={copied ? 'Copied!' : 'Copy API key'}
-                  >
-                    {copied ? <RefreshCw className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    API Key
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={maskApiKey(config.apiKey)}
+                      readOnly
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleCopyApiKey}
+                      title={copied ? 'Copied!' : 'Copy API key'}
+                    >
+                      {copied ? <RefreshCw className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {copied ? 'Copied to clipboard!' : 'Click to copy full API key'}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {copied ? 'Copied to clipboard!' : 'Click to copy full API key'}
-                </p>
-              </div>
               )}
 
               {/* Plan Info */}

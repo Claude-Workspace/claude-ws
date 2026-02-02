@@ -7,6 +7,9 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('FileSyncHook');
 
 export interface FileSyncState {
   /** Whether a sync conflict is detected */
@@ -95,7 +98,7 @@ export function useFileSync({
 
       return data.content;
     } catch (error) {
-      console.error('[useFileSync] Error fetching remote content:', error);
+      log.error({ error, filePath }, 'Error fetching remote content');
       return null;
     }
   }, [filePath, basePath]);
@@ -130,7 +133,7 @@ export function useFileSync({
 
         if (localHasChanged) {
           // Conflict: both local and remote changed - show diff resolver
-          console.log('[useFileSync] Conflict detected - remote and local both changed');
+          log.debug({ filePath }, 'Conflict detected - remote and local both changed');
           setState({
             hasConflict: true,
             remoteContent,
@@ -140,7 +143,7 @@ export function useFileSync({
           onRemoteChange?.(remoteContent);
         } else {
           // No local changes - silently update the editor content
-          console.log('[useFileSync] Remote changed, no local changes - auto-updating');
+          log.debug({ filePath }, 'Remote changed, no local changes - auto-updating');
           setState({
             hasConflict: false,
             remoteContent: null,
@@ -159,7 +162,7 @@ export function useFileSync({
         }));
       }
     } catch (error) {
-      console.error('[useFileSync] Check failed:', error);
+      log.error({ error, filePath }, 'Check failed');
       setState(prev => ({ ...prev, isPolling: false }));
     }
   }, [filePath, basePath, enabled, fetchRemoteContent, onRemoteChange, onSilentUpdate]);

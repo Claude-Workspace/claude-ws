@@ -5,6 +5,9 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProjectSettings');
 
 interface ProjectSettings {
   selectedComponents: string[];
@@ -29,7 +32,7 @@ function readSettingsFile(projectPath: string): ProjectSettings | null {
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.error('Error reading settings file:', error);
+    log.error({ error, settingsPath }, 'Error reading settings file');
     return null;
   }
 }
@@ -76,7 +79,7 @@ export async function GET(
 
     return NextResponse.json({ settings });
   } catch (error) {
-    console.error('Error fetching project settings:', error);
+    log.error({ error }, 'Error fetching project settings');
     return NextResponse.json({ error: 'Failed to fetch project settings' }, { status: 500 });
   }
 }
@@ -120,7 +123,7 @@ export async function POST(
 
     return NextResponse.json({ settings: newSettings });
   } catch (error) {
-    console.error('Error updating project settings:', error);
+    log.error({ error }, 'Error updating project settings');
     return NextResponse.json({ error: 'Failed to update project settings' }, { status: 500 });
   }
 }

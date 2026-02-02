@@ -10,6 +10,9 @@ import { dependencyCache } from '@/lib/dependency-cache';
 import { installScriptGenerator } from '@/lib/install-script-generator';
 import { claudeDependencyAnalyzer } from '@/lib/claude-dependency-analyzer';
 import type { DependencyTreeNode } from '@/components/agent-factory/dependency-tree';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('AFPluginDeps');
 
 interface DependenciesRequest {
   force?: boolean; // Force re-resolution by clearing cache
@@ -179,7 +182,7 @@ export async function GET(
       resolvedAt: Date.now(),
     });
   } catch (error) {
-    console.error('Error extracting dependencies:', error);
+    log.error({ error }, 'Error extracting dependencies');
     return NextResponse.json({ error: 'Failed to extract dependencies' }, { status: 500 });
   }
 }
@@ -279,7 +282,7 @@ export async function POST(
       analysisMethod: useClaude ? 'claude-sdk' : 'regex',
     });
   } catch (error) {
-    console.error('Error re-resolving dependencies:', error);
+    log.error({ error }, 'Error re-resolving dependencies');
     return NextResponse.json({ error: 'Failed to re-resolve dependencies' }, { status: 500 });
   }
 }

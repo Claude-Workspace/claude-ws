@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('SidebarStore');
 
 type SidebarTab = 'files' | 'git';
 
@@ -124,12 +127,12 @@ export const useSidebarStore = create<SidebarStore>()(
 
       // Multi-tab actions
       openTab: (filePath) => {
-        console.log('[SidebarStore] openTab called', { filePath, timestamp: Date.now() });
+        log.debug({ filePath, timestamp: Date.now() }, 'openTab called');
         return set((state) => {
           // Check if tab already exists - switch to it
           const existing = state.openTabs.find((t) => t.filePath === filePath);
           if (existing) {
-            console.log('[SidebarStore] Tab already exists, switching to it', { tabId: existing.id });
+            log.debug({ tabId: existing.id }, 'Tab already exists, switching to it');
             return { activeTabId: existing.id };
           }
           // Create new tab
@@ -138,7 +141,7 @@ export const useSidebarStore = create<SidebarStore>()(
             filePath,
             isDirty: false,
           };
-          console.log('[SidebarStore] Creating new tab', { tabId: newTab.id });
+          log.debug({ tabId: newTab.id }, 'Creating new tab');
           return {
             openTabs: [...state.openTabs, newTab],
             activeTabId: newTab.id,

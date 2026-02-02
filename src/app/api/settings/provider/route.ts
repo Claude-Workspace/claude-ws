@@ -4,6 +4,9 @@ import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { agentManager } from '@/lib/agent-manager';
 import { reloadConfigByPriority } from '@/lib/anthropic-proxy-setup';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProviderSettingsAPI');
 
 // Configuration keys we handle
 const CONFIG_KEYS = [
@@ -51,7 +54,7 @@ function getAppRoot(): string {
   }
 
   // 5. Final fallback to cwd (even without package.json)
-  console.warn('[getAppRoot] Could not find package.json, using cwd:', cwd);
+  log.warn({ cwd }, 'Could not find package.json, using cwd');
   return cwd;
 }
 
@@ -126,18 +129,18 @@ export async function POST(request: NextRequest) {
     const newContent = existingLines.join('\n') + '\n';
     writeFileSync(envPath, newContent, 'utf-8');
 
-    console.log(`[API] Saved provider configuration to ${envPath}`);
+    log.info({ envPath }, 'Saved provider configuration');
 
     // Cancel all running agents so new ones use updated config
     const runningCount = agentManager.runningCount;
     if (runningCount > 0) {
-      console.log(`[API] Cancelling ${runningCount} running agents to apply new provider config`);
+      log.info({ count: runningCount }, 'Cancelling running agents to apply new provider config');
       agentManager.cancelAll();
     }
 
     return NextResponse.json({ success: true, path: envPath, cancelledAgents: runningCount });
   } catch (error) {
-    console.error('[API] Failed to save provider settings:', error);
+    log.error({ err: error }, 'Failed to save provider settings');
     return NextResponse.json(
       { error: 'Failed to save settings' },
       { status: 500 }
@@ -282,7 +285,7 @@ export async function GET() {
       appRoot: getAppRoot(),
     });
   } catch (error) {
-    console.error('[API] Failed to get provider status:', error);
+    log.error({ err: error }, 'Failed to get provider status');
     return NextResponse.json(
       { error: 'Failed to get status' },
       { status: 500 }
@@ -326,14 +329,14 @@ export async function DELETE() {
     const newContent = filteredLines.length > 0 ? filteredLines.join('\n') + '\n' : '';
     writeFileSync(envPath, newContent, 'utf-8');
 
-    console.log(`[API] Dismissed provider configuration from ${envPath}`);
+    log.info({ envPath }, 'Dismissed provider configuration');
 
     // Reload config from next priority source (settings.json > ~/.claude.json > OAuth)
     reloadConfigByPriority();
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API] Failed to dismiss provider settings:', error);
+    log.error({ err: error }, 'Failed to dismiss provider settings');
     return NextResponse.json(
       { error: 'Failed to dismiss settings' },
       { status: 500 }

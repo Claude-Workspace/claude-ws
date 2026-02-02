@@ -3,6 +3,9 @@ import { db, schema } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import { desc } from 'drizzle-orm';
 import { mkdir } from 'fs/promises';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Projects');
 
 // GET /api/projects - List all projects
 export async function GET() {
@@ -14,7 +17,7 @@ export async function GET() {
 
     return NextResponse.json(projects);
   } catch (error) {
-    console.error('Failed to fetch projects:', error);
+    log.error({ error }, 'Failed to fetch projects');
     return NextResponse.json(
       { error: 'Failed to fetch projects' },
       { status: 500 }
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
     } catch (mkdirError: any) {
       // If folder already exists, that's okay (might be opening existing project)
       if (mkdirError?.code !== 'EEXIST') {
-        console.error('Failed to create project folder:', mkdirError);
+        log.error({ error: mkdirError }, 'Failed to create project folder');
         return NextResponse.json(
           { error: 'Failed to create project folder: ' + mkdirError.message },
           { status: 500 }
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newProject, { status: 201 });
   } catch (error: any) {
-    console.error('Failed to create project:', error);
+    log.error({ error }, 'Failed to create project');
 
     // Handle unique constraint violation (duplicate path)
     if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {

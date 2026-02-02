@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { appSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Settings');
 
 // GET /api/settings?keys=key1,key2,key3
 export async function GET(req: NextRequest) {
@@ -40,7 +43,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    log.error({ error }, 'Error fetching settings');
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
   }
 }
@@ -66,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, key, value });
   } catch (error) {
-    console.error('Error saving setting:', error);
+    log.error({ error }, 'Error saving setting');
     return NextResponse.json({ error: 'Failed to save setting' }, { status: 500 });
   }
 }
@@ -89,7 +92,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, deleted: keyList });
   } catch (error) {
-    console.error('Error deleting settings:', error);
+    log.error({ error }, 'Error deleting settings');
     return NextResponse.json({ error: 'Failed to delete settings' }, { status: 500 });
   }
 }

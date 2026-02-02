@@ -5,6 +5,9 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('AFUninstall');
 
 interface ProjectSettings {
   selectedComponents: string[];
@@ -29,7 +32,7 @@ function readSettingsFile(projectPath: string): ProjectSettings | null {
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.error('Error reading settings file:', error);
+    log.error({ error, settingsPath }, 'Error reading settings file');
     return null;
   }
 }
@@ -58,7 +61,7 @@ function removeFromConfig(projectPath: string, componentId: string): void {
       require('fs').writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
     }
   } catch (error) {
-    console.error('Error updating config file:', error);
+    log.error({ error, configPath }, 'Error updating config file');
   }
 }
 
@@ -202,7 +205,7 @@ export async function POST(
       message: `Uninstalled ${component.name}`,
     });
   } catch (error) {
-    console.error('Error uninstalling component:', error);
+    log.error({ error }, 'Error uninstalling component');
     return NextResponse.json({ error: 'Failed to uninstall component' }, { status: 500 });
   }
 }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { eq } from 'drizzle-orm';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProjectById');
 
 // GET /api/projects/[id] - Get a single project
 export async function GET(
@@ -25,7 +28,7 @@ export async function GET(
 
     return NextResponse.json(project[0]);
   } catch (error) {
-    console.error('Failed to fetch project:', error);
+    log.error({ error }, 'Failed to fetch project');
     return NextResponse.json(
       { error: 'Failed to fetch project' },
       { status: 500 }
@@ -74,7 +77,7 @@ export async function PUT(
 
     return NextResponse.json(updatedProject[0]);
   } catch (error: any) {
-    console.error('Failed to update project:', error);
+    log.error({ error }, 'Failed to update project');
 
     // Handle unique constraint violation (duplicate path)
     if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -112,7 +115,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Failed to delete project:', error);
+    log.error({ error }, 'Failed to delete project');
     return NextResponse.json(
       { error: 'Failed to delete project' },
       { status: 500 }

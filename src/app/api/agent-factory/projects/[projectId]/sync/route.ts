@@ -5,6 +5,9 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, copyFileSync, writeFileSync, rmSync } from 'fs';
 import { join, dirname, basename } from 'path';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('AgentFactoryProjectSyncAPI');
 
 interface ProjectSettings {
   selectedComponents: string[];
@@ -59,7 +62,7 @@ function readSettingsFile(projectPath: string): ProjectSettings | null {
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.error('Error reading settings file:', error);
+    log.error({ err: error }, 'Error reading settings file');
     return null;
   }
 }
@@ -74,7 +77,7 @@ function updateClaudeConfig(projectPath: string, componentIds: string[]): void {
       const content = readFileSync(configPath, 'utf-8');
       config = JSON.parse(content);
     } catch (error) {
-      console.error('Error reading config file:', error);
+      log.error({ err: error }, 'Error reading config file');
     }
   }
 
@@ -205,7 +208,7 @@ function installAgentSet(agentSetPath: string, claudeDir: string): { installed: 
           installed.push(`${subdir}/${entry.name}`);
         }
       } catch (error) {
-        console.error(`Error installing ${entry.name}:`, error);
+        log.error({ err: error, name: entry.name }, 'Error installing component');
         errors.push(`${subdir}/${entry.name}: ${(error as Error).message}`);
       }
     }
@@ -334,7 +337,7 @@ export async function POST(
             skipped.push(`${component.name}: Unknown type`);
         }
       } catch (error) {
-        console.error(`Error installing component ${component.name}:`, error);
+        log.error({ err: error, name: component.name }, 'Error installing component');
         errors.push(`${component.name}: ${(error as Error).message}`);
       }
     }
@@ -350,7 +353,7 @@ export async function POST(
       errors,
     });
   } catch (error) {
-    console.error('Error installing components:', error);
+    log.error({ err: error }, 'Error installing components');
     return NextResponse.json({ error: 'Failed to install components' }, { status: 500 });
   }
 }
