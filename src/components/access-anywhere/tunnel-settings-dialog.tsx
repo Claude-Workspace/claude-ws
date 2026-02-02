@@ -34,19 +34,23 @@ interface TunnelConfig {
 
 export function TunnelSettingsDialog() {
   const t = useTranslations('accessAnywhere');
-  const { getTunnelConfig, resetOnboarding, status, setWizardOpen } = useTunnelStore();
+  const status = useTunnelStore(state => state.status);
+  const url = useTunnelStore(state => state.url);
+  const wizardOpen = useTunnelStore(state => state.wizardOpen);
   const [config, setConfig] = useState<TunnelConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [resetting, setResetting] = useState(false);
-
-  const wizardOpen = useTunnelStore(state => state.wizardOpen);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const loadConfig = async () => {
     setLoading(true);
-    const data = await getTunnelConfig();
-    setConfig(data);
-    setLoading(false);
+    try {
+      const data = await useTunnelStore.getState().getTunnelConfig();
+      setConfig(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -54,6 +58,9 @@ export function TunnelSettingsDialog() {
       loadConfig();
     }
   }, [wizardOpen]);
+
+  // Derive subdomain from config or URL
+  const subdomain = config?.subdomain || (url ? new URL(url).hostname.split('.')[0] : null);
 
   const handleCopyApiKey = () => {
     if (config?.apiKey) {
@@ -63,12 +70,10 @@ export function TunnelSettingsDialog() {
     }
   };
 
-  const [copiedUrl, setCopiedUrl] = useState(false);
-
   const handleCopyUrl = () => {
-    if (config?.subdomain) {
-      const url = `${config.subdomain}.claude.ws`;
-      navigator.clipboard.writeText(url);
+    if (subdomain) {
+      const tunnelUrl = `${subdomain}.claude.ws`;
+      navigator.clipboard.writeText(tunnelUrl);
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2000);
     }
@@ -78,7 +83,7 @@ export function TunnelSettingsDialog() {
     if (confirm('Are you sure you want to reset the tunnel configuration? This will clear all saved settings and open the setup wizard again.')) {
       setResetting(true);
       try {
-        await resetOnboarding();
+        await useTunnelStore.getState().resetOnboarding();
         // resetOnboarding already sets wizardStep=0 and wizardOpen=true
         // The AccessAnywhereWizard will now show the welcome step since config is cleared
       } finally {
@@ -100,11 +105,15 @@ export function TunnelSettingsDialog() {
   return (
     <Dialog open={wizardOpen} onOpenChange={(open) => { if (!open) useTunnelStore.getState().setWizardOpen(false); }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        {!config || loading ? (
+        {loading ? (
           <div className="py-8">
             <div className="flex items-center justify-center">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          </div>
+        ) : !config && !subdomain ? (
+          <div className="py-8 text-center text-muted-foreground">
+            No tunnel configuration found. Please set up Access Anywhere first.
           </div>
         ) : (
           <>
@@ -127,16 +136,16 @@ export function TunnelSettingsDialog() {
                 >
                   {status === 'connected' ? '● Connected' : '○ Disconnected'}
                 </Badge>
-                {config.subdomain && (
+                {subdomain && (
                   <>
                     <a
-                      href={`https://${config.subdomain}.claude.ws`}
+                      href={`https://${subdomain}.claude.ws`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:opacity-80 transition-opacity"
                     >
                       <Badge variant="outline" className="cursor-pointer">
-                        {config.subdomain}.claude.ws
+                        {subdomain}.claude.ws
                       </Badge>
                     </a>
                     <Button
@@ -152,15 +161,18 @@ export function TunnelSettingsDialog() {
               </div>
 
               {/* Email */}
+              {config?.email && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Email
                 </Label>
-                <Input value={config.email || ''} readOnly className="font-mono text-sm" />
+                <Input value={config.email} readOnly className="font-mono text-sm" />
               </div>
+              )}
 
               {/* API Key */}
+              {config?.apiKey && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Key className="h-4 w-4" />
@@ -168,7 +180,7 @@ export function TunnelSettingsDialog() {
                 </Label>
                 <div className="flex gap-2">
                   <Input
-                    value={config.apiKey ? maskApiKey(config.apiKey) : ''}
+                    value={maskApiKey(config.apiKey)}
                     readOnly
                     className="font-mono text-sm flex-1"
                   />
@@ -185,9 +197,10 @@ export function TunnelSettingsDialog() {
                   {copied ? 'Copied to clipboard!' : 'Click to copy full API key'}
                 </p>
               </div>
+              )}
 
               {/* Plan Info */}
-              {config.plan && (
+              {config?.plan && (
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />

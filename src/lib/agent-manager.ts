@@ -505,6 +505,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       }, null, 2));
 
       const response = query({ prompt, options: queryOptions });
+      console.log(`[AgentManager] Query started for attemptId: ${attemptId}`);
 
       // Store query reference for graceful close() on cancel
       instance.queryRef = response;
@@ -513,12 +514,17 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       // The SDK's internal partial-json-parser can throw on incomplete JSON
       for await (const message of response) {
         if (controller.signal.aborted) {
+          console.log(`[AgentManager] Query aborted for attemptId: ${attemptId}`);
           break;
         }
 
         try {
+          // Log raw SDK message for debugging
+          console.log(`[AgentManager] SDK message received:`, JSON.stringify(message, null, 2));
+
           // Validate SDK message structure
           if (!isValidSDKMessage(message)) {
+            console.log(`[AgentManager] Invalid SDK message skipped:`, message?.type);
             continue;
           }
 
@@ -644,6 +650,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           // Handle per-message errors (e.g., SDK's partial-json-parser failures)
           // Log but continue streaming - don't let one bad message kill the stream
           const errorMsg = messageError instanceof Error ? messageError.message : 'Unknown message error';
+          console.error(`[AgentManager] Message processing error:`, errorMsg, messageError);
 
           // Only emit if it's a significant error (not just parsing issues)
           if (!errorMsg.includes('Unexpected end of JSON')) {
@@ -653,6 +660,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       }
 
       // Query completed successfully
+      console.log(`[AgentManager] Query completed successfully for attemptId: ${attemptId}`);
 
       // Collect git stats snapshot on completion
       try {
