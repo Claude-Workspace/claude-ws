@@ -1,5 +1,42 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
+// Users table - user accounts
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'number' })
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  updatedAt: integer('updated_at', { mode: 'number' })
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// User API keys table - store API keys per user
+export const userApiKeys = sqliteTable(
+  'user_api_keys',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    apiKey: text('api_key').notNull(), // Store hashed
+    provider: text('provider', { enum: ['claude', 'anthropic', 'custom'] })
+      .notNull()
+      .default('claude'),
+    isActive: integer('is_active', { mode: 'boolean' })
+      .notNull()
+      .default(true),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_user_api_keys_user').on(table.userId),
+  ]
+);
+
 // Projects table - workspace configuration
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -285,6 +322,10 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // Type exports for queries
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type UserApiKey = typeof userApiKeys.$inferSelect;
+export type NewUserApiKey = typeof userApiKeys.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
