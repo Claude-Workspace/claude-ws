@@ -191,48 +191,77 @@ class TunnelService extends EventEmitter {
     }
   }
 
-  private async performHealthCheck(): Promise<void> {
-    // If tunnel is marked as closed or doesn't exist, trigger reconnect
-    if (!this.tunnel || this.tunnel.closed) {
-      if (this.state.status === 'connected') {
-        console.log('[Tunnel] Health check failed: tunnel closed, triggering reconnect');
-        this.handleTunnelClose();
+  /**
+   * Perform health check and return result
+   */
+  async performHealthCheck(): Promise<{ healthy: boolean; error?: string }> {
+    // Get URL from state or construct from stored subdomain
+    let tunnelUrl = this.state.url;
+
+    if (!tunnelUrl) {
+      // Try to get subdomain from database and update state
+      try {
+        const subdomainRecord = await db
+          .select()
+          .from(appSettings)
+          .where(eq(appSettings.key, 'tunnel_subdomain'))
+          .limit(1);
+
+        if (subdomainRecord.length > 0 && subdomainRecord[0].value) {
+          tunnelUrl = `https://${subdomainRecord[0].value}.claude.ws`;
+          // Cache the URL in state to avoid repeated DB queries
+          this.state.url = tunnelUrl;
+        }
+      } catch {
+        // Ignore DB errors
       }
-      return;
     }
 
-    // If we have a URL, try a quick health check via HTTP
-    if (this.state.url) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
+    // No URL available at all
+    if (!tunnelUrl) {
+      return { healthy: false, error: 'No tunnel URL available' };
+    }
 
-        const response = await fetch(`${this.state.url}/api/tunnel/status`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
+    // Perform HTTP health check
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
 
-        // Any response (including 401) means tunnel is working
-        if (response.ok || response.status === 401) {
-          this.healthCheckFailures = 0; // Reset on success
-          return; // Healthy
+      const response = await fetch(`${tunnelUrl}/api/auth/verify`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      // Any response (including 401) means tunnel is working
+      if (response.ok || response.status === 401) {
+        this.healthCheckFailures = 0;
+        // Sync state if tunnel is actually working
+        if (this.state.status !== 'connected') {
+          this.setState({ status: 'connected', url: tunnelUrl, error: null });
         }
-
-        // Unexpected response - count as failure
-        this.healthCheckFailures++;
-        console.log(`[Tunnel] Health check: unexpected response ${response.status} (failure ${this.healthCheckFailures}/${HEALTH_CHECK_FAILURE_THRESHOLD})`);
-      } catch {
-        // Fetch failed - tunnel might be down
-        this.healthCheckFailures++;
-        console.log(`[Tunnel] Health check: fetch failed (failure ${this.healthCheckFailures}/${HEALTH_CHECK_FAILURE_THRESHOLD})`);
+        return { healthy: true };
       }
 
-      // If we've exceeded the threshold, force reconnect
+      // Unexpected response - count as failure
+      this.healthCheckFailures++;
+      const error = `Unexpected response ${response.status}`;
+
       if (this.healthCheckFailures >= HEALTH_CHECK_FAILURE_THRESHOLD) {
-        console.log('[Tunnel] Health check failures exceeded threshold, forcing reconnect');
         this.healthCheckFailures = 0;
         this.handleTunnelClose();
       }
+
+      return { healthy: false, error };
+    } catch (err) {
+      this.healthCheckFailures++;
+      const error = err instanceof Error ? err.message : 'Fetch failed';
+
+      if (this.healthCheckFailures >= HEALTH_CHECK_FAILURE_THRESHOLD) {
+        this.healthCheckFailures = 0;
+        this.handleTunnelClose();
+      }
+
+      return { healthy: false, error };
     }
   }
 
@@ -292,7 +321,11 @@ class TunnelService extends EventEmitter {
   }
 
   private setState(newState: Partial<TunnelState>) {
+    const oldUrl = this.state.url;
     this.state = { ...this.state, ...newState };
+    if (newState.url !== undefined && newState.url !== oldUrl) {
+      console.log(`[Tunnel] setState url: ${oldUrl} -> ${newState.url}`);
+    }
     this.emit('status', this.state);
   }
 

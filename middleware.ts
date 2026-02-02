@@ -24,8 +24,9 @@ export default function middleware(request: NextRequest) {
   // Handle API routes with authentication
   const isApiRoute = pathname.startsWith('/api/');
   const isVerifyEndpoint = pathname === '/api/auth/verify';
+  const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
 
-  if (isApiRoute && !isVerifyEndpoint) {
+  if (isApiRoute && !isVerifyEndpoint && !isTunnelStatusEndpoint) {
     // If no API key is configured, allow all requests
     if (!API_ACCESS_KEY || API_ACCESS_KEY.length === 0) {
       return NextResponse.next();

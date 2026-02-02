@@ -101,16 +101,6 @@ async function proxyRequest(
     fetchOptions.body = body;
   }
 
-  console.log(`[Proxy] ${method} ${targetUrl}`);
-  if (body) {
-    try {
-      const payload = JSON.parse(body);
-      console.log(`[Proxy] Payload:`, JSON.stringify(payload, null, 2));
-    } catch {
-      console.log(`[Proxy] Body (non-JSON):`, body.slice(0, 500));
-    }
-  }
-
   try {
     const response = await fetch(targetUrl, fetchOptions);
     const contentType = response.headers.get('content-type') || '';
@@ -137,11 +127,6 @@ async function proxyRequest(
     });
 
     const responseBody = await response.text();
-
-    // Log response for debugging
-    if (!response.ok) {
-      console.log(`[Proxy] Response ${response.status}: ${responseBody.slice(0, 500)}`);
-    }
 
     // Cache successful count_tokens responses
     if (isCountTokens && method === 'POST' && response.ok && body) {

@@ -57,8 +57,9 @@ app.prepare().then(async () => {
     const isApiRoute = pathname.startsWith('/api/');
     const isVerifyEndpoint = pathname === '/api/auth/verify';
     const isProxyEndpoint = pathname.startsWith('/api/proxy/anthropic');
+    const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
 
-    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
+    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
       if (!providedKey || providedKey !== API_ACCESS_KEY) {
@@ -1004,13 +1005,13 @@ app.prepare().then(async () => {
     io.emit('tunnel:closed');
   });
 
-  // Try to auto-reconnect if tunnel configuration exists in database
-  tunnelService.tryAutoReconnect().catch((err) => {
-    console.error('[Server] Failed to auto-reconnect tunnel:', err);
-  });
-
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
+
+    // Try to auto-reconnect tunnel after server is ready
+    tunnelService.tryAutoReconnect().catch((err) => {
+      console.error('[Server] Failed to auto-reconnect tunnel:', err);
+    });
 
     // Log cache stats every 5 minutes for monitoring
     setInterval(() => {

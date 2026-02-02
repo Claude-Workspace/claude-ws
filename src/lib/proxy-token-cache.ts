@@ -117,7 +117,6 @@ function loadCacheFromDisk(): void {
     }
 
     if (loaded > 0 || expired > 0) {
-      console.log(`[ProxyTokenCache] Loaded ${loaded} cached entries, cleaned ${expired} expired`);
     }
   } catch (err) {
     console.warn('[ProxyTokenCache] Failed to load cache from disk:', err);
@@ -218,6 +217,4 @@ export function getCacheStats() {
  * Log cache stats
  */
 export function logCacheStats() {
-  const s = getCacheStats();
-  console.log(`[ProxyTokenCache] Cache: ${s.hits} hits, ${s.misses} misses, ${s.size} cached, ${s.hitRate} hit rate`);
 }

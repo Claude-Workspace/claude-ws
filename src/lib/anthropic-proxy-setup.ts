@@ -165,7 +165,6 @@ function reloadSettingsConfig(settingsPath: string): void {
               }
             }
           }
-          console.log('[AnthropicProxy] Reloaded config from settings.json');
         }
       }
     } catch (err) {
@@ -182,7 +181,6 @@ function reloadSettingsConfig(settingsPath: string): void {
         const parsed = parseDotenv(content);
         if (parsed.ANTHROPIC_AUTH_TOKEN || parsed.ANTHROPIC_API_KEY) {
           loadAppEnvConfig(appEnvPath);
-          console.log('[AnthropicProxy] Fallback to app .env config');
           return;
         }
       } catch {
@@ -193,11 +191,9 @@ function reloadSettingsConfig(settingsPath: string): void {
     // Try ~/.claude.json (3rd priority)
     loadClaudeJsonConfig();
     if (process.env.ANTHROPIC_API_KEY) {
-      console.log('[AnthropicProxy] Fallback to ~/.claude.json config');
       return;
     }
 
-    console.log('[AnthropicProxy] No config found after settings.json change');
   }
 }
 
@@ -214,7 +210,6 @@ function updateProxiedBaseUrl(newBaseUrl: string): void {
 
   // Update the proxied base URL
   process.env.ANTHROPIC_PROXIED_BASE_URL = newBaseUrl;
-  console.log(`[AnthropicProxy] Config file changed, updated ANTHROPIC_PROXIED_BASE_URL: ${newBaseUrl}`);
 
   // Ensure ANTHROPIC_BASE_URL still points to proxy
   // Access underlying object directly to avoid Proxy interception
@@ -245,7 +240,6 @@ function startConfigWatcher(): void {
           }
         }
       });
-      console.log(`[AnthropicProxy] Watching: ${appEnvPath}`);
     } catch (err) {
       console.warn(`[AnthropicProxy] Failed to watch ${appEnvPath}:`, err);
     }
@@ -264,7 +258,6 @@ function startConfigWatcher(): void {
           }, 100);
         }
       });
-      console.log(`[AnthropicProxy] Watching: ${claudeSettingsPath}`);
     } catch (err) {
       console.warn(`[AnthropicProxy] Failed to watch ${claudeSettingsPath}:`, err);
     }
@@ -292,13 +285,10 @@ export function initAnthropicProxy(): void {
   const currentBaseUrl = process.env.ANTHROPIC_BASE_URL;
   if (currentBaseUrl && !currentBaseUrl.includes('/api/proxy/anthropic') && !process.env.ANTHROPIC_PROXIED_BASE_URL) {
     process.env.ANTHROPIC_PROXIED_BASE_URL = currentBaseUrl;
-    console.log(`[AnthropicProxy] Moved ANTHROPIC_BASE_URL to ANTHROPIC_PROXIED_BASE_URL: ${currentBaseUrl}`);
   }
 
   // Set ANTHROPIC_BASE_URL to our proxy
   process.env.ANTHROPIC_BASE_URL = localProxyUrl;
-  console.log(`[AnthropicProxy] Set ANTHROPIC_BASE_URL to proxy: ${localProxyUrl}`);
-  console.log(`[AnthropicProxy] Target: ${process.env.ANTHROPIC_PROXIED_BASE_URL || 'https://api.anthropic.com'}`);
 
   // Wrap process.env with Proxy to intercept future writes to ANTHROPIC_BASE_URL
   const originalEnv = process.env;
@@ -310,7 +300,6 @@ export function initAnthropicProxy(): void {
         // If trying to set to something other than our proxy, redirect to PROXIED
         if (!strValue.includes('/api/proxy/anthropic')) {
           target.ANTHROPIC_PROXIED_BASE_URL = strValue;
-          console.log(`[AnthropicProxy] Intercepted ANTHROPIC_BASE_URL write, redirected to ANTHROPIC_PROXIED_BASE_URL: ${strValue}`);
           // Keep ANTHROPIC_BASE_URL pointing to proxy
           target.ANTHROPIC_BASE_URL = localProxyUrl;
           return true;
@@ -342,7 +331,6 @@ export function initAnthropicProxy(): void {
   startConfigWatcher();
 
   isInitialized = true;
-  console.log(`[AnthropicProxy] Installed process.env proxy wrapper`);
 }
 
 /**
@@ -373,11 +361,5 @@ export function getProxyConfig(): {
  */
 export function reloadConfigByPriority(): void {
   const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
-  console.log('[AnthropicProxy] reloadConfigByPriority called, checking settings.json...');
   reloadSettingsConfig(claudeSettingsPath);
-  console.log('[AnthropicProxy] Config after reload:', {
-    ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN ? 'set' : 'not set',
-    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL,
-    ANTHROPIC_PROXIED_BASE_URL: process.env.ANTHROPIC_PROXIED_BASE_URL,
-  });
 }
