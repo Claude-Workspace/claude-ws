@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree } from 'lucide-react';
+import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Home } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -77,13 +78,13 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
         </TooltipProvider>
 
         {/* Logo - show text on both mobile and desktop */}
-        <div className="flex items-center gap-2 shrink-0">
+        <Link href="/home" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
           <Image src="/logo.svg" alt="Claude Workspace" width={28} height={28} className="sm:hidden" unoptimized />
           <Image src="/logo.svg" alt="Claude Workspace" width={32} height={32} className="hidden sm:block" unoptimized />
           <span className="font-mono text-base font-bold tracking-tight">
             CLAUDE<span style={{ color: '#d87756' }}>.</span>WS
           </span>
-        </div>
+        </Link>
 
         {/* Desktop: Full search input */}
         <div className="hidden sm:block flex-1 min-w-0 max-w-md">
