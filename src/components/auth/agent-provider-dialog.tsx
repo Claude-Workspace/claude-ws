@@ -54,16 +54,21 @@ export function dispatchAgentProviderConfig(): void {
 export function isProviderAuthError(errorMessage: string): boolean {
   const authErrorPatterns = [
     'Invalid API key',
-    'authentication_error',
-    'OAuth authentication is currently not supported',
-    'Please run /login',
-    'No LLM config found',
-    'Failed to authenticate',
-    'API Error: 401',
-    'Unauthorized',
-    'invalid_api_key',
-    'invalid x-api-key',
+    'Please run /login'
   ];
+  // [
+  //   'Invalid API key',
+  //   'authentication_error',
+  //   'OAuth authentication is currently not supported',
+  //   'Please run /login',
+  //   'No LLM config found',
+  //   'Failed to authenticate',
+  //   'API Error: 401',
+  //   'Unauthorized',
+  //   'invalid_api_key',
+  //   'invalid x-api-key',
+  // ];
+  
   return authErrorPatterns.some(pattern =>
     errorMessage.toLowerCase().includes(pattern.toLowerCase())
   );

@@ -36,9 +36,11 @@ import { workflowTracker } from './src/lib/workflow-tracker';
 import { gitStatsCache } from './src/lib/git-stats-collector';
 import { tunnelService } from './src/lib/tunnel-service';
 
+import { getPort, getHostname } from './src/lib/server-port-configuration';
+
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = parseInt(process.env.PORT || '8556', 10);
+const hostname = getHostname();
+const port = getPort();
 
 // API authentication key (optional)
 const API_ACCESS_KEY = process.env.API_ACCESS_KEY;

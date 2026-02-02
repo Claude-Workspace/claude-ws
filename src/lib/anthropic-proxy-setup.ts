@@ -87,16 +87,15 @@ function loadClaudeJsonConfig(): void {
   }
 }
 
+import { getPort, getHostname } from './server-port-configuration';
+
 /**
  * Get the proxy URL based on the current host
  */
 function getProxyUrl(): string {
   if (proxyUrl) return proxyUrl;
 
-  const port = process.env.PORT || '8556';
-  const host = process.env.HOST || 'localhost';
-
-  proxyUrl = `http://${host}:${port}/api/proxy/anthropic`;
+  proxyUrl = `http://${getHostname()}:${getPort()}/api/proxy/anthropic`;
   return proxyUrl;
 }
 

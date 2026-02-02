@@ -6,6 +6,7 @@ import { useTunnelStore } from '@/stores/tunnel-store';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
+import { DEFAULT_PORT } from '@/lib/server-port-configuration';
 
 export function WizardStepCloudflare() {
   const t = useTranslations('accessAnywhere');
@@ -118,7 +119,7 @@ export function WizardStepCloudflare() {
                 <div>credentials-file: ~/.cloudflared/&lt;TUNNEL_ID&gt;.json</div>
                 <div className="pt-2">ingress:</div>
                 <div className="pl-4">- hostname: claude-ws.yourdomain.com</div>
-                <div className="pl-6">service: http://localhost:8556</div>
+                <div className="pl-6">service: http://localhost:{DEFAULT_PORT}</div>
                 <div className="pl-4">- service: http_status:404</div>
               </div>
             </div>

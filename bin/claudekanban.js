@@ -125,10 +125,14 @@ async function runMigrations() {
   }
 }
 
+// Default port - must match src/lib/server-port-configuration.ts
+const DEFAULT_PORT = 8556;
+
 async function startServer() {
+  const port = process.env.PORT || DEFAULT_PORT;
   console.log('[Claude Workspace] Starting server...');
   console.log('[Claude Workspace] Database location:', DB_PATH);
-  console.log('[Claude Workspace] Server will be available at http://localhost:8556');
+  console.log(`[Claude Workspace] Server will be available at http://localhost:${port}`);
   console.log('');
 
   const serverPath = path.join(packageRoot, 'server.ts');
