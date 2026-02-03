@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitSection } from './git-section';
-import { GitGraph } from './git-graph';
+import { GitGraph, GitGraphRef } from './git-graph';
 import { GitFileItem } from './git-file-item';
 import { BranchCheckoutModal } from './branch-checkout-modal';
 import { useActiveProject } from '@/hooks/use-active-project';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import type { GitStatus, GitFileStatus } from '@/types';
 
 export function GitPanel() {
+  const gitGraphRef = useRef<GitGraphRef>(null);
   const t = useTranslations('git');
   const activeProject = useActiveProject();
   const { openDiffTab } = useSidebarStore();
@@ -28,6 +29,7 @@ export function GitPanel() {
   const [commitDescription, setCommitDescription] = useState('');
   const [committing, setCommitting] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<string>('');
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -236,6 +238,8 @@ export function GitPanel() {
       setCommitTitle('');
       setCommitDescription('');
       fetchStatus(true);
+      // Refresh git graph after commit
+      gitGraphRef.current?.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to commit');
     } finally {
@@ -247,6 +251,7 @@ export function GitPanel() {
     if (!activeProject?.path) return;
 
     setGeneratingMessage(true);
+    setGenerationProgress('Analyzing changes...');
     try {
       const res = await fetch('/api/git/generate-message', {
         method: 'POST',
@@ -259,11 +264,14 @@ export function GitPanel() {
         throw new Error(data.error || 'Failed to generate message');
       }
 
+      setGenerationProgress('Processing response...');
       const { title, description } = await res.json();
       setCommitTitle(title || '');
       setCommitDescription(description || '');
+      setGenerationProgress('');
     } catch (err) {
       console.error('AI generation error:', err);
+      setGenerationProgress('');
       alert(err instanceof Error ? err.message : 'Failed to generate commit message');
     } finally {
       setGeneratingMessage(false);
@@ -284,6 +292,8 @@ export function GitPanel() {
         throw new Error(data.error || 'Failed to push');
       }
       fetchStatus(true);
+      // Refresh git graph after sync
+      gitGraphRef.current?.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to push changes');
     } finally {
@@ -310,6 +320,8 @@ export function GitPanel() {
       }
 
       await fetchStatus(true);
+      // Refresh git graph after branch checkout
+      gitGraphRef.current?.refresh();
     } catch (err) {
       throw err;
     }
@@ -502,12 +514,12 @@ export function GitPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="px-2"
+                      className="px-2 relative"
                       title={
                         totalChanges === 0
                           ? 'No changes to generate commit message for'
                           : generatingMessage
-                          ? 'Generating...'
+                          ? generationProgress || 'Generating...'
                           : 'Generate commit message with AI'
                       }
                       onClick={handleGenerateMessage}
@@ -617,7 +629,7 @@ export function GitPanel() {
           </div>
 
           {/* Commit Graph */}
-          <GitGraph />
+          <GitGraph ref={gitGraphRef} />
         </div>
       </ScrollArea>
 

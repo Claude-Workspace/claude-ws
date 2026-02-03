@@ -21,29 +21,55 @@ interface GitCommitItemProps {
   isMerge: boolean;
   showLine: boolean;
   onClick?: () => void;
+  allRemoteBranches?: string[]; // All remote branches like ['origin/dev', 'origin/main']
 }
 
 // Parse refs to extract branch/tag names
-function parseRefs(refs: string[]): { branches: string[]; tags: string[] } {
-  const branches: string[] = [];
+function parseRefs(refs: string[], allRemoteBranches: string[] = []): {
+  localBranches: string[];
+  remoteBranches: string[];
+  tags: string[];
+} {
+  const localBranches: string[] = [];
+  const remoteBranches: string[] = [];
   const tags: string[] = [];
+
+  // Create a Set of remote branch names for quick lookup
+  const remoteBranchSet = new Set(
+    allRemoteBranches.map(ref => {
+      const parts = ref.split('/');
+      return parts[parts.length - 1]; // Extract branch name from 'origin/dev'
+    })
+  );
 
   for (const ref of refs) {
     if (ref.startsWith('HEAD -> ')) {
-      branches.push(ref.replace('HEAD -> ', ''));
+      localBranches.push(ref.replace('HEAD -> ', ''));
     } else if (ref.startsWith('tag: ')) {
       tags.push(ref.replace('tag: ', ''));
     } else if (ref.includes('/')) {
-      // Remote branch like origin/main
-      branches.push(ref.split('/').pop() || ref);
+      // Remote branch like origin/main or origin/dev
+      const branchName = ref.split('/').pop() || ref;
+      remoteBranches.push(branchName);
     } else {
-      branches.push(ref);
+      // Local branch
+      localBranches.push(ref);
     }
   }
 
-  // Deduplicate
+  // If we have local branches but no remote branches in refs,
+  // check if corresponding remote branches exist in allRemoteBranches
+  if (localBranches.length > 0 && remoteBranches.length === 0 && allRemoteBranches.length > 0) {
+    for (const localBranch of localBranches) {
+      if (remoteBranchSet.has(localBranch)) {
+        remoteBranches.push(localBranch);
+      }
+    }
+  }
+
   return {
-    branches: [...new Set(branches)],
+    localBranches: [...new Set(localBranches)],
+    remoteBranches: [...new Set(remoteBranches)],
     tags: [...new Set(tags)],
   };
 }
@@ -93,17 +119,10 @@ export function GitCommitItem({
   isMerge,
   showLine,
   onClick,
+  allRemoteBranches = [],
 }: GitCommitItemProps) {
   const { prefix, scope, subject } = parseCommitMessage(commit.message);
-  const { branches, tags } = parseRefs(commit.refs);
-
-  // Find current branch (has "HEAD -> " in refs)
-  const currentBranchRef = commit.refs.find(ref => ref.startsWith('HEAD -> '));
-  const currentBranch = currentBranchRef?.replace('HEAD -> ', '') || null;
-
-  // Separate local and remote branches
-  const localBranches = branches.filter(b => !b.includes('/'));
-  const remoteBranches = branches.filter(b => b.includes('/'));
+  const { localBranches, remoteBranches, tags } = parseRefs(commit.refs, allRemoteBranches);
 
   return (
     <div
@@ -128,18 +147,35 @@ export function GitCommitItem({
       </div>
 
       {/* Branch badges */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Local branches - color matches lane color */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Local branches - green */}
         {localBranches.slice(0, 1).map((branch) => (
           <span
-            key={branch}
-            className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
+            key={`local-${branch}`}
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border border-green-500/30"
             style={{
-              backgroundColor: `${color}20`,
-              color: color,
+              backgroundColor: `rgba(34, 197, 94, 0.2)`,
+              color: '#4ade80',
             }}
+            title={`Local branch: ${branch}${isHead ? ' (HEAD)' : ''}`}
           >
             @{branch}
+          </span>
+        ))}
+
+        {/* Remote branches - sky blue with globe */}
+        {remoteBranches.slice(0, 1).map((branch) => (
+          <span
+            key={`remote-${branch}`}
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border border-sky-500/30 flex items-center gap-0.5"
+            style={{
+              backgroundColor: `rgba(14, 165, 233, 0.2)`,
+              color: '#38bdf8',
+            }}
+            title={`Remote branch: origin/${branch}`}
+          >
+            @{branch}
+            <span className="text-[9px]">🌐</span>
           </span>
         ))}
 
@@ -156,18 +192,6 @@ export function GitCommitItem({
             {tag}
           </span>
         ))}
-
-        {/* Remote branches - cloud icon */}
-        {remoteBranches.length > 0 && (
-          <svg
-            className="size-3.5"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            style={{ color: color }}
-          >
-            <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
-          </svg>
-        )}
       </div>
     </div>
   );

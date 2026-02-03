@@ -14,7 +14,7 @@ import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar
 import { RightSidebar } from '@/components/right-sidebar';
 import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { PluginList } from '@/components/agent-factory/plugin-list';
-import { AccessAnywhereWizard } from '@/components/access-anywhere';
+import { AccessAnywhereWizard, FirstLoadModal } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
@@ -265,11 +265,16 @@ function KanbanApp() {
         onCreateTask={() => setCreateTaskOpen(true)}
       />
 
-      {/* Access Anywhere Wizard */}
+      {/* Access Anyplace Wizard */}
       <AccessAnywhereWizard />
 
+<<<<<<< HEAD
       {/* Floating Chat Windows - rendered independently */}
       <FloatingChatWindowsContainer />
+=======
+      {/* First Load Modal */}
+      <FirstLoadModal />
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
     </div>
   );
 }

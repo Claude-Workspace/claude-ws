@@ -63,7 +63,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const promptInputRef = useRef<PromptInputRef>(null);
   const { shells } = useShellStore();
   const hasAutoStartedRef = useRef(false);
-  const lastCompletedTaskRef = useRef<string | null>(null);
 
   const { width, isResizing, handleMouseDown: handleResizeMouseDown } = useResizable({
     initialWidth: widths.taskDetail,
@@ -93,6 +92,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showStatusDropdown]);
 
+<<<<<<< HEAD
   // Handle task completion - move to review and show notification
   const handleTaskComplete = useCallback(
     async (taskId: string) => {
@@ -107,6 +107,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     [updateTaskStatus, t]
   );
 
+=======
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
   const {
     messages,
     startAttempt,
@@ -120,7 +122,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     cancelQuestion,
   } = useAttemptStream({
     taskId: selectedTask?.id,
-    onComplete: handleTaskComplete,
   });
 
   // Auto-start task when pendingAutoStartTask matches the selected task
@@ -168,7 +169,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setCurrentAttemptFiles([]);
     setShellPanelExpanded(false);
     setShowQuestionPrompt(false);
-    lastCompletedTaskRef.current = null;
     hasAutoStartedRef.current = false;
 
     setTimeout(() => {
@@ -255,8 +255,12 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       setHasSentFirstMessage(true);
     }
 
+<<<<<<< HEAD
     lastCompletedTaskRef.current = null;
 
+=======
+    // Capture pending files before they get cleared
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
     const pendingFiles = getPendingFiles(selectedTask.id);
     setCurrentAttemptFiles(pendingFiles);
     startAttempt(selectedTask.id, prompt, displayPrompt, fileIds, getTaskModel(selectedTask.id, selectedTask.lastModel));

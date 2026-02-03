@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useTaskStore } from '@/stores/task-store';
+import type { Task } from '@/types';
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -25,6 +27,18 @@ export function useSocket() {
 
     socket.on('error', (error) => {
       console.error('Socket error:', error);
+    });
+
+    // Handle SDK task creation events
+    socket.on('task:created', (task: Task) => {
+      console.log('[Socket] Task created event received:', task);
+      useTaskStore.getState().addTask(task);
+    });
+
+    // Handle SDK task update events
+    socket.on('task:updated', ({ taskId, updates }: { taskId: string; updates: Partial<Task> }) => {
+      console.log('[Socket] Task updated event received:', taskId, updates);
+      useTaskStore.getState().updateTask(taskId, updates);
     });
 
     // Cleanup on unmount

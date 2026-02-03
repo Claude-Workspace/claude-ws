@@ -10,7 +10,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { questions, answers } = body as { questions: unknown[]; answers: Record<string, string> };
+    const { questions, answers, toolUseId } = body as { questions: unknown[]; answers: Record<string, string>; toolUseId?: string };
 
     // Save the answer as an attempt log (with bold formatting for display)
     const answerText = Object.entries(answers)
@@ -22,6 +22,7 @@ export async function POST(
       type: 'json',
       content: JSON.stringify({
         type: 'user_answer',
+        toolUseId, // Save toolUseId to map answer to specific question
         questions,
         answers,
         displayText: `✓ You answered:\n${answerText}`

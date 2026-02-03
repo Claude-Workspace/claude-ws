@@ -27,7 +27,7 @@ interface TunnelConfig {
 
 export function TunnelSettings() {
   const t = useTranslations('accessAnywhere');
-  const { getTunnelConfig, resetOnboarding, status } = useTunnelStore();
+  const { getTunnelConfig, resetOnboarding, status, openFirstLoadModal } = useTunnelStore();
   const [config, setConfig] = useState<TunnelConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -89,9 +89,14 @@ export function TunnelSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{t('noConfigFound')}</p>
-          <Button onClick={() => useTunnelStore.getState().setWizardOpen(true)}>
-            {t('setUpTunnel')}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={openFirstLoadModal} variant="default">
+              {t('setUpTunnel')}
+            </Button>
+            <Button onClick={() => useTunnelStore.getState().setWizardOpen(true)} variant="outline">
+              Advanced Setup
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

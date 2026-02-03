@@ -69,7 +69,11 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@anthropic-ai/claude-agent-sdk": "^0.2.29",
+=======
+    "@anthropic-ai/claude-agent-sdk": "^0.2.23",
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
     "@anthropic-ai/sdk": "^0.71.2",
     "@codemirror/lang-cpp": "^6.0.3",
     "@codemirror/lang-css": "^6.3.1",
@@ -96,6 +100,7 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
@@ -107,13 +112,18 @@
     "@tailwindcss/postcss": "^4",
     "@types/adm-zip": "^0.5.7",
     "@types/better-sqlite3": "^7.6.13",
+<<<<<<< HEAD
     "@types/compression": "^1.8.1",
+=======
+    "@types/busboy": "^1.5.4",
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@uiw/react-codemirror": "^4.25.4",
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.5.0",
+    "busboy": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

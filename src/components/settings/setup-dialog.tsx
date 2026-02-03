@@ -200,12 +200,17 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                 <Button
                   type="button"
                   variant="outline"
+                  value="cancel"
                   onClick={() => onOpenChange(false)}
                   disabled={loading}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading || !path}>
+                <Button
+                  type="submit"
+                  value="open-project"
+                  disabled={loading || !path}
+                >
                   {loading ? 'Opening...' : 'Open Project'}
                 </Button>
               </div>
@@ -291,12 +296,17 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                 <Button
                   type="button"
                   variant="outline"
+                  value="cancel"
                   onClick={() => onOpenChange(false)}
                   disabled={loading}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading || !name || !rootPath}>
+                <Button
+                  type="submit"
+                  value="create-project"
+                  disabled={loading || !name || !rootPath}
+                >
                   {loading ? 'Creating...' : 'Create Project'}
                 </Button>
               </div>

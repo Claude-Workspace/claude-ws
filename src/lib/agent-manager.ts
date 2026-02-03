@@ -24,6 +24,7 @@ import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
 import { getSystemPrompt } from './system-prompt';
+import { extractTaskDataFromToolInput } from './task-converter';
 
 // MCP Server configuration types matching SDK's McpServerConfig union
 interface MCPStdioServerConfig {
@@ -221,6 +222,8 @@ interface AgentEvents {
   question: (data: { attemptId: string; toolUseId: string; questions: unknown[] }) => void;
   backgroundShell: (data: { attemptId: string; shell: BackgroundShellInfo }) => void;
   trackedProcess: (data: { attemptId: string; pid: number; command: string; logFile?: string }) => void;
+  taskCreated: (data: { attemptId: string; taskData: any }) => void;
+  taskUpdated: (data: { attemptId: string; taskId: string; updates: any }) => void;
 }
 
 export interface AgentStartOptions {
@@ -642,6 +645,35 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
               attemptId,
               shell: adapted.backgroundShell,
             });
+          }
+
+          // Handle TaskCreate/TaskUpdate tool use from SDK
+          if (adapted.detectedTasks && adapted.detectedTasks.length > 0) {
+            for (const detectedTask of adapted.detectedTasks) {
+              const extractedData = extractTaskDataFromToolInput(detectedTask.toolInput);
+              if (extractedData) {
+                // For now, we'll emit events that will be handled by server-side logic
+                // The actual task creation/update will happen in the API route
+                console.log('[AgentManager] Emitting task event:', {
+                  attemptId,
+                  taskType: extractedData.taskType,
+                  taskData: extractedData.taskData,
+                });
+
+                if (extractedData.taskType === 'create') {
+                  this.emit('taskCreated', {
+                    attemptId,
+                    taskData: extractedData.taskData,
+                  });
+                } else {
+                  this.emit('taskUpdated', {
+                    attemptId,
+                    taskId: extractedData.taskData.id || '',
+                    updates: extractedData.taskData,
+                  });
+                }
+              }
+            }
           }
 
           // Emit adapted message

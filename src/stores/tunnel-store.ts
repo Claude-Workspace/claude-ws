@@ -20,6 +20,7 @@ interface TunnelState {
   checkOnboarding: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
+  openFirstLoadModal: () => void;
   getTunnelConfig: () => Promise<{ subdomain: string | null; email: string | null; apiKey: string | null; plan: any } | null>;
   initSocketListeners: () => void;
 }
@@ -105,9 +106,9 @@ export const useTunnelStore = create<TunnelState>()(
           // Onboarding is complete only if both subdomain and API key are set
           const completed = !!(data.tunnel_subdomain && data.tunnel_apikey);
           set({ onboardingCompleted: completed });
-          if (!completed) {
-            set({ wizardOpen: true });
-          }
+
+          // Don't auto-open wizard anymore - FirstLoadModal handles first load
+          // Wizard only opens manually from settings
         } catch (err) {
           console.error('Failed to check onboarding:', err);
         }
@@ -128,11 +129,19 @@ export const useTunnelStore = create<TunnelState>()(
           });
           // Clear localStorage for Cloudflare users
           localStorage.removeItem('onboarding_completed');
+          // Reset firstload dismissed flag so modal shows again
+          localStorage.removeItem('firstload_dismissed');
           // Reset wizard to step 0, clear tunnel state, and open wizard
           set({ onboardingCompleted: false, wizardStep: 0, wizardOpen: true, status: 'disconnected', url: null, error: null });
         } catch (err) {
           console.error('Failed to reset onboarding:', err);
         }
+      },
+
+      openFirstLoadModal: () => {
+        // Reset firstload dismissed flag and open modal
+        localStorage.removeItem('firstload_dismissed');
+        set({ wizardStep: 0, wizardOpen: true });
       },
 
       getTunnelConfig: async () => {

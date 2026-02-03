@@ -46,9 +46,16 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 export const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB per attempt
+export const MAX_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB max chunk size
 
 export const UPLOADS_DIR = join(process.cwd(), 'uploads');
 export const TEMP_DIR = join(process.cwd(), 'uploads', 'temp');
+
+// Chunked upload settings
+export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+export const MIN_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB for small files
+export const CHUNK_UPLOAD_TIMEOUT = 30000; // 30s per chunk
+export const MAX_CONCURRENT_CHUNKS = 6; // Max parallel uploads
 
 // Validate file type and size
 export function validateFile(file: File): { valid: boolean; error?: string } {

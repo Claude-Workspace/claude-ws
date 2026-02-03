@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBlock } from '@/components/claude/message-block';
 import { ToolUseBlock } from '@/components/claude/tool-use-block';
@@ -10,6 +10,7 @@ import { PendingQuestionIndicator } from '@/components/task/pending-question-ind
 import { AuthErrorMessage } from '@/components/auth/auth-error-message';
 import { isProviderAuthError } from '@/components/auth/agent-provider-dialog';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type { ClaudeOutput, ClaudeContentBlock, AttemptFile, PendingFile } from '@/types';
 
 interface ActiveQuestion {
@@ -181,6 +182,8 @@ export function ConversationView({
   const localIsFetchingRef = useRef(false);
   const effectiveLastFetchedRef = lastFetchedTaskIdRef || localLastFetchedTaskIdRef;
   const effectiveIsFetchingRef = isFetchingRef || localIsFetchingRef;
+  // Track whether to show the scroll-to-bottom button
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   // Pre-compute tool results map and last tool ID for current messages (streaming)
   // Memoized to avoid O(n²) complexity on every render
@@ -194,79 +197,60 @@ export function ConversationView({
     [currentMessages]
   );
 
-  // Check if user is near bottom of scroll area (within threshold)
-  const isNearBottom = () => {
-    const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-    if (detachedContainer) {
-      const threshold = 150;
-      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < threshold;
-    }
+  // Constants for scroll behavior
+  const NEAR_BOTTOM_THRESHOLD = 150; // pixels from bottom to consider "near bottom"
+  const SCROLL_RESET_DELAY = 500; // ms to wait before resetting scroll state (increased for mobile)
 
-    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    if (!viewport) return true;
-    const threshold = 150; // pixels from bottom
-    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
+  // Get the active scroll container (detached window or normal viewport)
+  const getScrollContainer = (): HTMLElement | null => {
+    const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]') as HTMLElement | null;
+    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null;
+    return detachedContainer || viewport;
   };
 
-  // Scroll to bottom of scroll area viewport (only if user is near bottom)
+  // Check if user is near bottom of scroll area
+  const isNearBottom = (): boolean => {
+    const container = getScrollContainer();
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < NEAR_BOTTOM_THRESHOLD;
+  };
+
+  // Scroll to bottom only if user is near bottom
   const scrollToBottomIfNear = () => {
     if (isNearBottom()) {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) {
-        detachedContainer.scrollTop = detachedContainer.scrollHeight;
-      } else {
-        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-        if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight;
-        }
+      const container = getScrollContainer();
+      if (container) {
+        container.scrollTop = container.scrollHeight;
       }
     }
   };
 
   // Force scroll to bottom (bypasses isNearBottom check)
   const scrollToBottom = () => {
-    const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-    if (detachedContainer) {
-      detachedContainer.scrollTop = detachedContainer.scrollHeight;
-    } else {
-      const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
+    const container = getScrollContainer();
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
   };
 
-  // Scroll to bottom with retry for better reliability (especially in detached mode)
+  // Scroll to bottom with retry for reliability (especially in detached mode)
   const scrollToBottomWithRetry = (attempts = 3) => {
     const attemptScroll = (remainingAttempts: number) => {
-      // Check if we're in a detached window
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-
-      if (detachedContainer) {
-        // In detached mode, scroll the detached container
-        detachedContainer.scrollTop = detachedContainer.scrollHeight;
-        requestAnimationFrame(() => {
-          const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10;
-          if (!isAtBottom && remainingAttempts > 0) {
-            setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
-          }
-        });
-      } else {
-        // Normal mode, scroll the ScrollArea viewport
-        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-        if (viewport && viewport.scrollHeight > 0) {
-          viewport.scrollTop = viewport.scrollHeight;
-          requestAnimationFrame(() => {
-            const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
-            if (!isAtBottom && remainingAttempts > 0) {
-              setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
-            }
-          });
-        } else if (remainingAttempts > 0) {
-          // Viewport not ready, retry
+      const container = getScrollContainer();
+      if (!container) {
+        if (remainingAttempts > 0) {
           setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
         }
+        return;
       }
+
+      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 10;
+        if (!isAtBottom && remainingAttempts > 0) {
+          setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+        }
+      });
     };
     attemptScroll(attempts);
   };
@@ -309,6 +293,10 @@ export function ConversationView({
     if (!isLoading) {
       // Use retry logic for better reliability in detached mode
       scrollToBottomWithRetry(5);
+      // Check scroll position after scroll completes
+      setTimeout(() => {
+        setShowScrollToBottom(!isNearBottom());
+      }, 100);
     }
   }, [taskId, isLoading]);
 
@@ -344,12 +332,6 @@ export function ConversationView({
   useEffect(() => {
     if (!isRunning) return;
 
-    const getScrollContainer = () => {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) return detachedContainer;
-      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    };
-
     const container = getScrollContainer();
     const contentContainer = scrollAreaRef.current;
 
@@ -360,7 +342,8 @@ export function ConversationView({
     let rafId: number | null = null;
 
     const performScroll = () => {
-      if (!userScrollingRef.current) {
+      // Only scroll if user is near bottom and not actively scrolling away
+      if (!userScrollingRef.current && isNearBottom()) {
         container.scrollTop = container.scrollHeight;
       }
       scrollPending = false;
@@ -406,40 +389,54 @@ export function ConversationView({
     lastPromptRef.current = currentPrompt;
   }, [currentPrompt]);
 
-  // Detect user scroll to pause auto-scroll
+  // Detect user scroll to pause auto-scroll and show/hide scroll-to-bottom button
   useEffect(() => {
-    const getScrollContainer = () => {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) return detachedContainer;
-      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    };
+    const container = getScrollContainer();
+    if (!container) return;
+
+    let lastScrollTop = container.scrollTop;
+    let scrollStartTime = Date.now();
 
     const handleScroll = () => {
-      // Mark user as scrolling
-      userScrollingRef.current = true;
+      const currentScrollTop = container.scrollTop;
+      const scrollDirection = currentScrollTop > lastScrollTop ? 'down' : 'up';
+      const now = Date.now();
 
-      // Clear previous timeout
+      // Detect intentional user scroll (significant scroll up or sustained scrolling)
+      const isScrollingUp = scrollDirection === 'up' && (lastScrollTop - currentScrollTop) > 5;
+      const isSustainedScroll = (now - scrollStartTime) > 100;
+
+      // Mark user as actively scrolling if they're scrolling up or scrolling intentionally
+      if (isScrollingUp || isSustainedScroll) {
+        userScrollingRef.current = true;
+      }
+
+      // Update last scroll position and time
+      lastScrollTop = currentScrollTop;
+      scrollStartTime = now;
+
+      // Clear any pending reset
       if (userScrollTimeoutRef.current) {
         clearTimeout(userScrollTimeoutRef.current);
       }
 
-      // Reset after user stops scrolling AND is near bottom
+      // Update button visibility based on scroll position
+      const shouldShowButton = !isNearBottom();
+      setShowScrollToBottom(shouldShowButton);
+
+      // Schedule reset: re-enable auto-scroll when user settles at bottom
       userScrollTimeoutRef.current = setTimeout(() => {
         if (isNearBottom()) {
           userScrollingRef.current = false;
+          setShowScrollToBottom(false);
         }
-      }, 150);
+      }, SCROLL_RESET_DELAY);
     };
 
-    const container = getScrollContainer();
-    if (container) {
-      container.addEventListener('scroll', handleScroll, { passive: true });
-    }
+    container.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
-      if (container) {
-        container.removeEventListener('scroll', handleScroll);
-      }
+      container.removeEventListener('scroll', handleScroll);
       if (userScrollTimeoutRef.current) {
         clearTimeout(userScrollTimeoutRef.current);
       }
@@ -660,59 +657,82 @@ export function ConversationView({
     : historicalTurns;
 
   return (
-    <ScrollArea ref={scrollAreaRef} className={cn('h-full w-full max-w-full overflow-x-hidden', className)}>
-      <div className="space-y-6 p-4 pb-24 w-full max-w-full overflow-x-hidden box-border">
-        {/* Historical turns */}
-        {filteredHistoricalTurns.map(renderTurn)}
+    <div className="relative h-full w-full max-w-full overflow-x-hidden">
+      <ScrollArea ref={scrollAreaRef} className={cn('h-full w-full max-w-full overflow-x-hidden', className)}>
+        <div className="space-y-6 p-4 pb-24 w-full max-w-full overflow-x-hidden box-border">
+          {/* Historical turns */}
+          {filteredHistoricalTurns.map(renderTurn)}
 
-        {/* Current streaming messages - only show if not already in filtered history */}
-        {currentAttemptId && (currentMessages.length > 0 || isRunning) &&
-          !filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'assistant') && (
-            <>
-              {/* User prompt if not in history */}
-              {!filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'user') && currentPrompt && (
-                <div className="flex justify-end w-full max-w-full">
-                  <div className="bg-primary/10 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 max-w-[85%] overflow-hidden">
-                    <div>{currentPrompt}</div>
-                  {currentFiles && currentFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {currentFiles.map((file) => {
-                        // Use previewUrl (blob URL) for immediate display - it stays valid
-                        // since we don't revoke it until page reload
-                        const imgSrc = file.previewUrl;
+          {/* Current streaming messages - only show if not already in filtered history */}
+          {currentAttemptId && (currentMessages.length > 0 || isRunning) &&
+            !filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'assistant') && (
+              <>
+                {/* User prompt if not in history */}
+                {!filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'user') && currentPrompt && (
+                  <div className="flex justify-end w-full max-w-full">
+                    <div className="bg-primary/10 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 max-w-[85%] overflow-hidden">
+                      <div>{currentPrompt}</div>
+                    {currentFiles && currentFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {currentFiles.map((file) => {
+                          // Use previewUrl (blob URL) for immediate display - it stays valid
+                          // since we don't revoke it until page reload
+                          const imgSrc = file.previewUrl;
 
-                        return isImage(file.mimeType) ? (
-                          <img
-                            key={file.tempId}
-                            src={imgSrc}
-                            alt={file.originalName}
-                            className="h-16 w-auto rounded border border-border"
-                            title={file.originalName}
-                          />
-                        ) : (
-                          <div
-                            key={file.tempId}
-                            className="flex items-center gap-1 px-2 py-1 bg-background rounded border border-border text-xs"
-                            title={file.originalName}
-                          >
-                            <FileText className="size-3" />
-                            <span className="max-w-[100px] truncate">{file.originalName}</span>
-                          </div>
-                        );
-                      })}
+                          return isImage(file.mimeType) ? (
+                            <img
+                              key={file.tempId}
+                              src={imgSrc}
+                              alt={file.originalName}
+                              className="h-16 w-auto rounded border border-border"
+                              title={file.originalName}
+                            />
+                          ) : (
+                            <div
+                              key={file.tempId}
+                              className="flex items-center gap-1 px-2 py-1 bg-background rounded border border-border text-xs"
+                              title={file.originalName}
+                            >
+                              <FileText className="size-3" />
+                              <span className="max-w-[100px] truncate">{file.originalName}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <span className="text-xs text-muted-foreground">{formatTimestamp(Date.now())}</span>
                     </div>
-                  )}
-                  <div className="flex justify-end">
-                    <span className="text-xs text-muted-foreground">{formatTimestamp(Date.now())}</span>
                   </div>
+                  </div>
+                )}
+                {/* Streaming response */}
+                <div className="space-y-4 w-full max-w-full overflow-hidden">
+                  {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentToolResultsMap, currentLastToolUseId))}
                 </div>
-                </div>
-              )}
-              {/* Streaming response */}
-              <div className="space-y-4 w-full max-w-full overflow-hidden">
-                {currentMessages.map((msg, idx) => renderMessage(msg, idx, true, currentToolResultsMap, currentLastToolUseId))}
-              </div>
 
+                {/* Pending question indicator - shown when question is interrupted */}
+                {activeQuestion && onOpenQuestion && (
+                  <PendingQuestionIndicator
+                    questions={activeQuestion.questions}
+                    onOpen={onOpenQuestion}
+                  />
+                )}
+              </>
+            )}
+
+          {/* Initial loading state - show until actual visible content appears */}
+          {isRunning && !hasVisibleContent(currentMessages) &&
+            !filteredHistoricalTurns.some(t => t.attemptId === currentAttemptId && t.type === 'assistant') && (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-1">
+                <RunningDots />
+                <span className="font-mono text-[14px]" style={{ color: '#b9664a' }}>{statusVerb}...</span>
+              </div>
+            )}
+        </div>
+      </ScrollArea>
+
+<<<<<<< HEAD
               {/* Pending question indicator - shown when question is interrupted */}
               {activeQuestion && onOpenQuestion && (
                 <PendingQuestionIndicator
@@ -739,5 +759,19 @@ export function ConversationView({
         })()}
       </div>
     </ScrollArea>
+=======
+      {/* Scroll to bottom button */}
+      {showScrollToBottom && (
+        <Button
+          onClick={scrollToBottom}
+          size="icon-lg"
+          className="absolute bottom-6 right-6 rounded-full shadow-lg"
+          aria-label="Scroll to bottom of conversation"
+        >
+          <ArrowDown className="h-5 w-5" aria-hidden="true" />
+        </Button>
+      )}
+    </div>
+>>>>>>> 438de82cdec074da9b2e4445999abee4b86d54c0
   );
 }

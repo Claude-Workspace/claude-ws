@@ -227,10 +227,18 @@ export function RightSidebar({ projectId, onCreateTask, className }: RightSideba
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLogoutConfirm(false)}>
+            <Button
+              variant="outline"
+              value="cancel"
+              onClick={() => setShowLogoutConfirm(false)}
+            >
               {t('cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleLogoutConfirm}>
+            <Button
+              variant="destructive"
+              value="logout"
+              onClick={handleLogoutConfirm}
+            >
               {t('logout')}
             </Button>
           </DialogFooter>

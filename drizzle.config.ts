@@ -3,8 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
 
-// Load environment variables
-const env = config();
+// Load environment variables quietly
+const env = config({ quiet: true });
 
 // Database location - use DATA_DIR from env if configured, otherwise default to project data dir
 const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');

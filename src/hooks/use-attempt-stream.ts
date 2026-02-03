@@ -7,7 +7,6 @@ import { useRunningTasksStore } from '@/stores/running-tasks-store';
 
 interface UseAttemptStreamOptions {
   taskId?: string;
-  onComplete?: (taskId: string) => void;
 }
 
 // Question types for AskUserQuestion
@@ -46,7 +45,6 @@ export function useAttemptStream(
   options?: UseAttemptStreamOptions
 ): UseAttemptStreamResult {
   const taskId = options?.taskId;
-  const onCompleteRef = useRef(options?.onComplete);
   const socketRef = useRef<Socket | null>(null);
   const currentTaskIdRef = useRef<string | null>(null);
   // CRITICAL: Use ref to track currentAttemptId for synchronous filtering in socket callbacks
@@ -59,9 +57,6 @@ export function useAttemptStream(
   const [isRunning, setIsRunning] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState<ActiveQuestion | null>(null);
   const { addRunningTask, removeRunningTask, markTaskCompleted } = useRunningTasksStore();
-
-  // Keep callback ref updated
-  onCompleteRef.current = options?.onComplete;
 
   useEffect(() => {
     const socketInstance = io({
@@ -95,8 +90,6 @@ export function useAttemptStream(
       removeRunningTask(data.taskId);
       if (data.status === 'completed') {
         markTaskCompleted(data.taskId);
-        // Move task to in_review regardless of which task user is viewing
-        onCompleteRef.current?.(data.taskId);
       }
     });
 
@@ -301,7 +294,7 @@ export function useAttemptStream(
       setCurrentAttemptId((currentId) => {
         if (data.attemptId === currentId) {
           setIsRunning(false);
-          // Note: removeRunningTask, markTaskCompleted, and onComplete are now handled by task:finished
+          // Note: removeRunningTask and markTaskCompleted are now handled by task:finished
           // which fires regardless of which task user is viewing
         }
         return currentId;
@@ -350,8 +343,7 @@ export function useAttemptStream(
     // Check both top-level tool_result messages (from conversation API)
     // and tool_result content blocks inside user messages (from running-attempt raw logs)
     const answeredToolIds = new Set<string>();
-    // Also track if any user_answer log exists (saved by answer API as fallback)
-    let hasUserAnswerLog = false;
+
     for (const msg of messages) {
       if (msg.type === 'tool_result' && msg.tool_data?.tool_use_id) {
         answeredToolIds.add(String(msg.tool_data.tool_use_id));
@@ -365,12 +357,16 @@ export function useAttemptStream(
         }
       }
       // Detect user_answer logs (saved by /api/attempts/[id]/answer)
-      // These indicate a question was answered even if tool_result hasn't been logged yet
+      // Extract toolUseId to mark the specific question as answered
       if ((msg as any).type === 'user_answer') {
-        hasUserAnswerLog = true;
+        const toolUseId = (msg as any).toolUseId;
+        if (toolUseId) {
+          console.log('[checkForUnansweredQuestion] Marking question as answered via user_answer log', toolUseId);
+          answeredToolIds.add(String(toolUseId));
+        }
       }
     }
-    console.log('[checkForUnansweredQuestion] Answered tool IDs', Array.from(answeredToolIds), 'hasUserAnswerLog', hasUserAnswerLog);
+    console.log('[checkForUnansweredQuestion] Answered tool IDs', Array.from(answeredToolIds));
 
     // Collect all AskUserQuestion tool_use_ids from messages (in order)
     const askQuestionIds: string[] = [];
@@ -389,29 +385,21 @@ export function useAttemptStream(
       }
     }
 
-    // If user_answer log exists but no tool_result matched, mark the last AskUserQuestion as answered
-    // This handles the timing gap where answer was saved but SDK hasn't sent tool_result yet
-    if (hasUserAnswerLog && askQuestionIds.length > 0) {
-      const lastAskId = askQuestionIds[askQuestionIds.length - 1];
-      if (!answeredToolIds.has(lastAskId)) {
-        console.log('[checkForUnansweredQuestion] Marking last AskUserQuestion as answered via user_answer log', lastAskId);
-        answeredToolIds.add(lastAskId);
-      }
-    }
+    // Find LAST unanswered AskUserQuestion (most recent, not first)
+    // We need to scan all messages first to find the last unanswered one
+    let lastUnansweredQuestion: { attemptId: string; toolUseId: string; questions: unknown[] } | null = null;
 
-    // Find first unanswered AskUserQuestion
     for (const msg of messages) {
       if (msg.type === 'tool_use' && msg.tool_name === 'AskUserQuestion' && msg.id) {
         if (!answeredToolIds.has(msg.id)) {
-          // Found unanswered question - restore activeQuestion state
+          // Found unanswered question - keep track but continue to find the LAST one
           const questions = (msg as any).tool_data?.questions;
           if (questions && Array.isArray(questions)) {
-            setActiveQuestion({
+            lastUnansweredQuestion = {
               attemptId,
               toolUseId: msg.id,
               questions
-            });
-            return; // Only restore the first unanswered question
+            };
           }
         }
       }
@@ -425,17 +413,25 @@ export function useAttemptStream(
             if (!answeredToolIds.has(toolUseId)) {
               const questions = (block as any).input?.questions;
               if (questions && Array.isArray(questions)) {
-                setActiveQuestion({
+                lastUnansweredQuestion = {
                   attemptId,
                   toolUseId,
                   questions
-                });
-                return;
+                };
               }
             }
           }
         }
       }
+    }
+
+    // Restore only the LAST unanswered question (most recent)
+    if (lastUnansweredQuestion) {
+      setActiveQuestion({
+        attemptId: lastUnansweredQuestion.attemptId,
+        toolUseId: lastUnansweredQuestion.toolUseId,
+        questions: lastUnansweredQuestion.questions as Question[]
+      });
     }
   }, []);
 
@@ -550,7 +546,7 @@ export function useAttemptStream(
       await fetch(`/api/attempts/${attemptId}/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions, answers })
+        body: JSON.stringify({ questions, answers, toolUseId: activeQuestion.toolUseId })
       });
     } catch (err) {
       console.error('Failed to save answer to database:', err);

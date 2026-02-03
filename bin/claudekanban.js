@@ -34,8 +34,11 @@ function whichCommand(cmd) {
   execSync(`${checker} ${cmd}`, { stdio: 'ignore' });
 }
 
-// Load environment variables
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+// Load environment variables quietly
+require('dotenv').config({
+  path: path.join(__dirname, '..', '.env'),
+  quiet: true
+});
 
 // Get package root directory
 const packageRoot = path.resolve(__dirname, '..');

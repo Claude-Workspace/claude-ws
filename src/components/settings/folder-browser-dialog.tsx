@@ -367,10 +367,18 @@ export function FolderBrowserDialog({
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            value="cancel"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSelect} disabled={!currentPath}>
+          <Button
+            value="select-folder"
+            onClick={handleSelect}
+            disabled={!currentPath}
+          >
             Select This Folder
           </Button>
         </div>
@@ -402,12 +410,17 @@ export function FolderBrowserDialog({
           <DialogFooter>
             <Button
               variant="outline"
+              value="cancel"
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isCreating}>
+            <Button
+              value="create"
+              onClick={handleCreate}
+              disabled={isCreating}
+            >
               {isCreating ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
@@ -440,12 +453,17 @@ export function FolderBrowserDialog({
           <DialogFooter>
             <Button
               variant="outline"
+              value="cancel"
               onClick={() => setRenameDialogOpen(false)}
               disabled={isRenaming}
             >
               Cancel
             </Button>
-            <Button onClick={handleRename} disabled={isRenaming}>
+            <Button
+              value="rename"
+              onClick={handleRename}
+              disabled={isRenaming}
+            >
               {isRenaming ? 'Renaming...' : 'Rename'}
             </Button>
           </DialogFooter>

@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useRunningTasksStore } from '@/stores/running-tasks-store';
+import { useTaskStore } from '@/stores/task-store';
+import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 /**
  * Global socket provider that listens for task status updates
@@ -10,6 +13,9 @@ import { useRunningTasksStore } from '@/stores/running-tasks-store';
  */
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const t = useTranslations('chat');
+  // Track completed tasks to prevent duplicate notifications
+  const completedTasksRef = useState<Set<string>>(() => new Set())[0];
 
   useEffect(() => {
     const socketInstance = io({
@@ -33,6 +39,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     // Global: Listen for any task starting
     socketInstance.on('task:started', (data: { taskId: string }) => {
       useRunningTasksStore.getState().addRunningTask(data.taskId);
+      // Clear completed flag when task restarts
+      completedTasksRef.delete(data.taskId);
     });
 
     // Global: Listen for any task finishing
@@ -40,13 +48,26 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       useRunningTasksStore.getState().removeRunningTask(data.taskId);
       if (data.status === 'completed') {
         useRunningTasksStore.getState().markTaskCompleted(data.taskId);
+
+        // Move task to in_review and show notification (only once per completion)
+        if (!completedTasksRef.has(data.taskId)) {
+          completedTasksRef.add(data.taskId);
+
+          // Move to in_review
+          useTaskStore.getState().updateTaskStatus(data.taskId, 'in_review');
+
+          // Show notification
+          toast.success(t('taskCompleted'), {
+            description: t('movedToReview'),
+          });
+        }
       }
     });
 
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [t]);
 
   return <>{children}</>;
 }
