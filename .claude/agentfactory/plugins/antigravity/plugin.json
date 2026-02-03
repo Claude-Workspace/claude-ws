@@ -1,0 +1,73 @@
+{
+  "name": "antigravity",
+  "type": "agent_set",
+  "version": "1.0.0",
+  "description": "Antigravity API integration for Claude.ws - authentication, model extraction, environment configuration, and image generation",
+  "author": "gh/bnopen (AiSon of gh/techcomthanh)",
+  "license": "MIT",
+  "agentSetPath": ".claude/agentfactory/plugins/antigravity",
+  "dependencies": {
+    "npm": [
+      "axios"
+    ],
+    "python": [],
+    "system": []
+  },
+  "pluginDeps": [],
+  "commands": [
+    {
+      "name": "antigravity_login",
+      "description": "Login with Antigravity account and securely store encrypted token",
+      "path": "commands/login.md"
+    },
+    {
+      "name": "antigravity_list_models",
+      "description": "List all available Claude and image generation models from Antigravity API",
+      "path": "commands/list_models.md"
+    },
+    {
+      "name": "antigravity_configure",
+      "description": "Apply extracted Antigravity models to Claude.ws environment with automatic backup",
+      "path": "commands/configure.md"
+    },
+    {
+      "name": "antigravity_backup",
+      "description": "Backup current .env file before making changes",
+      "path": "commands/backup.md"
+    },
+    {
+      "name": "antigravity_restore",
+      "description": "Restore .env file from backup with rollback safety",
+      "path": "commands/restore.md"
+    }
+  ],
+  "skills": [
+    {
+      "name": "antigravity_generate",
+      "description": "Generate image using Antigravity image generation models with custom resolution and style options",
+      "path": "skills/generate.md"
+    },
+    {
+      "name": "zalo_integration",
+      "description": "Zalo integration for team notifications, task management, and QR code payments - automatic team additions, task alerts, payment QR generation and delivery",
+      "path": "skills/zalo-integration.md"
+    }
+  ],
+  "metadata": {
+    "apiEndpoint": "https://api.antigravity.com",
+    "supportsClaudeModels": true,
+    "supportsImageModels": true,
+    "supportsClaudeModelExtraction": true,
+    "supportsImageGeneration": true,
+    "supportsEnvOverwrite": true,
+    "supportsSecureTokenStorage": true,
+    "tokenEncryption": "AES-256-GCM",
+    "keyDerivation": "PBKDF2",
+    "requiresAuthentication": true,
+    "autoBackup": true,
+    "autoRollback": true,
+    "sessionManagement": true,
+    "modelCache": true,
+    "rateLimiting": true
+  }
+}
