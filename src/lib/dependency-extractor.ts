@@ -2,10 +2,6 @@ import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('DependencyExtractor');
-
 export interface LibraryDep {
   name: string;
   version?: string;
@@ -65,7 +61,7 @@ export class DependencyExtractor {
         plugins
       };
     } catch (error) {
-      log.error({ error: error }, 'Error extracting dependencies:');
+      console.error('Error extracting dependencies:', error);
       return { libraries: [], plugins: [] };
     }
   }

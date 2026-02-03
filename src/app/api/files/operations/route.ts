@@ -3,9 +3,6 @@ import { rm, rename, mkdir, writeFile } from 'fs/promises';
 import fs from 'fs';
 import path from 'path';
 import AdmZip from 'adm-zip';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('FileOperations');
 
 /**
  * Validate path stays within allowed root directory.
@@ -89,7 +86,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Log and return generic error
-    log.error({ error }, 'Delete error');
+    console.error('Delete error:', error);
     return NextResponse.json(
       { error: 'Failed to delete' },
       { status: 500 }
@@ -210,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log and return generic error
-    log.error({ error }, 'Download error');
+    console.error('Download error:', error);
     return NextResponse.json(
       { error: 'Failed to create download' },
       { status: 500 }
@@ -320,7 +317,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Log and return generic error
-    log.error({ error }, 'Create error');
+    console.error('Create error:', error);
     return NextResponse.json(
       { error: 'Failed to create' },
       { status: 500 }
@@ -409,7 +406,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Log and return generic error
-    log.error({ error }, 'Rename error');
+    console.error('Rename error:', error);
     return NextResponse.json(
       { error: 'Failed to rename' },
       { status: 500 }

@@ -1,9 +1,5 @@
 import type { ClaudeOutput, ClaudeContentBlock, OutputFormat, FormattedResponse } from '@/types';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('OutputFormatter');
-
 /**
  * Convert ClaudeOutput array to requested format
  */
@@ -61,7 +57,7 @@ export function formatOutput(
       }
     };
   } catch (error) {
-    log.error({ error }, 'Format conversion failed, falling back to JSON');
+    console.error('Format conversion failed, falling back to JSON:', error);
     return {
       formatted_data: toJson(messages),
       format: 'json',

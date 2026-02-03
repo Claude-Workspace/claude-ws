@@ -11,9 +11,6 @@ import { getSocket } from '@/lib/socket-service';
 import { useInlineEditStore, type CodeSelection } from '@/stores/inline-edit-store';
 import { nanoid } from 'nanoid';
 import type { DiffResult } from '@/lib/diff-generator';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('InlineEditHook');
 
 interface UseInlineEditOptions {
   filePath: string;
@@ -67,25 +64,25 @@ export function useInlineEdit(options: UseInlineEditOptions): UseInlineEditResul
   // Set up socket event handlers
   useEffect(() => {
     const socket = getSocket();
-    log.debug({ filePath, socketId: socket.id }, 'Setting up handlers');
+    console.log('[useInlineEdit] Setting up handlers for filePath:', filePath, 'socket:', socket.id);
 
     const handleDelta = (data: { sessionId: string; chunk: string }) => {
-      log.debug({ sessionId: data.sessionId, expected: sessionIdRef.current }, 'Received delta');
+      console.log('[useInlineEdit] Received delta:', data.sessionId, 'expected:', sessionIdRef.current);
       if (data.sessionId === sessionIdRef.current) {
         appendGeneratedCode(filePath, data.chunk);
       }
     };
 
     const handleComplete = (data: { sessionId: string; code: string; diff: DiffResult }) => {
-      log.debug({ sessionId: data.sessionId, expected: sessionIdRef.current }, 'Received complete');
+      console.log('[useInlineEdit] Received complete:', data.sessionId, 'expected:', sessionIdRef.current);
       if (data.sessionId === sessionIdRef.current) {
-        log.debug('Calling completeGeneration');
+        console.log('[useInlineEdit] Calling completeGeneration');
         completeGeneration(filePath, data.code, data.diff);
       }
     };
 
     const handleError = (data: { sessionId: string; error: string }) => {
-      log.debug({ sessionId: data.sessionId, expected: sessionIdRef.current, error: data.error }, 'Received error');
+      console.log('[useInlineEdit] Received error:', data.sessionId, 'expected:', sessionIdRef.current);
       if (data.sessionId === sessionIdRef.current) {
         setError(filePath, data.error);
       }
@@ -94,10 +91,10 @@ export function useInlineEdit(options: UseInlineEditOptions): UseInlineEditResul
     socket.on('inline-edit:delta', handleDelta);
     socket.on('inline-edit:complete', handleComplete);
     socket.on('inline-edit:error', handleError);
-    log.debug({ listenersCount: socket.listeners('inline-edit:complete').length }, 'Handlers registered');
+    console.log('[useInlineEdit] Handlers registered, listeners count:', socket.listeners('inline-edit:complete').length);
 
     return () => {
-      log.debug({ filePath }, 'Removing handlers');
+      console.log('[useInlineEdit] Removing handlers for filePath:', filePath);
       socket.off('inline-edit:delta', handleDelta);
       socket.off('inline-edit:complete', handleComplete);
       socket.off('inline-edit:error', handleError);
@@ -133,25 +130,25 @@ export function useInlineEdit(options: UseInlineEditOptions): UseInlineEditResul
         setError(filePath, 'Socket not connected');
         return;
       }
-      log.debug({ socketId: socket.id, connected: socket.connected }, 'Using socket');
+      console.log('[useInlineEdit] Using socket:', socket.id, 'connected:', socket.connected);
 
       // Subscribe to session events and wait for acknowledgment
-      log.debug({ sessionId: session.sessionId }, 'Subscribing to session');
+      console.log('[useInlineEdit] Subscribing to session:', session.sessionId);
       sessionIdRef.current = session.sessionId; // Ensure ref is set before subscribing
       await new Promise<void>((resolve) => {
         socket.emit('inline-edit:subscribe', { sessionId: session.sessionId }, () => {
-          log.debug({ sessionId: session.sessionId }, 'Subscription confirmed');
+          console.log('[useInlineEdit] Subscription confirmed for:', session.sessionId);
           resolve();
         });
         // Fallback timeout in case ack doesn't come
         setTimeout(() => {
-          log.debug('Subscription timeout fallback');
+          console.log('[useInlineEdit] Subscription timeout fallback');
           resolve();
         }, 100);
       });
 
       // Start edit via socket (same module context as event handlers)
-      log.debug({ sessionId: session.sessionId }, 'Starting edit via socket');
+      console.log('[useInlineEdit] Starting edit via socket:', session.sessionId);
       socket.emit(
         'inline-edit:start',
         {

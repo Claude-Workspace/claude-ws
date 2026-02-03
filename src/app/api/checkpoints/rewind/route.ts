@@ -4,9 +4,6 @@ import { db, schema } from '@/lib/db';
 import { eq, and, gt, gte } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
 import { sessionManager } from '@/lib/session-manager';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('CheckpointRewindAPI');
 
 // Ensure file checkpointing is enabled (in case API route runs in separate process)
 process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
@@ -54,7 +51,8 @@ export async function POST(request: Request) {
 
       if (project) {
         try {
-          log.info({ projectPath: project.path, sessionId: checkpoint.sessionId, messageUuid: checkpoint.gitCommitHash }, 'Attempting SDK file rewind');
+          console.log(`[Rewind] Attempting SDK file rewind for project: ${project.path}`);
+          console.log(`[Rewind] Session: ${checkpoint.sessionId}, Message UUID: ${checkpoint.gitCommitHash}`);
 
           // Get checkpointing options
           const checkpointOptions = checkpointManager.getCheckpointingOptions();
@@ -77,7 +75,7 @@ export async function POST(request: Request) {
           // List available checkpoints first for debugging
           // Note: listCheckpoints may not exist in all SDK versions
           const checkpointsList = await (rewindQuery as any).listCheckpoints?.();
-          log.debug({ checkpointsList: checkpointsList || 'listCheckpoints not available' }, 'Available checkpoints');
+          console.log(`[Rewind] Available checkpoints:`, checkpointsList || 'listCheckpoints not available');
 
           // Call rewindFiles with the message UUID
           const rewindResult = await rewindQuery.rewindFiles(checkpoint.gitCommitHash);
@@ -91,13 +89,13 @@ export async function POST(request: Request) {
             throw new Error(contextualError);
           }
 
-          log.info({ filesChanged: rewindResult.filesChanged?.length || 0, insertions: rewindResult.insertions || 0, deletions: rewindResult.deletions || 0 }, 'Files changed');
+          console.log(`[Rewind] Files changed: ${rewindResult.filesChanged?.length || 0}, +${rewindResult.insertions || 0} -${rewindResult.deletions || 0}`);
 
           sdkRewindResult = { success: true };
-          log.info({ checkpointId }, 'SDK rewind successful');
+          console.log(`[Rewind] SDK rewind successful for checkpoint ${checkpointId}`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          log.error({ err: error }, 'SDK rewind failed');
+          console.error('[Rewind] SDK rewind failed:', errorMessage);
           sdkRewindResult = { success: false, error: errorMessage };
           // Continue with conversation rewind even if SDK rewind fails
         }
@@ -118,11 +116,11 @@ export async function POST(request: Request) {
     const attemptIdsToDelete = new Set(laterAttempts.map(a => a.id));
     attemptIdsToDelete.add(checkpoint.attemptId);
 
-    log.info({ count: attemptIdsToDelete.size }, 'Found attempts to delete (checkpoint attempt + later ones)');
+    console.log(`[Rewind] Found ${attemptIdsToDelete.size} attempts to delete (checkpoint's attempt + later ones)`);
 
     // Delete attempts and their logs
     for (const attemptId of attemptIdsToDelete) {
-      log.debug({ attemptId }, 'Deleting attempt and its logs');
+      console.log(`[Rewind] Deleting attempt ${attemptId} and its logs`);
       // Explicitly delete logs first (in case CASCADE doesn't work)
       await db.delete(schema.attemptLogs).where(eq(schema.attemptLogs.attemptId, attemptId));
       // Delete attempt files
@@ -139,7 +137,7 @@ export async function POST(request: Request) {
       )
     ).returning();
 
-    log.info({ count: deletedCheckpoints.length }, 'Deleted checkpoints (this one + later ones)');
+    console.log(`[Rewind] Deleted ${deletedCheckpoints.length} checkpoints (this one + later ones)`);
 
     // Set rewind state on task so next attempt resumes at this checkpoint's message
     // This ensures conversation context is rewound to checkpoint point
@@ -163,7 +161,7 @@ export async function POST(request: Request) {
       conversationRewound: !!checkpoint.gitCommitHash,
     });
   } catch (error) {
-    log.error({ err: error }, 'Failed to rewind checkpoint');
+    console.error('Failed to rewind checkpoint:', error);
     return NextResponse.json(
       { error: 'Failed to rewind checkpoint' },
       { status: 500 }

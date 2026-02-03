@@ -8,9 +8,6 @@ import {
   modelIdToDisplayName,
   Model,
 } from '@/lib/models';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('Models');
 
 const SELECTED_MODEL_KEY = 'selectedModel';
 
@@ -115,7 +112,7 @@ export async function GET() {
       source,
     });
   } catch (error) {
-    log.error({ error }, 'Error fetching models');
+    console.error('Error fetching models:', error);
     return NextResponse.json({ error: 'Failed to fetch models' }, { status: 500 });
   }
 }
@@ -141,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, model });
   } catch (error) {
-    log.error({ error }, 'Error saving model');
+    console.error('Error saving model:', error);
     return NextResponse.json({ error: 'Failed to save model' }, { status: 500 });
   }
 }

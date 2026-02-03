@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import type { TaskStatus } from '@/types';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TaskReorder');
 
 interface ReorderItem {
   id: string;
@@ -52,7 +49,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log.error({ error }, 'Failed to reorder task');
+    console.error('Failed to reorder task:', error);
     return NextResponse.json(
       { error: 'Failed to reorder task' },
       { status: 500 }
@@ -109,7 +106,7 @@ export async function POST(request: NextRequest) {
           errors.push(`Task ${task.id} not found`);
         }
       } catch (error) {
-        log.error({ error, taskId: task.id }, 'Failed to update task');
+        console.error(`Failed to update task ${task.id}:`, error);
         errors.push(`Failed to update task ${task.id}`);
       }
     }
@@ -129,7 +126,7 @@ export async function POST(request: NextRequest) {
       updated: tasks.length,
     });
   } catch (error) {
-    log.error({ error }, 'Failed to reorder tasks');
+    console.error('Failed to reorder tasks:', error);
     return NextResponse.json(
       { error: 'Failed to reorder tasks' },
       { status: 500 }

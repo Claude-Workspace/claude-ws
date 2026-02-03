@@ -4,9 +4,6 @@ import { agentFactoryPlugins, projectPlugins } from '@/lib/db/schema';
 import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AFProjectComponents');
 
 // GET /api/agent-factory/projects/:projectId/components - Get plugins for project
 export async function GET(
@@ -40,7 +37,7 @@ export async function GET(
 
     return NextResponse.json({ components: assignedPlugins });
   } catch (error) {
-    log.error({ error }, 'Error fetching project plugins');
+    console.error('Error fetching project plugins:', error);
     return NextResponse.json({ error: 'Failed to fetch project plugins' }, { status: 500 });
   }
 }
@@ -98,7 +95,7 @@ export async function POST(
 
     return NextResponse.json({ assignment: newAssignment }, { status: 201 });
   } catch (error) {
-    log.error({ error }, 'Error assigning plugin');
+    console.error('Error assigning plugin:', error);
     return NextResponse.json({ error: 'Failed to assign plugin' }, { status: 500 });
   }
 }
@@ -127,7 +124,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log.error({ error }, 'Error removing plugin assignment');
+    console.error('Error removing plugin assignment:', error);
     return NextResponse.json({ error: 'Failed to remove plugin' }, { status: 500 });
   }
 }

@@ -9,9 +9,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { inlineEditManager } from '@/lib/inline-edit-manager';
 import path from 'path';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('InlineEdit');
 
 interface InlineEditRequestBody {
   sessionId: string;
@@ -80,13 +77,13 @@ export async function POST(request: NextRequest) {
         afterContext,
       });
     } catch (error) {
-      log.error({ error }, 'inline-edit start error');
+      console.error('[API] inline-edit start error:', error);
       return NextResponse.json({ error: 'Failed to start edit session' }, { status: 500 });
     }
 
     return NextResponse.json({ sessionId });
   } catch (error) {
-    log.error({ error }, 'inline-edit error');
+    console.error('[API] inline-edit error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -110,7 +107,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ cancelled });
   } catch (error) {
-    log.error({ error }, 'inline-edit cancel error');
+    console.error('[API] inline-edit cancel error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

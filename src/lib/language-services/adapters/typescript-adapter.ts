@@ -3,10 +3,6 @@
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TSAdapter');
-
 import type {
   LanguageAdapter,
   ResolveParams,
@@ -331,7 +327,7 @@ export class TypeScriptAdapter implements LanguageAdapter {
         } : undefined,
       };
     } catch (error) {
-      log.error({ error: error }, 'TypeScript adapter error:');
+      console.error('TypeScript adapter error:', error);
       return {
         found: false,
         error: error instanceof Error ? error.message : 'Unknown error',

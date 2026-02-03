@@ -5,9 +5,6 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq } from 'drizzle-orm';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AFInstalled');
 
 interface ProjectSettings {
   selectedComponents: string[];
@@ -30,7 +27,7 @@ function readSettingsFile(projectPath: string): ProjectSettings | null {
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    log.error({ error, settingsPath }, 'Error reading settings file');
+    console.error('Error reading settings file:', error);
     return null;
   }
 }
@@ -129,7 +126,7 @@ export async function GET(
 
     return NextResponse.json({ installed });
   } catch (error) {
-    log.error({ error }, 'Error checking installed components');
+    console.error('Error checking installed components:', error);
     return NextResponse.json({ error: 'Failed to check installed components' }, { status: 500 });
   }
 }

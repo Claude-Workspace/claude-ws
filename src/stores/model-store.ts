@@ -2,9 +2,6 @@
 
 import { create } from 'zustand';
 import { Model, DEFAULT_MODEL_ID, getModelShortName } from '@/lib/models';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ModelStore');
 
 interface ModelStore {
   // Global default model (from env/cached/default)
@@ -49,7 +46,7 @@ export const useModelStore = create<ModelStore>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      log.error({ error }, 'Error loading models');
+      console.error('Error loading models:', error);
       set({ isLoading: false });
     }
   },
@@ -77,7 +74,7 @@ export const useModelStore = create<ModelStore>((set, get) => ({
           // 404 is expected for temp tasks (task not yet created)
           // Keep local state but don't throw - task will get model on creation
           if (response.status === 404) {
-            log.debug({ taskId }, 'Task not found (temp task), keeping local state only');
+            console.log('[ModelStore] Task not found (temp task), keeping local state only');
             return;
           }
           // Rollback on other errors
@@ -85,11 +82,11 @@ export const useModelStore = create<ModelStore>((set, get) => ({
           delete newTaskModels[taskId];
           set({ taskModels: newTaskModels });
           const errorText = await response.text();
-          log.error({ status: response.status, errorText }, 'Failed to save task model');
+          console.error('Failed to save task model:', response.status, errorText);
           throw new Error(`Failed to save task model: ${response.status}`);
         }
       } catch (error) {
-        log.error({ error, taskId }, 'Error setting model');
+        console.error('Error setting model:', error);
       }
     } else {
       // No taskId: save as global default
@@ -109,7 +106,7 @@ export const useModelStore = create<ModelStore>((set, get) => ({
 
         set({ defaultModel: modelId, source: 'cached' });
       } catch (error) {
-        log.error({ error, modelId }, 'Error setting model');
+        console.error('Error setting model:', error);
       }
     }
   },

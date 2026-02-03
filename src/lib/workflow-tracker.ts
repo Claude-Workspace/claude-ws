@@ -7,10 +7,6 @@
 
 import { EventEmitter } from 'events';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('WorkflowTracker');
-
 /**
  * Subagent status
  */
@@ -96,7 +92,7 @@ class WorkflowTracker extends EventEmitter {
 
     // Only track if depth <= 1 (2 levels max)
     if (depth > 1) {
-      log.info(`Skipping subagent at depth ${depth}: ${subagentType}`);
+      console.log(`[WorkflowTracker] Skipping subagent at depth ${depth}: ${subagentType}`);
       return;
     }
 

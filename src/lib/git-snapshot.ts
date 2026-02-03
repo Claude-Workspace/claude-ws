@@ -1,7 +1,4 @@
 import { execSync } from 'child_process';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('GitSnapshot');
 
 /**
  * Git snapshot utilities for checkpoint-based file rewind
@@ -59,7 +56,7 @@ export function createSnapshot(
   prompt: string
 ): string | null {
   if (!isGitRepo(cwd)) {
-    log.info('Not a git repo, skipping snapshot');
+    console.log('[GitSnapshot] Not a git repo, skipping snapshot');
     return null;
   }
 
@@ -74,7 +71,7 @@ export function createSnapshot(
 
     if (status.length === 0) {
       // Nothing to commit, return current HEAD
-      log.info('No changes to commit, using current HEAD');
+      console.log('[GitSnapshot] No changes to commit, using current HEAD');
       return getCurrentCommit(cwd);
     }
 
@@ -95,10 +92,10 @@ export function createSnapshot(
     });
 
     const commitHash = getCurrentCommit(cwd);
-    log.info({ commitHash }, 'Created snapshot commit');
+    console.log(`[GitSnapshot] Created snapshot commit: ${commitHash}`);
     return commitHash;
   } catch (error) {
-    log.error({ error }, 'Failed to create snapshot');
+    console.error('[GitSnapshot] Failed to create snapshot:', error);
     // Return current HEAD as fallback
     return getCurrentCommit(cwd);
   }
@@ -123,11 +120,11 @@ export function rewindToCommit(
     // Hard reset to the commit
     execSync(`git reset --hard ${commitHash}`, { cwd, stdio: 'pipe' });
 
-    log.info({ commitHash }, 'Rewound to commit');
+    console.log(`[GitSnapshot] Rewound to commit: ${commitHash}`);
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    log.error({ error: message }, 'Failed to rewind');
+    console.error('[GitSnapshot] Failed to rewind:', message);
     return { success: false, error: message };
   }
 }
@@ -168,5 +165,5 @@ export function listSnapshots(
 export function cleanupOldSnapshots(cwd: string, olderThanDays: number = 30): void {
   // This is a placeholder - actual implementation would need interactive rebase
   // or filter-branch which is destructive. For now, we keep all snapshots.
-  log.info('Cleanup not implemented (keeping all snapshots)');
+  console.log(`[GitSnapshot] Cleanup not implemented (keeping all snapshots)`);
 }

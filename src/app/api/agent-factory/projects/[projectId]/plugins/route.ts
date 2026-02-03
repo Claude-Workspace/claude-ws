@@ -5,9 +5,6 @@ import { verifyApiKey, unauthorizedResponse } from '@/lib/api-auth';
 import { eq, and, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { existsSync } from 'fs';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AFProjectPlugins');
 
 // Check if a plugin's source folder exists on the filesystem
 function pluginSourceExists(plugin: {
@@ -70,12 +67,12 @@ export async function GET(
         .delete(agentFactoryPlugins)
         .where(inArray(agentFactoryPlugins.id, missingPluginIds));
 
-      log.info({ count: missingPluginIds.length }, 'Removed orphaned plugins with missing source folders');
+      console.log(`Removed ${missingPluginIds.length} orphaned plugin(s) with missing source folders`);
     }
 
     return NextResponse.json({ plugins: validPlugins });
   } catch (error) {
-    log.error({ error }, 'Error fetching project plugins');
+    console.error('Error fetching project plugins:', error);
     return NextResponse.json({ error: 'Failed to fetch project plugins' }, { status: 500 });
   }
 }
@@ -133,7 +130,7 @@ export async function POST(
 
     return NextResponse.json({ assignment: newAssignment }, { status: 201 });
   } catch (error) {
-    log.error({ error }, 'Error assigning plugin');
+    console.error('Error assigning plugin:', error);
     return NextResponse.json({ error: 'Failed to assign plugin' }, { status: 500 });
   }
 }
@@ -162,7 +159,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log.error({ error }, 'Error removing plugin assignment');
+    console.error('Error removing plugin assignment:', error);
     return NextResponse.json({ error: 'Failed to remove plugin' }, { status: 500 });
   }
 }

@@ -9,10 +9,6 @@ import { db, schema } from './db';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('CheckpointManager');
-
 export interface CheckpointData {
   id: string;
   attemptId: string;
@@ -47,9 +43,9 @@ export class CheckpointManager {
     // Only capture the FIRST UUID - don't overwrite with subsequent ones
     if (!activeCheckpoints.has(attemptId)) {
       activeCheckpoints.set(attemptId, uuid);
-      log.info({ attemptId, uuid }, 'Captured FIRST checkpoint UUID');
+      console.log(`[CheckpointManager] Captured FIRST checkpoint UUID for ${attemptId}: ${uuid}`);
     } else {
-      log.info({ attemptId, uuid, keeping: activeCheckpoints.get(attemptId) }, 'Skipping subsequent UUID (keeping first)');
+      console.log(`[CheckpointManager] Skipping subsequent UUID for ${attemptId}: ${uuid} (keeping first: ${activeCheckpoints.get(attemptId)})`);
     }
   }
 
@@ -80,7 +76,7 @@ export class CheckpointManager {
     const checkpointUuid = this.getCheckpointUuid(attemptId);
 
     if (!checkpointUuid) {
-      log.info({ attemptId }, 'No checkpoint UUID, skipping save');
+      console.log(`[CheckpointManager] No checkpoint UUID for ${attemptId}, skipping save`);
       return null;
     }
 
@@ -98,7 +94,7 @@ export class CheckpointManager {
       summary,
     });
 
-    log.info({ checkpointId, checkpointUuid }, 'Saved checkpoint');
+    console.log(`[CheckpointManager] Saved checkpoint ${checkpointId} with UUID ${checkpointUuid}`);
 
     // Cleanup in-memory tracking
     this.clearAttemptCheckpoint(attemptId);

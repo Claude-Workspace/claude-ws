@@ -8,10 +8,6 @@ import { EventEmitter } from 'events';
 import type { SDKResultMessage } from './sdk-event-adapter';
 import { calculateContextHealth, type ContextHealth } from './context-health';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('UsageTracker');
-
 /**
  * Aggregated usage statistics for a session
  */
@@ -164,7 +160,7 @@ class UsageTracker extends EventEmitter {
       // Track baseline from first turn's cache_read (for reference only)
       if (stats.numTurns === 0 && cacheRead > 0) {
         stats.baselineContext = cacheRead;
-        log.info(`First turn baseline (cached): ${cacheRead} tokens`);
+        console.log(`[UsageTracker] First turn baseline (cached): ${cacheRead} tokens`);
       }
 
       // Active context = NEW tokens only (cache_read NOT included)
@@ -181,16 +177,13 @@ class UsageTracker extends EventEmitter {
         stats.contextLimit
       );
 
-      log.debug({
-        contextUsed: stats.contextUsed,
-        contextLimit: stats.contextLimit,
-        contextPercentage: stats.contextPercentage.toFixed(1),
-        healthStatus: stats.contextHealth.status,
-        inputTokens,
-        cacheCreation,
-        outputTokens,
-        cacheRead,
-      }, 'Active context updated');
+      console.log(
+        `[UsageTracker] Active Context: ${stats.contextUsed}/${stats.contextLimit} ` +
+        `(${stats.contextPercentage.toFixed(1)}%) | ` +
+        `Health: ${stats.contextHealth.status} | ` +
+        `New: ${inputTokens} | CacheCreate: ${cacheCreation} | ` +
+        `Output: ${outputTokens} | CacheRead: ${cacheRead} (not in active)`
+      );
     }
 
     // Aggregate cost (common field)

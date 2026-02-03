@@ -2,9 +2,6 @@ import { create } from 'zustand';
 import { Task, TaskStatus } from '@/types';
 import { useInteractiveCommandStore } from './interactive-command-store';
 import { useFloatingWindowsStore } from './floating-windows-store';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TaskStore');
 
 interface TaskStore {
   tasks: Task[];
@@ -77,7 +74,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         )
       );
     } catch (error) {
-      log.error({ error }, 'Error deleting tasks by status');
+      console.error('Error deleting tasks by status:', error);
       // Revert on failure
       set((state) => ({
         tasks: [...state.tasks, ...tasksToDelete],
@@ -167,7 +164,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       if (selected?.id === taskId) {
         set({ selectedTask: { ...selected, status: task.status } });
       }
-      log.error({ error, taskId }, 'Error moving task to in_progress');
+      console.error('Error moving task to in_progress:', error);
     }
   },
 
@@ -182,7 +179,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const tasks = await res.json();
       set({ tasks });
     } catch (error) {
-      log.error({ error }, 'Error fetching tasks');
+      console.error('Error fetching tasks:', error);
     }
   },
 
@@ -200,7 +197,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       get().setCreatingTask(false);
       return task;
     } catch (error) {
-      log.error({ error }, 'Error creating task');
+      console.error('Error creating task:', error);
       throw error;
     }
   },
@@ -243,7 +240,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         throw new Error('Failed to reorder tasks');
       }
     } catch (error) {
-      log.error({ error, taskId }, 'Error reordering tasks');
+      console.error('Error reordering tasks:', error);
       set({ tasks: oldTasks });
     }
   },
@@ -287,7 +284,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       });
       if (!res.ok) throw new Error('Failed to update task status');
     } catch (error) {
-      log.error({ error, taskId }, 'Error updating task status');
+      console.error('Error updating task status:', error);
       // Revert on failure
       set({ tasks: oldTasks });
       const selected = get().selectedTask;
@@ -315,7 +312,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       });
       if (!res.ok) throw new Error('Failed to update task chatInit');
     } catch (error) {
-      log.error({ error, taskId }, 'Error updating task chatInit');
+      console.error('Error updating task chatInit:', error);
       // Revert on failure
       get().updateTask(taskId, { chatInit: !chatInit });
       const selected = get().selectedTask;

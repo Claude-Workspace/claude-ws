@@ -3,9 +3,6 @@ import { join, extname } from 'path';
 import { nanoid } from 'nanoid';
 import { db, schema } from './db';
 import { TEMP_DIR, UPLOADS_DIR, getMimeType } from './file-utils';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('FileProcessor');
 
 export interface ProcessedFile {
   id: string;
@@ -35,7 +32,7 @@ export async function processAttachments(
       const tempFile = tempFiles.find((f) => f.startsWith(tempId));
 
       if (!tempFile) {
-        log.warn({ tempId }, 'Temp file not found');
+        console.warn(`Temp file not found: ${tempId}`);
         continue;
       }
 
@@ -75,9 +72,9 @@ export async function processAttachments(
         size: stats.size,
       });
 
-      log.info({ tempId, newFilename }, 'Processed file');
+      console.log(`Processed file: ${tempId} -> ${newFilename}`);
     } catch (error) {
-      log.error({ tempId, error }, 'Failed to process temp file');
+      console.error(`Failed to process temp file ${tempId}:`, error);
     }
   }
 
@@ -107,16 +104,16 @@ export async function cleanupOrphanedTempFiles(): Promise<number> {
         if (stats.mtimeMs < oneHourAgo) {
           await unlink(filePath);
           cleaned++;
-          log.debug({ file }, 'Cleaned up orphaned temp file');
+          console.log(`Cleaned up orphaned temp file: ${file}`);
         }
       } catch (error) {
-        log.error({ file, error }, 'Failed to cleanup temp file');
+        console.error(`Failed to cleanup temp file ${file}:`, error);
       }
     }
 
     return cleaned;
   } catch (error) {
-    log.error({ error }, 'Failed to cleanup orphaned temp files');
+    console.error('Failed to cleanup orphaned temp files:', error);
     return 0;
   }
 }

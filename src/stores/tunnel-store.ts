@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getSocket } from '@/lib/socket-service';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TunnelStore');
 
 interface TunnelState {
   status: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -69,7 +66,7 @@ export const useTunnelStore = create<TunnelState>()(
           await fetch('/api/tunnel/stop', { method: 'POST' });
           set({ status: 'disconnected', url: null, error: null });
         } catch (err) {
-          log.error({ err }, 'Failed to stop tunnel');
+          console.error('Failed to stop tunnel:', err);
         }
       },
 
@@ -83,7 +80,7 @@ export const useTunnelStore = create<TunnelState>()(
           const data = await res.json();
           set({ status: data.status, url: data.url, error: data.error });
         } catch (err) {
-          log.error({ err }, 'Failed to fetch tunnel status');
+          console.error('Failed to fetch tunnel status:', err);
         }
       },
 
@@ -112,7 +109,7 @@ export const useTunnelStore = create<TunnelState>()(
             set({ wizardOpen: true });
           }
         } catch (err) {
-          log.error({ err }, 'Failed to check onboarding');
+          console.error('Failed to check onboarding:', err);
         }
       },
 
@@ -134,7 +131,7 @@ export const useTunnelStore = create<TunnelState>()(
           // Reset wizard to step 0, clear tunnel state, and open wizard
           set({ onboardingCompleted: false, wizardStep: 0, wizardOpen: true, status: 'disconnected', url: null, error: null });
         } catch (err) {
-          log.error({ err }, 'Failed to reset onboarding');
+          console.error('Failed to reset onboarding:', err);
         }
       },
 
@@ -168,7 +165,7 @@ export const useTunnelStore = create<TunnelState>()(
             plan,
           };
         } catch (err) {
-          log.error({ err }, 'Failed to get tunnel config');
+          console.error('Failed to get tunnel config:', err);
           return null;
         }
       },

@@ -24,9 +24,6 @@ import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
 import { getSystemPrompt } from './system-prompt';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AgentManager');
 
 // MCP Server configuration types matching SDK's McpServerConfig union
 interface MCPStdioServerConfig {
@@ -85,7 +82,7 @@ function loadSingleMCPConfig(configPath: string): Record<string, MCPServerConfig
 
     return config.mcpServers || null;
   } catch (error) {
-    log.warn({ err: error, path: configPath }, 'Failed to parse config file');
+    console.warn(`[AgentManager] Failed to parse ${configPath}:`, error);
     return null;
   }
 }
@@ -139,7 +136,7 @@ function loadMCPConfig(projectPath: string): MCPConfig | null {
       // 1. Global mcpServers at root level
       if (config.mcpServers && typeof config.mcpServers === 'object' && Object.keys(config.mcpServers).length > 0) {
         userServers = config.mcpServers as Record<string, MCPServerConfig>;
-        log.info({ servers: Object.keys(userServers || {}), path: claudeConfigPath }, 'Loaded global MCP config');
+        console.log(`[AgentManager] Loaded global MCP config from ${claudeConfigPath}:`, Object.keys(userServers || {}));
       }
 
       // 2. Per-project mcpServers (CLI style) - overrides global
@@ -147,18 +144,18 @@ function loadMCPConfig(projectPath: string): MCPConfig | null {
         const projectServers = config.projects[projectPath].mcpServers as Record<string, MCPServerConfig>;
         if (Object.keys(projectServers).length > 0) {
           userServers = { ...(userServers || {}), ...projectServers };
-          log.info({ servers: Object.keys(projectServers), projectPath }, 'Loaded CLI project MCP config');
+          console.log(`[AgentManager] Loaded CLI project MCP config for ${projectPath}:`, Object.keys(projectServers));
         }
       }
     } catch (error) {
-      log.warn({ err: error, path: claudeConfigPath }, 'Failed to parse config file');
+      console.warn(`[AgentManager] Failed to parse ${claudeConfigPath}:`, error);
     }
   }
 
   // Load project config (overrides user)
   const projectServers = loadSingleMCPConfig(projectConfigPath);
   if (projectServers) {
-    log.info({ servers: Object.keys(projectServers), path: projectConfigPath }, 'Loaded project MCP config');
+    console.log(`[AgentManager] Loaded project MCP config from ${projectConfigPath}:`, Object.keys(projectServers));
   }
 
   // Merge: project overrides user
@@ -168,7 +165,7 @@ function loadMCPConfig(projectPath: string): MCPConfig | null {
   };
 
   if (Object.keys(mergedServers).length === 0) {
-    log.info('No MCP servers found in user or project config');
+    console.log(`[AgentManager] No MCP servers found in user or project config`);
     return null;
   }
 
@@ -176,11 +173,11 @@ function loadMCPConfig(projectPath: string): MCPConfig | null {
   interpolateEnvVars(mergedServers);
 
   // Log merged servers
-  log.info({ servers: Object.keys(mergedServers) }, 'Merged MCP servers');
+  console.log(`[AgentManager] Merged MCP servers:`, Object.keys(mergedServers));
   for (const [name, cfg] of Object.entries(mergedServers)) {
     const serverType = cfg.type || 'stdio';
     const endpoint = 'url' in cfg ? cfg.url : ('command' in cfg ? cfg.command : 'unknown');
-    log.debug({ name, serverType, endpoint }, 'MCP server config');
+    console.log(`[AgentManager]   - ${name}: ${serverType} ${endpoint}`);
   }
 
   return { mcpServers: mergedServers };
@@ -403,9 +400,10 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       // Debug: Log MCP config being passed to SDK
       if (mcpConfig?.mcpServers) {
-        log.debug({ mcpServers: mcpConfig.mcpServers, wildcards: mcpToolWildcards }, 'Passing MCP servers to SDK');
+        console.log(`[AgentManager] Passing MCP servers to SDK:`, JSON.stringify(mcpConfig.mcpServers, null, 2));
+        console.log(`[AgentManager] MCP tool wildcards:`, mcpToolWildcards);
       } else {
-        log.debug({ path: `${projectPath}/.mcp.json` }, 'No MCP config found');
+        console.log(`[AgentManager] No MCP config found at ${projectPath}/.mcp.json`);
       }
 
       // Configure SDK query options
@@ -437,19 +435,19 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         abortController: controller,
         // canUseTool callback - pauses streaming when AskUserQuestion is called
         canUseTool: async (toolName: string, input: Record<string, unknown>) => {
-          log.debug({ toolName, attemptId }, 'canUseTool called');
+          console.log('[AgentManager] canUseTool called:', { toolName, attemptId });
           // Handle AskUserQuestion tool - pause and wait for user input
           if (toolName === 'AskUserQuestion') {
-            log.debug({ attemptId, input }, 'AskUserQuestion detected');
+            console.log('[AgentManager] AskUserQuestion detected', { attemptId, input });
             // Prevent duplicate questions for same attempt
             if (this.pendingQuestions.has(attemptId)) {
-              log.debug({ attemptId }, 'Duplicate question blocked');
+              console.log('[AgentManager] Duplicate question blocked for', attemptId);
               return { behavior: 'deny' as const, message: 'Duplicate question' };
             }
 
             const toolUseId = `ask-${Date.now()}`;
             const questions = (input.questions as unknown[]) || [];
-            log.debug({ attemptId, toolUseId, questionCount: questions.length }, 'Emitting question event');
+            console.log('[AgentManager] Emitting question event:', { attemptId, toolUseId, questionCount: questions.length });
 
             // Emit question event to frontend (streaming is paused here)
             this.emit('question', { attemptId, toolUseId, questions });
@@ -483,7 +481,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
               // Pattern: ends with "> /tmp/xxx.log" or "> /tmp/xxx.log " without the full suffix
               if (/>\s*\/tmp\/[^\s]+\.log\s*$/.test(command)) {
                 fixedCommand = command.trim() + ' 2>&1 & echo "BGPID:$!"';
-                log.debug({ fixedCommand }, 'Fixed BGPID pattern');
+                console.log('[AgentManager] Fixed BGPID pattern:', fixedCommand);
                 return { behavior: 'allow' as const, updatedInput: { ...input, command: fixedCommand } };
               }
             }
@@ -495,8 +493,8 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       };
 
       // Log payload and endpoint before sending to SDK
-      log.debug({
-        endpoint: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+      console.log('[AgentManager] SDK Query - Endpoint:', process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com');
+      console.log('[AgentManager] SDK Query - Payload:', JSON.stringify({
         prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
         model: queryOptions.model,
         cwd: queryOptions.cwd,
@@ -504,10 +502,10 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         allowedTools: queryOptions.allowedTools,
         resume: queryOptions.resume,
         maxTurns: queryOptions.maxTurns,
-      }, 'SDK Query');
+      }, null, 2));
 
       const response = query({ prompt, options: queryOptions });
-      log.debug({ attemptId }, 'Query started');
+      console.log(`[AgentManager] Query started for attemptId: ${attemptId}`);
 
       // Store query reference for graceful close() on cancel
       instance.queryRef = response;
@@ -516,17 +514,17 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       // The SDK's internal partial-json-parser can throw on incomplete JSON
       for await (const message of response) {
         if (controller.signal.aborted) {
-          log.debug({ attemptId }, 'Query aborted');
+          console.log(`[AgentManager] Query aborted for attemptId: ${attemptId}`);
           break;
         }
 
         try {
           // Log raw SDK message for debugging
-          log.trace({ message }, 'SDK message received');
+          console.log(`[AgentManager] SDK message received:`, JSON.stringify(message, null, 2));
 
           // Validate SDK message structure
           if (!isValidSDKMessage(message)) {
-            log.debug({ type: message?.type }, 'Invalid SDK message skipped');
+            console.log(`[AgentManager] Invalid SDK message skipped:`, message?.type);
             continue;
           }
 
@@ -592,19 +590,19 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
                     .map(c => c.text || '')
                     .join('');
                 }
-                log.debug({ content: content.substring(0, 200) }, 'Tool result content for BGPID check');
+                console.log(`[AgentManager] Tool result content for BGPID check:`, content.substring(0, 200));
                 const bgpidMatch = content.match(/BGPID:(\d+)/);
                 const emptyBgpidMatch = content.match(/BGPID:\s*$/m) || content.trim() === 'BGPID:';
 
                 if (bgpidMatch && block.tool_use_id) {
                   // Full BGPID with PID number
                   const pid = parseInt(bgpidMatch[1], 10);
-                  log.debug({ pid }, 'BGPID detected');
+                  console.log(`[AgentManager] BGPID detected: ${pid}`);
                   const bashInfo = this.pendingBashCommands.get(block.tool_use_id);
                   const command = bashInfo?.command || `Background process (PID: ${pid})`;
                   const logMatch = command.match(/>\s*([^\s]+\.log)/);
                   const logFile = logMatch ? logMatch[1] : undefined;
-                  log.debug({ pid, command: command.substring(0, 50) }, 'Emitting trackedProcess');
+                  console.log(`[AgentManager] Emitting trackedProcess: pid=${pid}, command=${command.substring(0, 50)}`);
                   this.emit('trackedProcess', { attemptId, pid, command, logFile });
                   this.pendingBashCommands.delete(block.tool_use_id);
                 } else if (emptyBgpidMatch && block.tool_use_id) {
@@ -616,7 +614,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
                     const nohupMatch = bashInfo.command.match(/nohup\s+(.+?)\s*>\s*\/tmp\//);
                     if (nohupMatch) {
                       const actualCommand = nohupMatch[1].trim();
-                      log.debug({ actualCommand }, 'Empty BGPID detected, spawning shell');
+                      console.log(`[AgentManager] Empty BGPID detected, spawning shell for: ${actualCommand}`);
                       this.emit('backgroundShell', {
                         attemptId,
                         shell: { toolUseId: block.tool_use_id, command: actualCommand, description: 'Auto-spawned from empty BGPID', originalCommand: bashInfo.command },
@@ -652,7 +650,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           // Handle per-message errors (e.g., SDK's partial-json-parser failures)
           // Log but continue streaming - don't let one bad message kill the stream
           const errorMsg = messageError instanceof Error ? messageError.message : 'Unknown message error';
-          log.error({ err: messageError, message: errorMsg }, 'Message processing error');
+          console.error(`[AgentManager] Message processing error:`, errorMsg, messageError);
 
           // Only emit if it's a significant error (not just parsing issues)
           if (!errorMsg.includes('Unexpected end of JSON')) {
@@ -662,7 +660,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       }
 
       // Query completed successfully
-      log.debug({ attemptId }, 'Query completed successfully');
+      console.log(`[AgentManager] Query completed successfully for attemptId: ${attemptId}`);
 
       // Collect git stats snapshot on completion
       try {
@@ -679,9 +677,9 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     } catch (error) {
       // Emit error as stderr with more details
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.error({ err: error, message: errorMessage }, 'SDK Error');
+      console.log('[AgentManager] SDK Error:', errorMessage);
       if (error instanceof Error && error.stack) {
-        log.debug({ stack: error.stack.split('\n').slice(0, 5).join('\n') }, 'SDK Error Stack');
+        console.log('[AgentManager] SDK Error Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
       }
       this.emit('stderr', { attemptId, content: errorMessage });
 

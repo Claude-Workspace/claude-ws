@@ -7,9 +7,6 @@
 
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ShellStore');
 
 export interface ShellInfo {
   shellId: string;
@@ -119,7 +116,7 @@ export const useShellStore = create<ShellStore>((set, get) => ({
           pid: number;
           command: string;
         }) => {
-          log.debug({ shellId: data.shellId }, 'Shell started');
+          console.log('[ShellStore] Shell started:', data.shellId);
           get().addShell({
             shellId: data.shellId,
             projectId: data.projectId,
@@ -141,7 +138,7 @@ export const useShellStore = create<ShellStore>((set, get) => ({
           code: number | null;
           signal: string | null;
         }) => {
-          log.debug({ shellId: data.shellId, code: data.code }, 'Shell exited');
+          console.log('[ShellStore] Shell exited:', data.shellId, data.code);
           get().updateShell(data.shellId, {
             isRunning: false,
             exitCode: data.code,
@@ -178,7 +175,7 @@ export const useShellStore = create<ShellStore>((set, get) => ({
       .then((res) => res.json())
       .then((shells: ShellInfo[]) => get().setShells(projectId, shells))
       .catch((err) => {
-        log.error({ err, projectId }, 'Failed to fetch shells');
+        console.error('[ShellStore] Failed to fetch shells:', err);
         set({ loading: false });
       });
   },
@@ -201,7 +198,7 @@ export const useShellStore = create<ShellStore>((set, get) => ({
         { shellId },
         (result: { success: boolean; error?: string }) => {
           if (result.error) {
-            log.error({ error: result.error }, 'Stop shell error');
+            console.error('[ShellStore] Stop shell error:', result.error);
           }
           resolve(result.success);
         }
@@ -219,7 +216,7 @@ export const useShellStore = create<ShellStore>((set, get) => ({
         { shellId, lines },
         (result: { logs: LogEntry[]; error?: string }) => {
           if (result.error) {
-            log.error({ error: result.error }, 'Get logs error');
+            console.error('[ShellStore] Get logs error:', result.error);
             resolve([]);
           } else {
             // Set initial logs

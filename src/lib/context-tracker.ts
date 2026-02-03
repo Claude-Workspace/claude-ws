@@ -1,9 +1,5 @@
 import { spawn } from 'child_process';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ContextTracker');
-
 export interface ContextUsage {
   totalTokens: number;
   maxTokens: number;
@@ -26,7 +22,7 @@ export async function captureContextUsage(
   cwd: string
 ): Promise<ContextUsage | null> {
   try {
-    log.info(`Capturing context usage for session ${sessionId}`);
+    console.log(`[ContextTracker] Capturing context usage for session ${sessionId}`);
 
     return await new Promise((resolve, reject) => {
       let output = '';
@@ -55,28 +51,28 @@ export async function captureContextUsage(
 
       child.on('close', (code) => {
         if (code !== 0) {
-          log.error(`Failed to capture context: ${errorOutput}`);
+          console.error(`[ContextTracker] Failed to capture context: ${errorOutput}`);
           resolve(null);
           return;
         }
 
         try {
           const parsed = parseContextOutput(output);
-          log.info(`Captured context usage: ${parsed.totalTokens}/${parsed.maxTokens} tokens (${parsed.percentage}%)`);
+          console.log(`[ContextTracker] Captured context usage: ${parsed.totalTokens}/${parsed.maxTokens} tokens (${parsed.percentage}%)`);
           resolve(parsed);
         } catch (error) {
-          log.error({ error: error }, '[ContextTracker] Failed to parse context output:');
+          console.error('[ContextTracker] Failed to parse context output:', error);
           resolve(null);
         }
       });
 
       child.on('error', (error) => {
-        log.error({ error: error }, '[ContextTracker] Failed to spawn process:');
+        console.error('[ContextTracker] Failed to spawn process:', error);
         reject(error);
       });
     });
   } catch (error) {
-    log.error({ error: error }, '[ContextTracker] Error capturing context usage:');
+    console.error('[ContextTracker] Error capturing context usage:', error);
     return null;
   }
 }

@@ -3,9 +3,6 @@ import { EventEmitter } from 'events';
 import { existsSync } from 'fs';
 import type { ClaudeOutput } from '@/types';
 import { getSystemPrompt } from './system-prompt';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ProcessManager');
 
 interface ProcessInstance {
   child: ChildProcess;
@@ -44,13 +41,15 @@ class ProcessManager extends EventEmitter {
    */
   spawn(attemptId: string, projectPath: string, prompt: string, sessionId?: string, filePaths?: string[]): void {
     if (this.processes.has(attemptId)) {
-      log.warn({ attemptId }, 'Process already exists');
+      console.warn(`Process ${attemptId} already exists`);
       return;
     }
 
-    log.info({ attemptId, projectPath, promptLength: prompt.length }, 'Spawning Claude process');
+    console.log(`[ProcessManager] Spawning Claude for attempt ${attemptId}`);
+    console.log(`[ProcessManager] Project path: ${projectPath}`);
+    console.log(`[ProcessManager] Prompt: ${prompt.substring(0, 100)}...`);
     if (sessionId) {
-      log.info({ attemptId, sessionId }, 'Resuming session');
+      console.log(`[ProcessManager] Resuming session: ${sessionId}`);
     }
 
     // Auto-detect Claude path or use CLAUDE_PATH env var
@@ -104,7 +103,7 @@ class ProcessManager extends EventEmitter {
       args.push('--resume', sessionId);
     }
 
-    log.info({ claudePath, argsCount: args.length }, 'Spawning process');
+    console.log(`[ProcessManager] Spawning:`, claudePath, 'with', args.length, 'args');
 
     const child = spawn(claudePath, args, {
       cwd: projectPath,
@@ -118,7 +117,7 @@ class ProcessManager extends EventEmitter {
       },
     });
 
-    log.info({ attemptId, pid: child.pid }, 'Process spawned');
+    console.log(`[ProcessManager] Process spawned with PID: ${child.pid}`);
 
     const instance: ProcessInstance = {
       child,
@@ -132,20 +131,20 @@ class ProcessManager extends EventEmitter {
     // Handle stdout
     child.stdout?.on('data', (chunk: Buffer) => {
       const data = chunk.toString();
-      log.debug({ attemptId, dataPreview: data.substring(0, 200) }, 'stdout received');
+      console.log(`[ProcessManager] stdout (${attemptId}):`, data.substring(0, 200));
       this.handleOutput(instance, data);
     });
 
     // Handle stderr
     child.stderr?.on('data', (chunk: Buffer) => {
       const content = chunk.toString();
-      log.debug({ attemptId, contentPreview: content.substring(0, 200) }, 'stderr received');
+      console.log(`[ProcessManager] stderr (${attemptId}):`, content.substring(0, 200));
       this.emit('stderr', { attemptId, content });
     });
 
     // Handle exit
     child.on('exit', (code) => {
-      log.info({ attemptId, code }, 'Process exited');
+      console.log(`[ProcessManager] Process ${attemptId} exited with code: ${code}`);
       if (instance.buffer.trim()) {
         this.processLine(instance, instance.buffer);
       }
@@ -155,7 +154,7 @@ class ProcessManager extends EventEmitter {
 
     // Handle errors
     child.on('error', (error) => {
-      log.error({ attemptId, error }, 'Process error');
+      console.error(`[ProcessManager] Process ${attemptId} error:`, error);
       this.emit('stderr', { attemptId, content: error.message });
       this.emit('exit', { attemptId, code: 1 });
       this.processes.delete(attemptId);

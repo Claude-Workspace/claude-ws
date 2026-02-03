@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore } from '@/stores/project-store';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ChatHistoryHook');
 
 /**
  * Match info for a task's chat history search result.
@@ -69,7 +66,7 @@ export function useChatHistorySearch(searchQuery: string) {
         setMatches(matchMap);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
-          log.error({ error }, 'Chat history search error');
+          console.error('Chat history search error:', error);
         }
       } finally {
         setLoading(false);

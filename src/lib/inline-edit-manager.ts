@@ -8,9 +8,6 @@
 import { EventEmitter } from 'events';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { generateLineDiff, type DiffResult } from './diff-generator';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('InlineEditManager');
 
 /**
  * Edit request parameters
@@ -72,7 +69,9 @@ class InlineEditManager extends EventEmitter {
       this.cancelEdit(sessionId);
     }
 
-    log.debug({ sessionId, filePath, language, instruction: instruction.substring(0, 100) }, 'Starting edit session');
+    console.log(`[InlineEditManager] Starting edit session ${sessionId}`);
+    console.log(`[InlineEditManager] File: ${filePath}, Language: ${language}`);
+    console.log(`[InlineEditManager] Instruction: ${instruction.substring(0, 100)}...`);
 
     const controller = new AbortController();
     const session: EditSession = {
@@ -103,7 +102,7 @@ class InlineEditManager extends EventEmitter {
 
       for await (const message of response) {
         if (controller.signal.aborted) {
-          log.debug({ sessionId }, 'Session aborted');
+          console.log(`[InlineEditManager] Session ${sessionId} aborted`);
           break;
         }
 
@@ -138,19 +137,19 @@ class InlineEditManager extends EventEmitter {
           const generatedCode = this.extractCode(session.buffer);
           const diff = generateLineDiff(selectedCode, generatedCode);
 
-          log.debug({ sessionId }, 'Session completed');
-          log.debug({ charCount: generatedCode.length, addedCount: diff.addedCount, removedCount: diff.removedCount }, 'Code generated');
+          console.log(`[InlineEditManager] Session ${sessionId} completed`);
+          console.log(`[InlineEditManager] Generated ${generatedCode.length} chars, ${diff.addedCount} added, ${diff.removedCount} removed`);
 
           this.emit('complete', { sessionId, code: generatedCode, diff });
         } catch (processingError) {
           const errorMessage = processingError instanceof Error ? processingError.message : 'Failed to process generated code';
-          log.error({ sessionId, err: processingError, message: errorMessage }, 'Session processing error');
+          console.error(`[InlineEditManager] Session ${sessionId} processing error:`, errorMessage);
           this.emit('error', { sessionId, error: errorMessage });
         }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.error({ sessionId, err: error, message: errorMessage }, 'Session error');
+      console.error(`[InlineEditManager] Session ${sessionId} error:`, errorMessage);
       this.emit('error', { sessionId, error: errorMessage });
     } finally {
       this.sessions.delete(sessionId);
@@ -165,7 +164,7 @@ class InlineEditManager extends EventEmitter {
     const session = this.sessions.get(sessionId);
     if (!session) return false;
 
-    log.debug({ sessionId }, 'Cancelling session');
+    console.log(`[InlineEditManager] Cancelling session ${sessionId}`);
     if (session.queryRef) {
       try {
         session.queryRef.close();
@@ -263,7 +262,7 @@ Output the modified code now:`;
     const now = Date.now();
     for (const [sessionId, session] of this.sessions) {
       if (now - session.startedAt > this.sessionTimeout) {
-        log.debug({ sessionId }, 'Cleaning up stale session');
+        console.log(`[InlineEditManager] Cleaning up stale session ${sessionId}`);
         if (session.queryRef) {
           try { session.queryRef.close(); } catch { session.controller.abort(); }
         } else {
@@ -280,11 +279,11 @@ Output the modified code now:`;
   }
 
   override emit<K extends keyof InlineEditEvents>(event: K, ...args: Parameters<InlineEditEvents[K]>): boolean {
-    log.trace({ event: String(event), listenerCount: this.listenerCount(event) }, 'Emitting event');
+    console.log(`[InlineEditManager] Emitting ${String(event)}, listeners: ${this.listenerCount(event)}`);
     return super.emit(event, ...args);
   }
 }
 
 // Export singleton instance
 export const inlineEditManager = new InlineEditManager();
-log.debug({ instanceId: (inlineEditManager as unknown as { _id?: string })._id = Math.random().toString(36).slice(2) }, 'Singleton created');
+console.log('[InlineEditManager] Singleton created, instance ID:', (inlineEditManager as unknown as { _id?: string })._id = Math.random().toString(36).slice(2));

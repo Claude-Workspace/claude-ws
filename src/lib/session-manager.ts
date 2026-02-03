@@ -10,10 +10,6 @@
 import { db, schema } from './db';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('SessionManager');
-
 export interface SessionOptions {
   resume?: string;
   resumeSessionAt?: string;  // Message UUID to resume conversation at
@@ -28,7 +24,7 @@ export class SessionManager {
       .update(schema.attempts)
       .set({ sessionId })
       .where(eq(schema.attempts.id, attemptId));
-    log.info(`Saved session ${sessionId} for attempt ${attemptId}`);
+    console.log(`[SessionManager] Saved session ${sessionId} for attempt ${attemptId}`);
   }
 
   /**
@@ -73,7 +69,7 @@ export class SessionManager {
     });
 
     if (task?.rewindSessionId && task?.rewindMessageUuid) {
-      log.info(`Resuming at message ${task.rewindMessageUuid} for task ${taskId}`);
+      console.log(`[SessionManager] Resuming at message ${task.rewindMessageUuid} for task ${taskId}`);
       return {
         resume: task.rewindSessionId,
         resumeSessionAt: task.rewindMessageUuid,
@@ -94,7 +90,7 @@ export class SessionManager {
       .update(schema.tasks)
       .set({ rewindSessionId: null, rewindMessageUuid: null, updatedAt: Date.now() })
       .where(eq(schema.tasks.id, taskId));
-    log.info(`Cleared rewind state for task ${taskId}`);
+    console.log(`[SessionManager] Cleared rewind state for task ${taskId}`);
   }
 
   /**
@@ -120,7 +116,7 @@ export class SessionManager {
         updatedAt: Date.now(),
       })
       .where(eq(schema.tasks.id, taskId));
-    log.info(`Set rewind state for task ${taskId}: session=${sessionId}, message=${messageUuid}`);
+    console.log(`[SessionManager] Set rewind state for task ${taskId}: session=${sessionId}, message=${messageUuid}`);
   }
 }
 

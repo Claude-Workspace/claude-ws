@@ -1,8 +1,5 @@
 import { create } from 'zustand';
 import type { PendingFile } from '@/types';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AttachmentStore');
 
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB per attempt
 
@@ -79,7 +76,7 @@ export const useAttachmentStore = create<AttachmentState>((set, get) => ({
         try {
           await fetch(`/api/uploads/${file.tempId}`, { method: 'DELETE' });
         } catch (e) {
-          log.error({ error: e }, 'Failed to delete file from server');
+          console.error('Failed to delete file from server:', e);
         }
       }
     }

@@ -89,10 +89,6 @@ function loadClaudeJsonConfig(): void {
 
 import { getPort, getHostname } from './server-port-configuration';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AnthropicProxy');
-
 /**
  * Get the proxy URL based on the current host
  */
@@ -172,7 +168,7 @@ function reloadSettingsConfig(settingsPath: string): void {
         }
       }
     } catch (err) {
-      log.warn({ data: err }, '[AnthropicProxy] Failed to parse settings.json:');
+      console.warn('[AnthropicProxy] Failed to parse settings.json:', err);
     }
   }
 
@@ -245,7 +241,7 @@ function startConfigWatcher(): void {
         }
       });
     } catch (err) {
-      log.warn({ data: err }, `[AnthropicProxy] Failed to watch ${appEnvPath}:`);
+      console.warn(`[AnthropicProxy] Failed to watch ${appEnvPath}:`, err);
     }
   }
 
@@ -263,7 +259,7 @@ function startConfigWatcher(): void {
         }
       });
     } catch (err) {
-      log.warn({ data: err }, `[AnthropicProxy] Failed to watch ${claudeSettingsPath}:`);
+      console.warn(`[AnthropicProxy] Failed to watch ${claudeSettingsPath}:`, err);
     }
   }
 }

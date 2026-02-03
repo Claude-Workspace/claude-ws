@@ -4,9 +4,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClaudeOutput, WsAttemptFinished } from '@/types';
 import { useRunningTasksStore } from '@/stores/running-tasks-store';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('AttemptStreamHook');
 
 interface UseAttemptStreamOptions {
   taskId?: string;
@@ -317,10 +314,13 @@ export function useAttemptStream(
     });
 
     socketInstance.on('question:ask', (data: any) => {
-      log.debug({ data }, 'Received question:ask event');
+      console.log('[useAttemptStream] Received question:ask event', data);
       // Filter by current attemptId to prevent cross-task question leaking
       if (currentAttemptIdRef.current && data.attemptId !== currentAttemptIdRef.current) {
-        log.debug({ receivedAttemptId: data.attemptId, currentAttemptId: currentAttemptIdRef.current }, 'Ignoring question from different attempt');
+        console.log('[useAttemptStream] Ignoring question from different attempt', {
+          receivedAttemptId: data.attemptId,
+          currentAttemptId: currentAttemptIdRef.current,
+        });
         return;
       }
       setActiveQuestion({ attemptId: data.attemptId, toolUseId: data.toolUseId, questions: data.questions });
@@ -370,7 +370,7 @@ export function useAttemptStream(
         hasUserAnswerLog = true;
       }
     }
-    log.debug({ answeredToolIds: Array.from(answeredToolIds), hasUserAnswerLog }, 'Answered tool IDs');
+    console.log('[checkForUnansweredQuestion] Answered tool IDs', Array.from(answeredToolIds), 'hasUserAnswerLog', hasUserAnswerLog);
 
     // Collect all AskUserQuestion tool_use_ids from messages (in order)
     const askQuestionIds: string[] = [];
@@ -394,7 +394,7 @@ export function useAttemptStream(
     if (hasUserAnswerLog && askQuestionIds.length > 0) {
       const lastAskId = askQuestionIds[askQuestionIds.length - 1];
       if (!answeredToolIds.has(lastAskId)) {
-        log.debug({ lastAskId }, 'Marking last AskUserQuestion as answered via user_answer log');
+        console.log('[checkForUnansweredQuestion] Marking last AskUserQuestion as answered via user_answer log', lastAskId);
         answeredToolIds.add(lastAskId);
       }
     }
@@ -553,7 +553,7 @@ export function useAttemptStream(
         body: JSON.stringify({ questions, answers })
       });
     } catch (err) {
-      log.error({ err }, 'Failed to save answer to database');
+      console.error('Failed to save answer to database:', err);
     }
 
     // Add a message showing the user's answer to the conversation

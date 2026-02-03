@@ -4,9 +4,6 @@ import { db } from '@/lib/db';
 import { appSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getPort } from '@/lib/server-port-configuration';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TunnelService');
 
 // Health check interval - verify tunnel is still working
 const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
@@ -97,7 +94,7 @@ class TunnelService extends EventEmitter {
         opts.subdomain = options.subdomain;
       }
 
-      log.info({ host: opts.host, port, subdomain: options?.subdomain || 'auto' }, 'Connecting to tunnel');
+      console.log(`[Tunnel] Connecting to ${opts.host} (port: ${port}, subdomain: ${options?.subdomain || 'auto'})`);
 
       this.tunnel = await ctunnel(opts);
 
@@ -115,12 +112,12 @@ class TunnelService extends EventEmitter {
       // Start health check
       this.startHealthCheck();
 
-      log.info({ url }, 'Connected to tunnel');
+      console.log(`[Tunnel] Connected: ${url}`);
 
       return url;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.error({ error: errorMessage }, 'Connection failed');
+      console.error(`[Tunnel] Connection failed: ${errorMessage}`);
 
       // Clean up partial tunnel state
       this.tunnel = null;
@@ -327,13 +324,13 @@ class TunnelService extends EventEmitter {
     const oldUrl = this.state.url;
     this.state = { ...this.state, ...newState };
     if (newState.url !== undefined && newState.url !== oldUrl) {
-      log.debug({ oldUrl, newUrl: newState.url }, 'setState url change');
+      console.log(`[Tunnel] setState url: ${oldUrl} -> ${newState.url}`);
     }
     this.emit('status', this.state);
   }
 
   private handleTunnelError(message: string) {
-    log.error({ message }, 'Tunnel error');
+    console.error(`[Tunnel] Error: ${message}`);
     this.setState({ status: 'error', error: message });
     this.emit('error', { error: message });
   }
@@ -344,7 +341,7 @@ class TunnelService extends EventEmitter {
       return;
     }
 
-    log.info('Connection closed');
+    console.log('[Tunnel] Connection closed');
     this.stopHealthCheck();
     this.tunnel = null;
     this.setState({ status: 'disconnected', url: null, error: null });
@@ -362,11 +359,11 @@ class TunnelService extends EventEmitter {
 
     // Check max attempts
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      log.error({ maxAttempts: MAX_RECONNECT_ATTEMPTS }, 'Max reconnect attempts reached, stopping auto-reconnect');
+      console.error(`[Tunnel] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, stopping auto-reconnect`);
       this.reconnectAttempts = 0;
       // Wait 5 minutes before allowing reconnect attempts again
       setTimeout(() => {
-        log.info('Resetting reconnect counter after cooldown');
+        console.log('[Tunnel] Resetting reconnect counter after cooldown');
         this.reconnectAttempts = 0;
       }, 5 * 60 * 1000).unref();
       return;
@@ -378,7 +375,7 @@ class TunnelService extends EventEmitter {
     // Exponential backoff: 1s, 2s, 4s, 8s... up to 30s max
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
 
-    log.info({ attempt: this.reconnectAttempts, delayMs: delay }, 'Scheduling reconnect');
+    console.log(`[Tunnel] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
 
     this.reconnectTimeout = setTimeout(async () => {
       try {

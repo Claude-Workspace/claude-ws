@@ -6,9 +6,6 @@
  */
 
 import type { ClaudeOutput, ClaudeContentBlock, ClaudeOutputType } from '@/types';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('SDKAdapter');
 
 // SDK message types (from @anthropic-ai/claude-agent-sdk)
 // These are the actual types emitted by the SDK query() iterator
@@ -174,11 +171,11 @@ function logWriteToolUse(content: SDKContentBlock[]): void {
   for (const block of content) {
     if (block.type === 'tool_use' && block.name === 'Write') {
       const input = block.input as { file_path?: string; content?: string } | undefined;
-      log.debug({
+      console.log(`[SDK Adapter] Write tool_use detected:`, {
         id: block.id,
         file_path: input?.file_path,
         content_length: input?.content?.length || 0,
-      }, 'Write tool_use detected');
+      });
     }
   }
 }
@@ -200,15 +197,15 @@ function detectBackgroundShell(
       const input = block.input as { command?: string; run_in_background?: boolean; description?: string } | undefined;
 
       // Log all Bash tool_use for debugging
-      log.debug({
+      console.log(`[SDK Adapter] Bash tool_use detected:`, {
         id: block.id,
-        commandPreview: input?.command?.substring(0, 100),
+        command: input?.command?.substring(0, 100),
         run_in_background: input?.run_in_background,
         hasRunInBackground: 'run_in_background' in (input || {}),
-      }, 'Bash tool_use detected');
+      });
 
       if (input?.run_in_background === true && input?.command) {
-        log.info({ commandPreview: input.command.substring(0, 50) }, 'Background shell detected via run_in_background=true');
+        console.log(`[SDK Adapter] Background shell detected via run_in_background=true: ${input.command.substring(0, 50)}`);
         return {
           toolUseId: block.id || '',
           command: input.command,
@@ -228,7 +225,7 @@ function detectBackgroundShell(
       if (match) {
         const command = match[1].trim();
         if (command) {
-          log.info({ commandPreview: command.substring(0, 50) }, 'Background shell detected via markdown block');
+          console.log(`[SDK Adapter] Background shell detected via markdown block: ${command.substring(0, 50)}`);
           return {
             toolUseId: `bg-shell-${Date.now()}`,
             command,
@@ -270,14 +267,14 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
       }
       // Log MCP server connection status
       if (sys.subtype === 'init' && sys.mcp_servers && sys.mcp_servers.length > 0) {
-        log.info('MCP servers status:');
+        console.log(`[SDK Adapter] MCP servers status:`);
         for (const server of sys.mcp_servers) {
           if (server.status === 'connected') {
-            log.info({ name: server.name, toolsCount: server.tools?.length || 0 }, `✓ ${server.name}: connected`);
+            console.log(`  ✓ ${server.name}: connected (${server.tools?.length || 0} tools)`);
           } else if (server.status === 'failed') {
-            log.error({ name: server.name, error: server.error }, `✗ ${server.name}: failed`);
+            console.error(`  ✗ ${server.name}: failed - ${server.error || 'Unknown error'}`);
           } else {
-            log.info({ name: server.name, status: server.status }, `○ ${server.name}: ${server.status}`);
+            console.log(`  ○ ${server.name}: ${server.status}`);
           }
         }
       }

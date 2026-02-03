@@ -1,8 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('SocketHook');
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -19,15 +16,15 @@ export function useSocket() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      log.debug({ socketId: socket.id }, 'Socket connected');
+      console.log('Socket connected:', socket.id);
     });
 
     socket.on('disconnect', () => {
-      log.debug('Socket disconnected');
+      console.log('Socket disconnected');
     });
 
     socket.on('error', (error) => {
-      log.error({ error }, 'Socket error');
+      console.error('Socket error:', error);
     });
 
     // Cleanup on unmount

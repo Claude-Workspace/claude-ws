@@ -5,9 +5,6 @@ import { rm } from 'fs/promises';
 import { join } from 'path';
 import { UPLOADS_DIR } from '@/lib/file-utils';
 import type { TaskStatus } from '@/types';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('TaskById');
 
 // GET /api/tasks/[id] - Get a single task
 export async function GET(
@@ -32,7 +29,7 @@ export async function GET(
 
     return NextResponse.json(task[0]);
   } catch (error) {
-    log.error({ error }, 'Failed to fetch task');
+    console.error('Failed to fetch task:', error);
     return NextResponse.json(
       { error: 'Failed to fetch task' },
       { status: 500 }
@@ -97,7 +94,7 @@ export async function PUT(
 
     return NextResponse.json(updatedTask[0]);
   } catch (error) {
-    log.error({ error }, 'Failed to update task');
+    console.error('Failed to update task:', error);
     return NextResponse.json(
       { error: 'Failed to update task' },
       { status: 500 }
@@ -150,7 +147,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    log.error({ error }, 'Failed to delete task');
+    console.error('Failed to delete task:', error);
     return NextResponse.json(
       { error: 'Failed to delete task' },
       { status: 500 }
