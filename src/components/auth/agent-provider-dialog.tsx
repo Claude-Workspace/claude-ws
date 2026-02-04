@@ -337,7 +337,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
         <DialogHeader>
           <DialogTitle>Configure Agent Provider</DialogTitle>
           <DialogDescription>
-            Choose how you want to authenticate with Claude API
+            Choose how you want to authenticate with Claude API:
           </DialogDescription>
         </DialogHeader>
 
