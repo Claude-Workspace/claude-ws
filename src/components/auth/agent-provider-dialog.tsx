@@ -333,7 +333,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] z-[9999]">
+      <DialogContent className="sm:max-w-[500px] z-[9999] max-h-[90vh] !grid !grid-rows-[auto_1fr]">
         <DialogHeader>
           <DialogTitle>Configure Agent Provider</DialogTitle>
           <DialogDescription>
@@ -341,6 +341,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
           </DialogDescription>
         </DialogHeader>
 
+        <div className="overflow-y-auto min-h-0 -mx-6 px-6">
         {!selectedOption ? (
           // Option selection view
           <div className="space-y-3 py-4">
@@ -644,7 +645,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
           </div>
         ) : (
           // Custom key input view
-          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-4 py-4">
             {/* API Key - Required */}
             <div className="space-y-2">
               <Label htmlFor="api-key" className="text-sm font-medium">
@@ -838,6 +839,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
