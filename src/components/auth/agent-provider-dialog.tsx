@@ -333,7 +333,7 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] z-[9999] max-h-[90vh] !grid !grid-rows-[auto_1fr]">
+      <DialogContent className="sm:max-w-[500px] z-[9999] max-h-[90vh] overflow-y-auto !grid !grid-rows-[auto_1fr]">
         <DialogHeader>
           <DialogTitle>Configure Agent Provider</DialogTitle>
           <DialogDescription>
