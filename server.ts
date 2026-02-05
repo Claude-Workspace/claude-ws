@@ -285,8 +285,8 @@ app.prepare().then(async () => {
           }
 
           // Get session options for conversation continuation
-          // Returns { forkSession } if task was rewound, otherwise { resume }
-          const sessionOptions = await sessionManager.getSessionOptions(taskId);
+          // Uses auto-fix to detect and skip past API errors in corrupted sessions
+          const sessionOptions = await sessionManager.getSessionOptionsWithAutoFix(taskId);
 
           // Create attempt record
           const attemptId = nanoid();
@@ -841,11 +841,16 @@ app.prepare().then(async () => {
     const gitStatsData = gitStatsCache.get(attemptId);
 
     // Update attempt with status and usage stats
+    // IMPORTANT: Clear session_id on failure to prevent next attempt from resuming
+    // a corrupted/empty session. Failed sessions may have incomplete data that causes
+    // Claude Code to exit with code 1 when resuming.
     await db
       .update(schema.attempts)
       .set({
         status,
         completedAt: Date.now(),
+        // Clear session_id on failure - prevents resume from corrupted sessions
+        ...(status === 'failed' && { sessionId: null }),
         // Save usage stats
         ...(usageStats && {
           totalTokens: usageStats.totalTokens,
@@ -906,6 +911,9 @@ app.prepare().then(async () => {
     } else if (attempt) {
       // Clear checkpoint tracking on failure
       checkpointManager.clearAttemptCheckpoint(attemptId);
+
+      // Log session clearing for debugging
+      console.log(`[Server] Attempt ${attemptId} failed - session_id cleared to prevent resume from corrupted session`);
 
       // Clear rewind state on failure too - stale sessions cause API errors
       // This allows next attempt to start fresh instead of repeating failure

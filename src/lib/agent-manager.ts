@@ -495,19 +495,20 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       };
 
       // Log payload and endpoint before sending to SDK
-      log.debug({
+      log.info({
         endpoint: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
         prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
         model: queryOptions.model,
         cwd: queryOptions.cwd,
         permissionMode: queryOptions.permissionMode,
-        allowedTools: queryOptions.allowedTools,
+        allowedTools: queryOptions.allowedTools?.length || 0,
         resume: queryOptions.resume,
+        resumeSessionAt: sessionOptions?.resumeSessionAt,
         maxTurns: queryOptions.maxTurns,
-      }, 'SDK Query');
+      }, 'SDK Query starting');
 
       const response = query({ prompt, options: queryOptions });
-      log.debug({ attemptId }, 'Query started');
+      log.info({ attemptId }, 'Query stream started, iterating messages...');
 
       // Store query reference for graceful close() on cancel
       instance.queryRef = response;
@@ -662,7 +663,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       }
 
       // Query completed successfully
-      log.debug({ attemptId }, 'Query completed successfully');
+      log.info({ attemptId, durationMs: Date.now() - instance.startedAt }, 'Query completed successfully');
 
       // Collect git stats snapshot on completion
       try {
@@ -679,11 +680,20 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     } catch (error) {
       // Emit error as stderr with more details
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.error({ err: error, message: errorMessage }, 'SDK Error');
+      const errorName = error instanceof Error ? error.name : 'UnknownError';
+      log.error({
+        err: error,
+        message: errorMessage,
+        errorName,
+        attemptId,
+        projectPath,
+        hasResume: !!sessionOptions?.resume,
+        resumeSessionAt: sessionOptions?.resumeSessionAt,
+      }, 'SDK Error - Query failed');
       if (error instanceof Error && error.stack) {
-        log.debug({ stack: error.stack.split('\n').slice(0, 5).join('\n') }, 'SDK Error Stack');
+        log.error({ stack: error.stack.split('\n').slice(0, 8).join('\n') }, 'SDK Error Stack (first 8 lines)');
       }
-      this.emit('stderr', { attemptId, content: errorMessage });
+      this.emit('stderr', { attemptId, content: `${errorName}: ${errorMessage}` });
 
       // Determine exit code based on error type
       const code = controller.signal.aborted ? null : 1;
