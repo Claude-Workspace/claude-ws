@@ -45,14 +45,15 @@ export function WizardStepCtunnel() {
     return () => clearTimeout(timer);
   }, [email]);
 
-  // Check availability when debounced inputs change
+  // Check availability when debounced inputs change (only from 4th character)
   useEffect(() => {
     const checkAvailability = async () => {
-      if (!debouncedSubdomain || !debouncedEmail) {
+      if (!debouncedSubdomain || !debouncedEmail || debouncedSubdomain.length < 4) {
         setAvailability(null);
         return;
       }
 
+      setChecking(true);
       try {
         const response = await fetch(
           `/api/subdomains/check?subdomain=${encodeURIComponent(debouncedSubdomain)}&email=${encodeURIComponent(debouncedEmail)}`
@@ -62,6 +63,8 @@ export function WizardStepCtunnel() {
       } catch (error) {
         console.error('Failed to check availability:', error);
         setAvailability(null);
+      } finally {
+        setChecking(false);
       }
     };
 
@@ -202,10 +205,14 @@ export function WizardStepCtunnel() {
                   placeholder={t('subdomainPlaceholder')}
                   value={subdomain}
                   onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  disabled={checking || registering}
+                  disabled={registering}
                   className={`font-mono pr-10 ${availability ? (canProceed ? 'border-green-500' : 'border-destructive') : ''}`}
                 />
-                {availability && (
+                {checking && subdomain.length >= 4 && email ? (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : availability && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
                     {canProceed ? (
                       <Check className="h-4 w-4 text-green-500" />
