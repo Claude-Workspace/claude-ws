@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { AgentProviderConfigProvider } from '@/components/providers/agent-provider-config';
+import { RemoteAccessKeyProvider } from '@/components/providers/remote-access-key-provider';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -71,7 +72,9 @@ export default async function RootLayout({
           <SocketProvider>
             <ThemeProvider>
               <AgentProviderConfigProvider>
-                {children}
+                <RemoteAccessKeyProvider>
+                  {children}
+                </RemoteAccessKeyProvider>
               </AgentProviderConfigProvider>
               <Toaster position="top-right" richColors closeButton />
             </ThemeProvider>

@@ -120,10 +120,10 @@ export async function POST(request: NextRequest) {
       apiKey = generateApiKey();
     }
 
-    // Validate key format (alphanumeric, minimum 16 characters)
-    if (typeof apiKey !== 'string' || apiKey.length < 16) {
+    // Validate key is a string
+    if (typeof apiKey !== 'string' || apiKey.length === 0) {
       return NextResponse.json(
-        { error: 'API key must be at least 16 characters' },
+        { error: 'API key is required' },
         { status: 400 }
       );
     }

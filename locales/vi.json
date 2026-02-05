@@ -379,6 +379,7 @@
     "useCustomKey": "Sử dụng key tùy chỉnh",
     "apiKeyStorageNote": "Key này sẽ được lưu vào file .env dưới tên API_ACCESS_KEY. Có thể cần khởi động lại server để thay đổi có hiệu lực hoàn toàn.",
     "apiKeyMinLength": "API key phải có ít nhất 16 ký tự",
+    "apiKeyRequired": "API key là bắt buộc",
     "cancel": "Hủy",
     "saving": "Đang lưu...",
     "saveAndContinue": "Lưu & Tiếp tục"

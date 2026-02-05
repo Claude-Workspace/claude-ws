@@ -64,8 +64,8 @@ export function ApiAccessKeySetupModal({
   const handleSave = async () => {
     const keyToSave = useCustomKey ? apiKey : generatedKey;
 
-    if (!keyToSave || keyToSave.length < 16) {
-      setError(t('apiKeyMinLength'));
+    if (!keyToSave) {
+      setError(t('apiKeyRequired'));
       return;
     }
 
@@ -165,7 +165,9 @@ export function ApiAccessKeySetupModal({
               checked={useCustomKey}
               onChange={(e) => {
                 setUseCustomKey(e.target.checked);
-                if (!e.target.checked) {
+                if (e.target.checked) {
+                  setApiKey('');
+                } else {
                   setApiKey(generatedKey);
                 }
               }}

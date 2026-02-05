@@ -379,6 +379,7 @@
     "useCustomKey": "Use my own custom key",
     "apiKeyStorageNote": "This key will be saved to your .env file as API_ACCESS_KEY. You may need to restart the server for changes to take full effect.",
     "apiKeyMinLength": "API key must be at least 16 characters",
+    "apiKeyRequired": "API key is required",
     "cancel": "Cancel",
     "saving": "Saving...",
     "saveAndContinue": "Save & Continue"
