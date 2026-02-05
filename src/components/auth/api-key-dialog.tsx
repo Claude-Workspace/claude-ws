@@ -322,13 +322,8 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
         ...existingHeaders,
       };
 
-      // Always include x-api-key header for provider settings endpoint
-      // (use empty string when no key is stored - server will allow if API_ACCESS_KEY is not configured)
-      const isProviderSettingsEndpoint = urlString.includes('/api/settings/provider');
-      if (isProviderSettingsEndpoint) {
-        newHeaders['x-api-key'] = apiKey || '';
-      } else if (apiKey) {
-        // For other endpoints, only add API key if stored
+      // Add API key if stored
+      if (apiKey) {
         newHeaders['x-api-key'] = apiKey;
       }
 
