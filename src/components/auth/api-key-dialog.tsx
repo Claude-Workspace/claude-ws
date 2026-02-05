@@ -311,6 +311,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
 
     window.fetch = async (url, options) => {
       const apiKey = getStoredApiKey();
+      const urlString = typeof url === 'string' ? url : url.toString();
 
       // Build new headers object with API key if available
       const existingHeaders = options?.headers
@@ -321,8 +322,13 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
         ...existingHeaders,
       };
 
-      // Add API key if stored
-      if (apiKey) {
+      // Always include x-api-key header for provider settings endpoint
+      // (use empty string when no key is stored - server will allow if API_ACCESS_KEY is not configured)
+      const isProviderSettingsEndpoint = urlString.includes('/api/settings/provider');
+      if (isProviderSettingsEndpoint) {
+        newHeaders['x-api-key'] = apiKey || '';
+      } else if (apiKey) {
+        // For other endpoints, only add API key if stored
         newHeaders['x-api-key'] = apiKey;
       }
 
@@ -335,7 +341,6 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
       const response = await originalFetch(url, newOptions);
 
       // Check for 401 on API routes (except auth/verify endpoint)
-      const urlString = typeof url === 'string' ? url : url.toString();
       const isApiRoute = urlString.includes('/api/');
       const isVerifyEndpoint = urlString.includes('/api/auth/verify');
 
