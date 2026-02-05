@@ -19,7 +19,7 @@
   "author": "Claude Workspace",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Claude-Workspace/claude-ws.git"
+    "url": "git+https://github.com/Claude-Workspace/claude-ws.git"
   },
   "bugs": {
     "url": "https://github.com/Claude-Workspace/claude-ws/issues"

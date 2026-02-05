@@ -134,12 +134,20 @@ function readBaseUrlFromSettings(settingsPath: string): string | null {
 }
 
 /**
+ * Get the user's original CWD (where they ran claude-ws from)
+ * This is different from process.cwd() which is packageRoot
+ */
+function getUserCwd(): string {
+  return process.env.CLAUDE_WS_USER_CWD || process.cwd();
+}
+
+/**
  * Reload config from all sources by priority when settings.json changes
  * Priority: settings.json > app .env > ~/.claude.json
  */
 function reloadSettingsConfig(settingsPath: string): void {
   const localProxyUrl = getProxyUrl();
-  const appEnvPath = join(process.cwd(), '.env');
+  const appEnvPath = join(getUserCwd(), '.env');
 
   // Clear existing config keys first
   clearConfigKeys();
@@ -230,7 +238,7 @@ function startConfigWatcher(): void {
   const localProxyUrl = getProxyUrl();
 
   // Files to watch
-  const appEnvPath = join(process.cwd(), '.env');
+  const appEnvPath = join(getUserCwd(), '.env');
   const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
 
   // Watch app .env

@@ -34,8 +34,15 @@ function whichCommand(cmd) {
   execSync(`${checker} ${cmd}`, { stdio: 'ignore' });
 }
 
-// Load environment variables
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+// Load environment variables from user's CWD only
+// This ensures users manage their own .env in their project directory
+const userEnvPath = path.join(process.cwd(), '.env');
+if (fs.existsSync(userEnvPath)) {
+  require('dotenv').config({ path: userEnvPath });
+  console.log(`[Claude Workspace] Loaded .env from: ${userEnvPath}`);
+} else {
+  console.log('[Claude Workspace] No .env found in current directory');
+}
 
 // Get package root directory
 const packageRoot = path.resolve(__dirname, '..');
@@ -58,8 +65,14 @@ Options:
   -v, --version    Show version number
   -h, --help       Show this help message
 
+Environment:
+  .env files are loaded in this order (first found wins):
+    1. Current working directory (./.env)
+    2. Package installation directory
+
 Examples:
-  claude-ws        Start Claude Workspace server
+  claude-ws              Start server using .env from current directory
+  cd ~/myproject && claude-ws   Use ~/myproject/.env
 
 For more info: https://github.com/Claude-Workspace/claude-ws
   `);
@@ -263,6 +276,7 @@ async function startServer() {
     env: {
       ...process.env,
       NODE_ENV: process.env.NODE_ENV || 'production',
+      CLAUDE_WS_USER_CWD: process.cwd(), // Pass user's CWD to server
     }
   });
 
