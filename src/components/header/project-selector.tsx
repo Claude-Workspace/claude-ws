@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { useProjectStore } from '@/stores/project-store';
 import { ProjectSettingsDialog } from '@/components/project-settings/project-settings-dialog';
+import { getFolderName } from '@/lib/utils';
 
 interface ProjectSelectorProps {
   onAddProject?: () => void;
@@ -115,7 +116,7 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
                     className="shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <span className="truncate text-sm select-none">{project.name}</span>
+                  <span className="truncate text-sm select-none">{getFolderName(project.name)}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -206,7 +207,7 @@ export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
   if (!allMode) {
     if (selectedProjectIds.length === 1) {
       const project = projects.find(p => p.id === selectedProjectIds[0]);
-      displayText = project?.name || 'Select Project';
+      displayText = project ? getFolderName(project.name) : 'Select Project';
     } else if (selectedProjectIds.length > 1) {
       displayText = `${selectedProjectIds.length} projects`;
     }

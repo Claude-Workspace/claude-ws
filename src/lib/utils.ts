@@ -43,3 +43,25 @@ export function waitForElement<T extends Element = Element>(
     }, timeout);
   });
 }
+
+/**
+ * Extract the folder/directory name from a file path.
+ * Handles both Unix (/) and Windows (\) path separators.
+ * @param path - Full file path
+ * @returns The folder/directory name
+ */
+export function getFolderName(path: string): string {
+  if (!path) return '';
+
+  // Normalize path separators to handle both Windows and Unix
+  const normalizedPath = path.replace(/\\/g, '/');
+
+  // Remove trailing slash
+  const cleanPath = normalizedPath.replace(/\/$/, '');
+
+  // Extract the last segment (folder name)
+  const segments = cleanPath.split('/');
+  const folderName = segments[segments.length - 1];
+
+  return folderName || path;
+}
