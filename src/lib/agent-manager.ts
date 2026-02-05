@@ -527,7 +527,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
           // Validate SDK message structure
           if (!isValidSDKMessage(message)) {
-            log.debug({ type: message?.type }, 'Invalid SDK message skipped');
+            log.debug({ type: (message as { type?: string })?.type }, 'Invalid SDK message skipped');
             continue;
           }
 
