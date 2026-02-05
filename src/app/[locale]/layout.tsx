@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { AgentProviderConfigProvider } from '@/components/providers/agent-provider-config';
 import { RemoteAccessKeyProvider } from '@/components/providers/remote-access-key-provider';
+import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -69,16 +70,18 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <NextIntlClientProvider messages={messages}>
-          <SocketProvider>
-            <ThemeProvider>
-              <AgentProviderConfigProvider>
-                <RemoteAccessKeyProvider>
-                  {children}
-                </RemoteAccessKeyProvider>
-              </AgentProviderConfigProvider>
-              <Toaster position="top-right" richColors closeButton />
-            </ThemeProvider>
-          </SocketProvider>
+          <ApiKeyProvider>
+            <SocketProvider>
+              <ThemeProvider>
+                <AgentProviderConfigProvider>
+                  <RemoteAccessKeyProvider>
+                    {children}
+                  </RemoteAccessKeyProvider>
+                </AgentProviderConfigProvider>
+                <Toaster position="top-right" richColors closeButton />
+              </ThemeProvider>
+            </SocketProvider>
+          </ApiKeyProvider>
         </NextIntlClientProvider>
       </body>
     </html>

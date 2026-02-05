@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { SocketProvider } from '@/components/providers/socket-provider';
 import { SearchProvider } from '@/components/search/search-provider';
 import { Header } from '@/components/header';
 import { Board } from '@/components/kanban/board';
@@ -12,7 +11,6 @@ import { SettingsPage } from '@/components/settings/settings-page';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
-import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { PluginList } from '@/components/agent-factory/plugin-list';
 import { AccessAnywhereWizard } from '@/components/access-anywhere';
 import { useProjectStore } from '@/stores/project-store';
@@ -276,12 +274,8 @@ function KanbanApp() {
 
 export default function Home() {
   return (
-    <ApiKeyProvider>
-      <SocketProvider>
-        <SearchProvider>
-          <KanbanApp />
-        </SearchProvider>
-      </SocketProvider>
-    </ApiKeyProvider>
+    <SearchProvider>
+      <KanbanApp />
+    </SearchProvider>
   );
 }
