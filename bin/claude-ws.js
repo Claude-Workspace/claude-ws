@@ -66,21 +66,22 @@ Options:
   -h, --help       Show this help message
 
 Environment:
-  .env files are loaded in this order (first found wins):
-    1. Current working directory (./.env)
-    2. Package installation directory
+  .env: Loaded from current working directory (./.env)
+  Database: Stored in ./data/claude-ws.db (or DATA_DIR env)
 
 Examples:
   claude-ws              Start server using .env from current directory
-  cd ~/myproject && claude-ws   Use ~/myproject/.env
+  cd ~/myproject && claude-ws   Use ~/myproject/.env and database
 
 For more info: https://github.com/Claude-Workspace/claude-ws
   `);
   process.exit(0);
 }
 
-// Database path - use DATA_DIR from env if configured, otherwise default to project data dir
-const DB_DIR = process.env.DATA_DIR || path.join(packageRoot, 'data');
+// Database path - use DATA_DIR from env, or user's CWD, or fall back to packageRoot
+// This ensures database is stored in user's project directory when possible
+const userCwd = process.cwd();
+const DB_DIR = process.env.DATA_DIR || path.join(userCwd, 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
 // Ensure database directory exists
