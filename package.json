@@ -62,8 +62,8 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "NODE_ENV=production next build",
-    "start": "NODE_ENV=production tsx server.ts",
+    "build": "cross-env NODE_ENV=production next build",
+    "start": "cross-env NODE_ENV=production tsx server.ts",
     "db:generate": "drizzle-kit generate",
     "db:fix": "tsx scripts/db-fix-columns.ts",
     "prepublishOnly": "npm run build"
@@ -118,6 +118,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "compression": "^1.8.1",
+    "cross-env": "^7.0.3",
     "ctunnel": "^1.0.3",
     "date-fns": "^4.1.0",
     "diff": "^8.0.3",
