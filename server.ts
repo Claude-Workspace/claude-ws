@@ -42,9 +42,6 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = getHostname();
 const port = getPort();
 
-// API authentication key (optional)
-const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
-
 const app = next({ dev, hostname, port, turbopack: false });
 const handle = app.getRequestHandler();
 
@@ -53,16 +50,19 @@ app.prepare().then(async () => {
     const parsedUrl = parse(req.url!, true);
     const pathname = parsedUrl.pathname || '';
 
-    // API authentication check
+    // API authentication check - read from process.env directly for immediate effect
+    const apiAccessKey = process.env.API_ACCESS_KEY;
     const isApiRoute = pathname.startsWith('/api/');
     const isVerifyEndpoint = pathname === '/api/auth/verify';
     const isProxyEndpoint = pathname.startsWith('/api/proxy/anthropic');
     const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
+    const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
 
-    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && API_ACCESS_KEY && API_ACCESS_KEY.length > 0) {
+    // Skip auth for verify, tunnel status, and api-access-key endpoints
+    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint && apiAccessKey && apiAccessKey.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
-      if (!providedKey || providedKey !== API_ACCESS_KEY) {
+      if (!providedKey || providedKey !== apiAccessKey) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized', message: 'Valid API key required' }));
         return;

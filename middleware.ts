@@ -3,8 +3,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { locales, defaultLocale } from './src/i18n/config';
 
-const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
-
 // Create i18n middleware
 const intlMiddleware = createMiddleware({
   locales,
@@ -25,17 +23,22 @@ export default function middleware(request: NextRequest) {
   const isApiRoute = pathname.startsWith('/api/');
   const isVerifyEndpoint = pathname === '/api/auth/verify';
   const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
+  const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
 
-  if (isApiRoute && !isVerifyEndpoint && !isTunnelStatusEndpoint) {
+  // Skip auth for verify, tunnel status, and api-access-key endpoints
+  if (isApiRoute && !isVerifyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint) {
+    // Read from process.env directly for immediate effect when key is updated
+    const apiAccessKey = process.env.API_ACCESS_KEY;
+
     // If no API key is configured, allow all requests
-    if (!API_ACCESS_KEY || API_ACCESS_KEY.length === 0) {
+    if (!apiAccessKey || apiAccessKey.length === 0) {
       return NextResponse.next();
     }
 
     // Check for x-api-key header
     const providedKey = request.headers.get('x-api-key');
 
-    if (!providedKey || providedKey !== API_ACCESS_KEY) {
+    if (!providedKey || providedKey !== apiAccessKey) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Valid API key required' },
         { status: 401 }

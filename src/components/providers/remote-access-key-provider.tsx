@@ -28,6 +28,20 @@ export function RemoteAccessKeyProvider({ children }: { children: React.ReactNod
         return;
       }
 
+      // Check if auth is already required (API key already configured)
+      try {
+        const authRes = await fetch('/api/auth/verify');
+        const authData = await authRes.json();
+
+        // If authRequired is true, API key is already configured - no need to prompt
+        if (authData.authRequired === true) {
+          setChecked(true);
+          return;
+        }
+      } catch {
+        // If check fails, continue to next check
+      }
+
       // Check if API access key is configured
       try {
         const res = await fetch('/api/settings/api-access-key');
