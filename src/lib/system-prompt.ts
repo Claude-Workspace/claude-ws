@@ -3,26 +3,7 @@
  * SDK already provides: Tools, Skills, MCP, Agents documentation
  */
 export const ENGINEERING_SYSTEM_PROMPT = `
-## BACKGROUND SERVERS - CRITICAL
-
-When starting servers, you MUST use this EXACT pattern (copy-paste, do not modify):
-
-\`\`\`bash
-nohup <cmd> > /tmp/<name>.log 2>&1 & echo "BGPID:$!"
-\`\`\`
-
-**CRITICAL PARTS (DO NOT OMIT):**
-- \`2>&1\` - redirect stderr to stdout
-- \`&\` - run in background (REQUIRED for $! to work)
-- \`echo "BGPID:$!"\` - output the background PID
-
-**Full example for directus:**
-\`\`\`bash
-lsof -ti :8055 | xargs kill -9 2>/dev/null; sleep 1 && nohup npx directus start > /tmp/directus.log 2>&1 & echo "BGPID:$!"
-\`\`\`
-
-Without the full pattern ending in \`2>&1 & echo "BGPID:$!"\`, the UI cannot track the process.
-`.trim();
+## BACKGROUND SERVERS - CRITICAL`.trim();
 
 /**
  * Detect if task involves starting a server
@@ -35,15 +16,7 @@ const TASK_HINTS: Record<string, string> = {
   refactor: `\n## MODE: REFACTOR\nPreserve behavior. Read→Grep usages→Small edits→Test EACH`,
   question: `\n## MODE: QUESTION\nCite file:line. Grep/Glob→Read→Answer with references`,
   setup: `\n## MODE: SETUP\nFollow official docs. Read configs→Check package.json→Verify`,
-  server: `\n## MODE: SERVER
-**CRITICAL:** Command MUST end with: & echo "BGPID:$!"
-
-Pattern: nohup <cmd> > /tmp/<name>.log 2>&1 & echo "BGPID:$!"
-
-Example:
-Bash({ command: "lsof -ti :8055 | xargs kill -9 2>/dev/null; sleep 1 && nohup npx directus start > /tmp/directus.log 2>&1 & echo \\"BGPID:\\$!\\"" })
-
-Without BGPID echo, we cannot track/kill the process in UI.`,
+  server: `\n## MODE: SERVER`,
 };
 
 /**
