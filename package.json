@@ -26,8 +26,8 @@
   },
   "homepage": "https://github.com/Claude-Workspace/claude-ws#readme",
   "bin": {
-    "claude-ws": "./bin/claudekanban.js",
-    "claude-workspace": "./bin/claudekanban.js"
+    "claude-ws": "bin/claude-ws.js",
+    "claude-workspace": "bin/claude-ws.js"
   },
   "files": [
     "bin",

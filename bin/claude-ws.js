@@ -6,7 +6,7 @@
  * This script:
  * 1. Auto-migrates the database on first run (using initDb from src/lib/db)
  * 2. Starts the Next.js server with Socket.io
- * 3. Opens browser to localhost:3000
+ * 3. Opens browser to localhost:8556
  */
 
 const { spawn } = require('child_process');
