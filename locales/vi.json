@@ -367,6 +367,20 @@
     "configureTunnel": "Cấu hình Tunnel",
     "addDnsRecord": "Thêm Bản ghi DNS",
     "runTunnel": "Chạy Tunnel",
-    "orInstallAsService": "Hoặc cài đặt như dịch vụ:"
+    "orInstallAsService": "Hoặc cài đặt như dịch vụ:",
+    "apiAccessKeyRequired": "Cần API Access Key",
+    "apiAccessKeyDescription": "Để bật Access Anywhere, bạn cần thiết lập API access key. Key này sẽ bảo vệ workspace của bạn khỏi truy cập trái phép khi mở ra internet.",
+    "apiAccessKeyWarning": "Lưu key này cẩn thận! Bạn sẽ cần nó để truy cập workspace từ xa. Key sẽ được lưu trong file .env.",
+    "generatedApiKey": "API Access Key",
+    "enterCustomKey": "Nhập key tùy chỉnh...",
+    "copyKey": "Sao chép key",
+    "copied": "Đã sao chép!",
+    "regenerateKey": "Tạo key mới",
+    "useCustomKey": "Sử dụng key tùy chỉnh",
+    "apiKeyStorageNote": "Key này sẽ được lưu vào file .env dưới tên API_ACCESS_KEY. Có thể cần khởi động lại server để thay đổi có hiệu lực hoàn toàn.",
+    "apiKeyMinLength": "API key phải có ít nhất 16 ký tự",
+    "cancel": "Hủy",
+    "saving": "Đang lưu...",
+    "saveAndContinue": "Lưu & Tiếp tục"
   }
 }

@@ -367,6 +367,20 @@
     "configureTunnel": "Configure Tunnel",
     "addDnsRecord": "Add DNS Record",
     "runTunnel": "Run Tunnel",
-    "orInstallAsService": "Or install as a service:"
+    "orInstallAsService": "Or install as a service:",
+    "apiAccessKeyRequired": "API Access Key Required",
+    "apiAccessKeyDescription": "To enable Access Anywhere, you need to set up an API access key. This key will protect your workspace from unauthorized access when exposed to the internet.",
+    "apiAccessKeyWarning": "Save this key securely! You'll need it to access your workspace remotely. The key will be stored in your .env file.",
+    "generatedApiKey": "API Access Key",
+    "enterCustomKey": "Enter your custom key...",
+    "copyKey": "Copy key",
+    "copied": "Copied!",
+    "regenerateKey": "Generate new key",
+    "useCustomKey": "Use my own custom key",
+    "apiKeyStorageNote": "This key will be saved to your .env file as API_ACCESS_KEY. You may need to restart the server for changes to take full effect.",
+    "apiKeyMinLength": "API key must be at least 16 characters",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saveAndContinue": "Save & Continue"
   }
 }

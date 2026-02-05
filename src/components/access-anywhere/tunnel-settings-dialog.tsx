@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTunnelStore } from '@/stores/tunnel-store';
 import { Copy, RefreshCw, ExternalLink, Trash2, Key, Mail, Calendar, Globe, Check } from 'lucide-react';
 import { format } from 'date-fns';
@@ -107,12 +108,18 @@ export function TunnelSettingsDialog() {
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         {loading ? (
           <div className="py-8">
+            <VisuallyHidden>
+              <DialogTitle>Access Anywhere</DialogTitle>
+            </VisuallyHidden>
             <div className="flex items-center justify-center">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           </div>
         ) : !config && !subdomain ? (
           <div className="py-8 text-center text-muted-foreground">
+            <VisuallyHidden>
+              <DialogTitle>Access Anywhere</DialogTitle>
+            </VisuallyHidden>
             No tunnel configuration found. Please set up Access Anywhere first.
           </div>
         ) : (
