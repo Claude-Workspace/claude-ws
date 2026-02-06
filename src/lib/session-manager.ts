@@ -239,7 +239,9 @@ export class SessionManager {
           break;
         }
       } catch {
-        // Skip invalid JSON
+        log.error(`Failed to parse session line ${i} for session ${sessionId}: ${lines[i]}`);
+        const lastLines = lines.slice(-20);
+        log.error(`Last ${lastLines.length} lines of session ${sessionId}:\n${lastLines.join('\n')}`);
       }
     }
 
