@@ -19,8 +19,12 @@ function isLocalhost(): boolean {
 export function RemoteAccessKeyProvider({ children }: { children: React.ReactNode }) {
   const [showModal, setShowModal] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [isLocal, setIsLocal] = useState(true);
 
   useEffect(() => {
+    // Set isLocal state on client side only
+    setIsLocal(isLocalhost());
+
     const checkRemoteAccess = async () => {
       // Skip check on localhost
       if (isLocalhost()) {
@@ -67,14 +71,11 @@ export function RemoteAccessKeyProvider({ children }: { children: React.ReactNod
     window.location.reload();
   };
 
-  // Don't render children until we've checked (prevents flash)
-  if (!checked && !isLocalhost()) {
-    return null;
-  }
-
+  // Always render children to avoid hydration mismatch
+  // Use a wrapper to conditionally hide content during check
   return (
     <>
-      {children}
+      {(checked || isLocal) ? children : null}
       <ApiAccessKeySetupModal
         open={showModal}
         onOpenChange={setShowModal}
