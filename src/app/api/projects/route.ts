@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import { desc } from 'drizzle-orm';
-import { mkdir } from 'fs/promises';
+import { mkdir, writeFile, access } from 'fs/promises';
+import { join } from 'path';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Projects');
@@ -50,6 +51,15 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+    }
+
+    // Generate CLAUDE.md if it doesn't exist
+    const claudeMdPath = join(path, 'CLAUDE.md');
+    try {
+      await access(claudeMdPath);
+    } catch {
+      const claudeMdContent = `# CLAUDE.md\n\nThis file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.\n\n<!-- TODO: Update this file once the project is scaffolded with actual build commands, architecture, and conventions. -->\n`;
+      await writeFile(claudeMdPath, claudeMdContent, 'utf-8');
     }
 
     const newProject = {
