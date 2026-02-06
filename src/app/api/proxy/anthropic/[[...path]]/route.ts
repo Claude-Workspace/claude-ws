@@ -104,6 +104,15 @@ async function proxyRequest(
   try {
     const response = await fetch(targetUrl, fetchOptions);
     const contentType = response.headers.get('content-type') || '';
+
+    if (!response.ok) {
+      console.error('Anthropic API error', {
+        targetUrl,
+        fetchOptions,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
     const isStreaming = contentType.includes('text/event-stream');
 
     if (isStreaming && response.body) {
