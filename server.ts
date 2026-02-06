@@ -94,6 +94,9 @@ app.prepare().then(async () => {
     cors: {
       origin: dev ? '*' : false,
     },
+    // Keep connections alive through Cloudflare Tunnel (100s idle timeout)
+    pingInterval: 10000,
+    pingTimeout: 10000,
   });
 
   // Socket.io connection handler
