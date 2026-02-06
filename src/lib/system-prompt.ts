@@ -3,7 +3,10 @@
  * SDK already provides: Tools, Skills, MCP, Agents documentation
  */
 export const ENGINEERING_SYSTEM_PROMPT = `
-## BACKGROUND SERVERS - CRITICAL`.trim();
+## BACKGROUND SERVERS - CRITICAL
+- Unless specified otherwise, create files/folders ONLY within the project's path and organize files/folders using the PARA method: docs, plans, reports, executions
+- Respond in the same language as the user's prompt, except for CLAUDE.md requirements.
+`.trim();
 
 /**
  * Detect if task involves starting a server
