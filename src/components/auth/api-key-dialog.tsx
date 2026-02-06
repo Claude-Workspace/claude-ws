@@ -291,6 +291,41 @@ function dispatchApiKeyRequired(): void {
  */
 export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+
+  // Check auth on mount before rendering children
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const needed = await checkAuthRequired();
+        if (!needed) {
+          setAuthChecked(true);
+          return;
+        }
+        setAuthRequired(true);
+
+        // Auth is required — check if we have a valid stored key
+        const storedKey = getStoredApiKey();
+        if (storedKey) {
+          const valid = await verifyApiKey(storedKey);
+          if (valid) {
+            setAuthChecked(true);
+            return;
+          }
+          clearStoredApiKey();
+        }
+
+        // No valid key — show dialog, don't render children
+        setShowAuthDialog(true);
+      } catch {
+        // If check fails, allow through
+        setAuthChecked(true);
+      }
+    };
+
+    check();
+  }, []);
 
   // Listen for API key required events from fetch interceptor
   useEffect(() => {
@@ -361,6 +396,18 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     // Reload page to reinitialize all components with authenticated state
     window.location.reload();
   };
+
+  // When auth is required and dialog is showing, block children rendering
+  // This prevents child components from mounting, running effects, and stealing focus
+  if (showAuthDialog && !authChecked) {
+    return (
+      <ApiKeyDialog
+        open={true}
+        onOpenChange={() => {}}
+        onSuccess={handleAuthSuccess}
+      />
+    );
+  }
 
   return (
     <>

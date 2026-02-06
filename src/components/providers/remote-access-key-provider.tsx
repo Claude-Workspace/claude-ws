@@ -27,6 +27,8 @@ export function RemoteAccessKeyProvider({ children }: { children: React.ReactNod
         setChecked(true);
         return;
       }
+      // Auto-complete onboarding for remote access users
+      localStorage.setItem('onboarding_completed', 'true');
 
       // Check if auth is already required (API key already configured)
       try {

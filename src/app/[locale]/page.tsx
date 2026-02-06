@@ -30,7 +30,7 @@ function KanbanApp() {
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
 
-  const { projects, selectedProjectIds, fetchProjects, loading: projectLoading } = useProjectStore();
+  const { projects, selectedProjectIds, fetchProjects, loading: projectLoading, error: projectError } = useProjectStore();
   const { selectedTask, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
   const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
   const isOpen = useSidebarStore((s) => s.isOpen);
@@ -43,8 +43,8 @@ function KanbanApp() {
   const activeDiffTabId = useSidebarStore((s) => s.activeDiffTabId);
   const closeDiffTab = useSidebarStore((s) => s.closeDiffTab);
 
-  // Auto-show setup when no projects
-  const autoShowSetup = !projectLoading && projects.length === 0;
+  // Auto-show setup when no projects (skip if fetch failed e.g. due to 401 auth)
+  const autoShowSetup = !projectLoading && !projectError && projects.length === 0;
 
   // Rehydrate from localStorage and fetch projects on mount
   useEffect(() => {
