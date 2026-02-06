@@ -288,6 +288,16 @@
     "filesHint": "files",
     "pasteImageHint": "paste image"
   },
+  "agentProvider": {
+    "configureTitle": "Configure Agent Provider",
+    "configureDescription": "Choose how you want to authenticate with Claude API:",
+    "reloadShowConfig": "Reload & Show",
+    "hideConfig": "Hide",
+    "currentConfiguration": "Current Configuration",
+    "loading": "Loading...",
+    "activeProcessEnv": "Active process.env values:",
+    "noProviderConfig": "No provider configuration loaded"
+  },
   "accessAnywhere": {
     "title": "Access Anywhere",
     "subtitle": "Access your workspace from any device",

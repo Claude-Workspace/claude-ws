@@ -64,6 +64,9 @@ function getAppRoot(): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Reload config to pick up any external changes (e.g., ~/.claude/settings.json)
+    reloadConfigByPriority();
+
     const body = await request.json();
     const { config, skipKeyIfMissing } = body;
 
@@ -154,6 +157,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
+    // Reload config to pick up any external changes (e.g., ~/.claude/settings.json)
+    reloadConfigByPriority();
+
     const appRoot = getAppRoot();
     const appEnvPath = join(appRoot, '.env');
     const claudeDir = join(homedir(), '.claude');

@@ -288,6 +288,16 @@
     "filesHint": "tập tin",
     "pasteImageHint": "dán hình ảnh"
   },
+  "agentProvider": {
+    "configureTitle": "Cấu hình Nhà cung cấp Agent",
+    "configureDescription": "Chọn cách bạn muốn xác thực với API Claude:",
+    "reloadShowConfig": "Tải lại & Hiển thị",
+    "hideConfig": "Ẩn",
+    "currentConfiguration": "Cấu hình Hiện tại",
+    "loading": "Đang tải...",
+    "activeProcessEnv": "Giá trị process.env đang hoạt động:",
+    "noProviderConfig": "Không tìm thấy cấu hình nhà cung cấp"
+  },
   "accessAnywhere": {
     "title": "Truy cập Mọi nơi",
     "subtitle": "Truy cập không gian làm việc của bạn từ bất kỳ thiết bị nào",

@@ -10,7 +10,7 @@
  * This ensures all Anthropic API calls go through our proxy for token caching.
  */
 
-import { watch, existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseDotenv } from 'dotenv';
@@ -232,51 +232,6 @@ function updateProxiedBaseUrl(newBaseUrl: string): void {
 }
 
 /**
- * Start watching config files for ANTHROPIC_BASE_URL changes
- */
-function startConfigWatcher(): void {
-  const localProxyUrl = getProxyUrl();
-
-  // Files to watch
-  const appEnvPath = join(getUserCwd(), '.env');
-  const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
-
-  // Watch app .env
-  if (existsSync(appEnvPath)) {
-    try {
-      watch(appEnvPath, (eventType) => {
-        if (eventType === 'change') {
-          const newBaseUrl = readBaseUrlFromEnv(appEnvPath);
-          if (newBaseUrl && newBaseUrl !== localProxyUrl) {
-            updateProxiedBaseUrl(newBaseUrl);
-          }
-        }
-      });
-    } catch (err) {
-      log.warn({ data: err }, `[AnthropicProxy] Failed to watch ${appEnvPath}:`);
-    }
-  }
-
-  // Watch ~/.claude/settings.json for ALL config changes
-  if (existsSync(claudeSettingsPath)) {
-    let debounceTimer: NodeJS.Timeout | null = null;
-    try {
-      watch(claudeSettingsPath, (eventType) => {
-        if (eventType === 'change' || eventType === 'rename') {
-          // Debounce to avoid reading while file is being written
-          if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => {
-            reloadSettingsConfig(claudeSettingsPath);
-          }, 100);
-        }
-      });
-    } catch (err) {
-      log.warn({ data: err }, `[AnthropicProxy] Failed to watch ${claudeSettingsPath}:`);
-    }
-  }
-}
-
-/**
  * Initialize the Anthropic proxy environment variables
  * Uses a Proxy wrapper on process.env to intercept future writes
  */
@@ -339,9 +294,7 @@ export function initAnthropicProxy(): void {
     },
   });
 
-  // Start watching config files for changes
-  startConfigWatcher();
-
+  // Note: File watching removed - config is now reloaded via API endpoint calls
   isInitialized = true;
 }
 

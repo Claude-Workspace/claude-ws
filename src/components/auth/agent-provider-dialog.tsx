@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { ExternalLink, Key, LogIn, CreditCard, AlertCircle, Loader2, RotateCcw, Check, Settings, Eye, EyeOff } from 'lucide-react';
 import {
   Dialog,
@@ -82,6 +83,7 @@ interface AgentProviderDialogProps {
 }
 
 export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogProps) {
+  const t = useTranslations('agentProvider');
   const [selectedOption, setSelectedOption] = useState<ProviderOption | null>(null);
   const [config, setConfig] = useState<ProviderConfig>({
     ANTHROPIC_AUTH_TOKEN: '',
@@ -505,16 +507,16 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
                 ) : (
                   <Eye className="h-4 w-4 mr-2" />
                 )}
-                {loadingProcessEnv ? 'Loading...' : showProcessEnv ? 'Hide' : 'Show'} Current Configuration
+                {loadingProcessEnv ? t('loading') : showProcessEnv ? t('hideConfig') : t('reloadShowConfig')} {t('currentConfiguration')}
               </Button>
 
               {showProcessEnv && (
                 <div className="mt-2 p-3 rounded-lg bg-muted/50 text-xs font-mono space-y-1">
                   <div className="text-muted-foreground mb-2 font-sans text-sm font-medium">
-                    Active process.env values:
+                    {t('activeProcessEnv')}
                   </div>
                   {Object.keys(processEnvConfig).length === 0 ? (
-                    <div className="text-muted-foreground italic">No provider configuration loaded</div>
+                    <div className="text-muted-foreground italic">{t('noProviderConfig')}</div>
                   ) : (
                     <>
                       {processEnvConfig.ANTHROPIC_AUTH_TOKEN && (
