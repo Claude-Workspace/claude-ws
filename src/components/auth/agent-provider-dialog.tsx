@@ -257,8 +257,12 @@ export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogP
         ANTHROPIC_DEFAULT_HAIKU_MODEL: config.ANTHROPIC_DEFAULT_HAIKU_MODEL || DEFAULT_CONFIG.ANTHROPIC_DEFAULT_HAIKU_MODEL,
         ANTHROPIC_DEFAULT_SONNET_MODEL: config.ANTHROPIC_DEFAULT_SONNET_MODEL || DEFAULT_CONFIG.ANTHROPIC_DEFAULT_SONNET_MODEL,
         ANTHROPIC_DEFAULT_OPUS_MODEL: config.ANTHROPIC_DEFAULT_OPUS_MODEL || DEFAULT_CONFIG.ANTHROPIC_DEFAULT_OPUS_MODEL,
-        API_TIMEOUT_MS: config.API_TIMEOUT_MS || DEFAULT_CONFIG.API_TIMEOUT_MS,
       };
+
+      // Only include API_TIMEOUT_MS if explicitly set by user
+      if (config.API_TIMEOUT_MS) {
+        finalConfig.API_TIMEOUT_MS = config.API_TIMEOUT_MS;
+      }
 
       // Include proxied base URL if set (for custom endpoints like openrouter)
       if (config.ANTHROPIC_PROXIED_BASE_URL) {
