@@ -106,30 +106,39 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Update or add each config key
+    // Keys to preserve in .env even if not in config payload
+    const preserveKeys = new Set<string>();
+    if (skipKeyIfMissing) {
+      preserveKeys.add('ANTHROPIC_AUTH_TOKEN');
+      preserveKeys.add('ANTHROPIC_API_KEY');
+    }
+
+    // Update, add, or remove each config key
     for (const key of CONFIG_KEYS) {
       const value = config[key];
       if (value !== undefined && value !== '') {
         const line = `${key}=${value}`;
         if (existingKeys.has(key)) {
-          // Update existing line
           existingLines[existingKeys.get(key)!] = line;
         } else {
-          // Add new line
           existingLines.push(line);
         }
-        // Also update process.env for immediate effect
         process.env[key] = value;
+      } else if (existingKeys.has(key) && !preserveKeys.has(key)) {
+        // Remove key from .env if not in config and not preserved
+        existingLines[existingKeys.get(key)!] = '';
+        delete process.env[key];
       }
     }
 
-    // Remove empty lines at the end
-    while (existingLines.length > 0 && existingLines[existingLines.length - 1].trim() === '') {
-      existingLines.pop();
+    // Filter out blank lines left by removed keys, then trim trailing empties
+    const cleanedLines = existingLines.filter(line => line !== '');
+    while (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1].trim() === '') {
+      cleanedLines.pop();
     }
 
     // Write the updated content
-    const newContent = existingLines.join('\n') + '\n';
+    const newContent = cleanedLines.join('\n') + '\n';
     writeFileSync(envPath, newContent, 'utf-8');
 
     log.info({ envPath }, 'Saved provider configuration');
