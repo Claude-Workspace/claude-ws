@@ -1,4 +1,8 @@
-import 'dotenv/config';
+// Load .env from user's CWD (where they ran claude-ws), not packageRoot
+import { config as dotenvConfig } from 'dotenv';
+import { join } from 'path';
+const userCwd = process.env.CLAUDE_WS_USER_CWD || process.cwd();
+dotenvConfig({ path: join(userCwd, '.env') });
 
 // Load ~/.claude/settings.json env vars as fallback
 // This ensures SDK subprocess has API key even if not in .env

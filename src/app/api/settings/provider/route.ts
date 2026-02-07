@@ -22,6 +22,13 @@ const CONFIG_KEYS = [
 ];
 
 /**
+ * Get the user's original CWD (where they ran claude-ws from)
+ */
+function getUserCwd(): string {
+  return process.env.CLAUDE_WS_USER_CWD || process.cwd();
+}
+
+/**
  * Get the app root directory for saving .env
  * Supports: development, production, and Docker deployments
  */
@@ -36,13 +43,19 @@ function getAppRoot(): string {
     return '/app';
   }
 
-  // 3. Try process.cwd() - works in most cases when run from project root
+  // 3. User's original CWD - where they ran `claude-ws` from
+  const userCwd = getUserCwd();
+  if (userCwd !== process.cwd() || existsSync(join(userCwd, '.env'))) {
+    return userCwd;
+  }
+
+  // 4. Fallback to process.cwd() (packageRoot in global install, project root in dev)
   const cwd = process.cwd();
   if (existsSync(join(cwd, 'package.json'))) {
     return cwd;
   }
 
-  // 4. Walk up from __dirname to find package.json (development fallback)
+  // 5. Walk up from __dirname to find package.json (development fallback)
   let dir = __dirname;
   for (let i = 0; i < 10; i++) {
     if (existsSync(join(dir, 'package.json'))) {
@@ -53,7 +66,7 @@ function getAppRoot(): string {
     dir = parent;
   }
 
-  // 5. Final fallback to cwd (even without package.json)
+  // 6. Final fallback to cwd (even without package.json)
   log.warn({ cwd }, 'Could not find package.json, using cwd');
   return cwd;
 }
