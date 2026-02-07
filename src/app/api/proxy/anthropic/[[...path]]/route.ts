@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '@/lib/logger';
 import {
   generateCacheKey,
   getCached,
@@ -19,6 +20,7 @@ import {
   type CachedResponse,
 } from '@/lib/proxy-token-cache';
 
+const log = createLogger('AnthropicProxy');
 const DEFAULT_ANTHROPIC_URL = 'https://api.anthropic.com';
 
 /**
@@ -106,12 +108,7 @@ async function proxyRequest(
     const contentType = response.headers.get('content-type') || '';
 
     if (!response.ok) {
-      console.error('Anthropic API error', {
-        targetUrl,
-        fetchOptions,
-        status: response.status,
-        statusText: response.statusText,
-      });
+      log.error({ targetUrl, status: response.status, statusText: response.statusText }, 'Anthropic API error');
     }
     const isStreaming = contentType.includes('text/event-stream');
 
@@ -163,7 +160,7 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('[Proxy] Error forwarding request:', error);
+    log.error({ error }, 'Error forwarding request');
     return NextResponse.json(
       { error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 502 }
