@@ -9,8 +9,8 @@ import { config } from 'dotenv';
 const userCwd = process.env.CLAUDE_WS_USER_CWD || process.cwd();
 config({ path: path.join(userCwd, '.env') });
 
-// Database file path - use DATA_DIR from env if configured, otherwise default to project data dir
-const DB_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+// Database file path - use DATA_DIR from env if configured, otherwise user's CWD
+const DB_DIR = process.env.DATA_DIR || path.join(userCwd, 'data');
 const DB_PATH = path.join(DB_DIR, 'claude-ws.db');
 
 // Ensure data directory exists
