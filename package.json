@@ -1,6 +1,6 @@
 {
   "name": "claude-ws",
-  "version": "0.3.4",
+  "version": "0.3.8",
   "private": false,
   "description": "A beautifully crafted workspace interface for Claude Code with real-time streaming and local SQLite database",
   "keywords": [
@@ -30,6 +30,7 @@
     "claude-workspace": "bin/claude-ws.js"
   },
   "files": [
+    ".next",
     "bin",
     "drizzle",
     "locales",
@@ -67,7 +68,7 @@
     "start": "cross-env NODE_ENV=production tsx server.ts",
     "db:generate": "drizzle-kit generate",
     "db:fix": "tsx scripts/db-fix-columns.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "rm -rf .next && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.29",

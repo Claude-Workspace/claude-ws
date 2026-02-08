@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/': ['./src/**/*'],
   },
+  turbopack: {
+    root: path.join(__dirname),
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'date-fns', 'lodash'],
   },
