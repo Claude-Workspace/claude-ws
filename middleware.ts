@@ -19,14 +19,17 @@ const intlMiddleware = createMiddleware({
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Handle API routes with authentication
-  const isApiRoute = pathname.startsWith('/api/');
-  const isVerifyEndpoint = pathname === '/api/auth/verify';
-  const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
-  const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
+  // API routes must bypass i18n middleware to avoid locale prefix rewriting (e.g. /en/api/...)
+  if (pathname.startsWith('/api/')) {
+    const isVerifyEndpoint = pathname === '/api/auth/verify';
+    const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
+    const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
 
-  // Skip auth for verify, tunnel status, and api-access-key endpoints
-  if (isApiRoute && !isVerifyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint) {
+    // Skip auth for whitelisted endpoints
+    if (isVerifyEndpoint || isTunnelStatusEndpoint || isApiAccessKeyEndpoint) {
+      return NextResponse.next();
+    }
+
     // Read from process.env directly for immediate effect when key is updated
     const apiAccessKey = process.env.API_ACCESS_KEY;
 
@@ -48,7 +51,7 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Handle i18n for non-API routes
+  // Handle i18n for non-API routes only
   return intlMiddleware(request);
 }
 
