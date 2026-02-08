@@ -5,8 +5,8 @@
  * ensuring backward compatibility with current UI components.
  */
 
-import type { ClaudeOutput, ClaudeContentBlock, ClaudeOutputType } from '@/types';
-import { createLogger } from '@/lib/logger';
+import type { ClaudeOutput, ClaudeContentBlock, ClaudeOutputType } from '../types';
+import { createLogger } from './logger';
 
 const log = createLogger('SDKAdapter');
 

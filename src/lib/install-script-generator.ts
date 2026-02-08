@@ -1,6 +1,6 @@
 import type { LibraryDep } from './dependency-extractor';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('InstallScriptGen');
 

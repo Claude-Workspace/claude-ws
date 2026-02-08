@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import type { SDKResultMessage } from './sdk-event-adapter';
 import { calculateContextHealth, type ContextHealth } from './context-health';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('UsageTracker');
 

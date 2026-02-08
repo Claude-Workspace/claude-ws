@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { readFile, stat } from 'fs/promises';
-import { db } from '@/lib/db';
-import { pluginDependencyCache } from '@/lib/db/schema';
+import { db } from './db';
+import { pluginDependencyCache } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 

@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

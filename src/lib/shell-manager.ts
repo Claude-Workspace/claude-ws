@@ -10,7 +10,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { createLogBuffer, type LogBuffer, type LogEntry } from './circular-buffer';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('ShellManager');
 

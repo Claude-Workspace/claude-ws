@@ -89,7 +89,7 @@ function loadClaudeJsonConfig(): void {
 
 import { getPort, getHostname } from './server-port-configuration';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('AnthropicProxy');
 

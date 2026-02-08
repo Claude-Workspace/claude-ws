@@ -1,6 +1,6 @@
-import type { ClaudeOutput, ClaudeContentBlock, OutputFormat, FormattedResponse } from '@/types';
+import type { ClaudeOutput, ClaudeContentBlock, OutputFormat, FormattedResponse } from '../types';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('OutputFormatter');
 

@@ -1,4 +1,4 @@
-import { getStoredApiKey } from '@/components/auth/api-key-dialog';
+import { getStoredApiKey } from '../components/auth/api-key-dialog';
 
 /**
  * Wrapper around fetch that automatically includes API key in headers

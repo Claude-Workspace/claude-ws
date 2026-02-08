@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseDotenv } from 'dotenv';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('ClaudeCodeSettings');
 

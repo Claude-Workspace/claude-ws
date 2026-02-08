@@ -1,6 +1,6 @@
-import { db, schema } from '@/lib/db';
+import { db, schema } from './db';
 import { eq } from 'drizzle-orm';
-import type { AttemptStatus } from '@/types';
+import type { AttemptStatus } from '../types';
 
 export interface WaitForCompletionOptions {
   timeout?: number; // Default: 5 minutes (300000ms)

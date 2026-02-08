@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
-import type { ClaudeOutput } from '@/types';
+import type { ClaudeOutput } from '../types';
 import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo, type SDKResultMessage } from './sdk-event-adapter';
 import { sessionManager } from './session-manager';
 import { checkpointManager } from './checkpoint-manager';
@@ -24,7 +24,7 @@ import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
 import { getSystemPrompt } from './system-prompt';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('AgentManager');
 

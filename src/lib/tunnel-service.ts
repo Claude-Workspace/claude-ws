@@ -1,10 +1,10 @@
 import { EventEmitter } from 'events';
 import ctunnel from 'ctunnel';
-import { db } from '@/lib/db';
-import { appSettings } from '@/lib/db/schema';
+import { db } from './db';
+import { appSettings } from './db/schema';
 import { eq } from 'drizzle-orm';
-import { getPort } from '@/lib/server-port-configuration';
-import { createLogger } from '@/lib/logger';
+import { getPort } from './server-port-configuration';
+import { createLogger } from './logger';
 
 const log = createLogger('TunnelService');
 

@@ -8,7 +8,7 @@
 import { EventEmitter } from 'events';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { generateLineDiff, type DiffResult } from './diff-generator';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('InlineEditManager');
 

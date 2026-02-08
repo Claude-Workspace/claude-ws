@@ -3,7 +3,7 @@ import { join, extname } from 'path';
 import { nanoid } from 'nanoid';
 import { db, schema } from './db';
 import { TEMP_DIR, UPLOADS_DIR, getMimeType } from './file-utils';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('FileProcessor');
 

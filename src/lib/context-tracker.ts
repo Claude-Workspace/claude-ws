@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('ContextTracker');
 

@@ -1,9 +1,9 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { existsSync } from 'fs';
-import type { ClaudeOutput } from '@/types';
+import type { ClaudeOutput } from '../types';
 import { getSystemPrompt } from './system-prompt';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('ProcessManager');
 

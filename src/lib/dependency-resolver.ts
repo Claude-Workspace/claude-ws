@@ -1,6 +1,6 @@
 import { dependencyExtractor } from './dependency-extractor';
-import { db } from '@/lib/db';
-import { agentFactoryPlugins } from '@/lib/db/schema';
+import { db } from './db';
+import { agentFactoryPlugins } from './db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { LibraryDep, PluginDep } from './dependency-extractor';
 

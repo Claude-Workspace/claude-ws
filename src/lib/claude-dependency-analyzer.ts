@@ -3,9 +3,9 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { dependencyExtractor } from '@/lib/dependency-extractor';
+import { dependencyExtractor } from './dependency-extractor';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('DependencyAnalyzer');
 

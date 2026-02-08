@@ -6,7 +6,7 @@
  * - Production: JSON structured logs, respects LOG_LEVEL env var
  *
  * Usage:
- *   import { createLogger } from '@/lib/logger';
+ *   import { createLogger } from './logger';
  *   const log = createLogger('ModuleName');
  *   log.info('message');
  *   log.error({ err }, 'Error occurred');

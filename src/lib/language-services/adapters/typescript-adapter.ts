@@ -3,7 +3,7 @@
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from '../../logger';
 
 const log = createLogger('TSAdapter');
 

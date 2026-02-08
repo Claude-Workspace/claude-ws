@@ -9,7 +9,7 @@ import { db, schema } from './db';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { createLogger } from '@/lib/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('CheckpointManager');
 
