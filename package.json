@@ -36,6 +36,7 @@
     "scripts",
     "src",
     "public",
+    ".next",
     "server.ts",
     "next.config.ts",
     "tsconfig.json",

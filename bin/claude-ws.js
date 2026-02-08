@@ -153,8 +153,14 @@ async function startServer() {
   const nextBuildDir = path.join(packageRoot, '.next');
   const nodeModulesDir = path.join(packageRoot, 'node_modules');
 
-  // Check if dependencies are installed
-  if (!fs.existsSync(nodeModulesDir) || !fs.existsSync(path.join(nodeModulesDir, 'next'))) {
+  // Check if dependencies are installed (use require.resolve to work with pnpm symlinks)
+  let depsInstalled = false;
+  try {
+    require.resolve('next', { paths: [packageRoot] });
+    depsInstalled = true;
+  } catch { }
+
+  if (!depsInstalled) {
     console.log('[Claude Workspace] Installing dependencies...');
     const { execSync } = require('child_process');
 
@@ -216,7 +222,7 @@ async function startServer() {
       const safeNextBin = toShellSafePath(nextBin);
 
       // Run next build using local binary directly
-      execSync(`"${safeNextBin}" build`, {
+      execSync(`"${safeNextBin}" build --no-turbopack`, {
         cwd: packageRoot,
         stdio: 'inherit',
         shell: true,
