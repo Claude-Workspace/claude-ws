@@ -40,7 +40,7 @@ export async function GET(
     // If ?output_format is present and attempt has a format, return the generated file
     if (wantsFormatted && storedFormat) {
       // Use DATA_DIR for output file location
-      const dataDir = process.env.DATA_DIR || join(process.cwd(), 'data');
+      const dataDir = process.env.DATA_DIR || join(process.env.CLAUDE_WS_USER_CWD || process.cwd(), 'data');
       const filePath = join(dataDir, 'tmp', `${id}.${storedFormat}`);
 
       if (existsSync(filePath)) {

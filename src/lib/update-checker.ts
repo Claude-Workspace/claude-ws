@@ -5,14 +5,18 @@
 
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { createLogger } from '@/lib/logger';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const log = createLogger('UpdateChecker');
 
 export async function checkForUpdates() {
   try {
-    const pkgPath = join(process.cwd(), 'package.json');
+    // Resolve package.json from package root (2 levels up from src/lib/)
+    const pkgPath = join(__dirname, '..', '..', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
     const currentVersion = pkg.version;
 

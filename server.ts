@@ -190,7 +190,7 @@ app.prepare().then(async () => {
               const projectDirName = `${projectId}-${projectName}`;
               const projectPath = projectRootPath
                 ? join(projectRootPath, projectDirName)
-                : join(process.cwd(), 'data', 'projects', projectDirName);
+                : join(userCwd, 'data', 'projects', projectDirName);
 
               try {
                 await mkdir(projectPath, { recursive: true });

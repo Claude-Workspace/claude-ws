@@ -47,8 +47,9 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 export const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB per attempt
 
-export const UPLOADS_DIR = join(process.cwd(), 'uploads');
-export const TEMP_DIR = join(process.cwd(), 'uploads', 'temp');
+const _userCwd = process.env.CLAUDE_WS_USER_CWD || process.cwd();
+export const UPLOADS_DIR = join(_userCwd, 'uploads');
+export const TEMP_DIR = join(_userCwd, 'uploads', 'temp');
 
 // Validate file type and size
 export function validateFile(file: File): { valid: boolean; error?: string } {

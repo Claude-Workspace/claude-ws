@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       const projectDirName = `${projectId}-${sanitizedProjectName}`;
       const projectPath = projectRootPath
         ? join(projectRootPath, projectDirName)
-        : join(process.cwd(), 'data', 'projects', projectDirName);
+        : join(process.env.CLAUDE_WS_USER_CWD || process.cwd(), 'data', 'projects', projectDirName);
 
       // Create the project folder
       try {
@@ -317,7 +317,7 @@ async function createAttempt(
 
       // If output_format is set, return file content from tmp directory
       if (outputFormat) {
-        const dataDir = process.env.DATA_DIR || join(process.cwd(), 'data');
+        const dataDir = process.env.DATA_DIR || join(process.env.CLAUDE_WS_USER_CWD || process.cwd(), 'data');
         const filePath = join(dataDir, 'tmp', `${newAttempt.id}.${outputFormat}`);
 
         if (existsSync(filePath)) {
