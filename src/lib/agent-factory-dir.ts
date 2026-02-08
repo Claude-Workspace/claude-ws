@@ -1,17 +1,13 @@
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { homedir } from 'os';
-
-// Get project root directory (two levels up from src/lib/)
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(__dirname, '..', '..');
 
 /**
  * Get the data directory path
- * Uses DATA_DIR from environment if set, otherwise defaults to {project}/data
+ * Uses DATA_DIR from environment if set, otherwise user's CWD/data
  */
 export function getDataDir(): string {
-  return process.env.DATA_DIR || join(PROJECT_ROOT, 'data');
+  const userCwd = process.env.CLAUDE_WS_USER_CWD || process.cwd();
+  return process.env.DATA_DIR || join(userCwd, 'data');
 }
 
 /**
