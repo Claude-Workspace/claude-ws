@@ -28,7 +28,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Verify CLI syntax
-        run: node -c bin/claudekanban.js
+        run: node -c bin/claude-ws.js
 
       - name: Test path utilities (Windows backslash handling)
         shell: node {0}
@@ -36,7 +36,7 @@ jobs:
           const path = require('path');
           const isWindows = process.platform === 'win32';
 
-          // Simulate toShellSafePath from bin/claudekanban.js
+          // Simulate toShellSafePath from bin/claude-ws.js
           function toShellSafePath(p) {
             return isWindows ? p.replace(/\\/g, '/') : p;
           }
@@ -86,10 +86,10 @@ jobs:
         run: npm install
 
       - name: Test CLI --version
-        run: node bin/claudekanban.js --version
+        run: node bin/claude-ws.js --version
 
       - name: Test CLI --help
-        run: node bin/claudekanban.js --help
+        run: node bin/claude-ws.js --help
 
       - name: Test tsx discovery (cross-platform)
         shell: node {0}

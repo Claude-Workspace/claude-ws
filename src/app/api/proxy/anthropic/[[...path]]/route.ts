@@ -104,11 +104,13 @@ async function proxyRequest(
   }
 
   try {
+    log.trace({ targetUrl, requestBody: JSON.stringify(body) }, 'Start proxying request');
     const response = await fetch(targetUrl, fetchOptions);
     const contentType = response.headers.get('content-type') || '';
+    log.trace({ targetUrl, responseBody: JSON.stringify(response) }, 'End proxying request');
 
     if (!response.ok) {
-      log.error({ targetUrl, status: response.status, statusText: response.statusText }, 'Anthropic API error');
+      log.error({ targetUrl, status: response.status, statusText: response.statusText, requestBody: JSON.stringify(body), responseBody: JSON.stringify(await response.text()) }, 'Anthropic API error');
     }
     const isStreaming = contentType.includes('text/event-stream');
 
@@ -160,7 +162,7 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    log.error({ error }, 'Error forwarding request');
+    log.error({ error, requestBody: JSON.stringify(body), targetUrl }, 'Error forwarding request');
     return NextResponse.json(
       { error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 502 }
