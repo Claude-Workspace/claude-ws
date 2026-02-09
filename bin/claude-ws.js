@@ -195,6 +195,10 @@ async function startServer() {
   const versionPath = path.join(nextBuildDir, 'package.version');
   const pkg = require(path.join(packageRoot, 'package.json'));
 
+  // Detect if running from pnpm global install (symlink structure)
+  // Skip rebuild in this case - rely on pre-built .next from package
+  const isPnpmGlobalInstall = packageRoot.includes('.pnpm/') && packageRoot.includes('+');
+
   let needsRebuild = false;
 
   if (!fs.existsSync(buildIdPath)) {
@@ -211,6 +215,18 @@ async function startServer() {
     needsRebuild = true;
   }
 
+  // Skip rebuild for pnpm global installs - use pre-built .next directory
+  // In global installs, we cannot rebuild due to symlink structure issues
+  if (isPnpmGlobalInstall) {
+    if (needsRebuild && !fs.existsSync(buildIdPath)) {
+      console.log('[Claude Workspace] Warning: Pre-built .next directory not found.');
+      console.log('[Claude Workspace] Please run "npm run build" in the package source first.');
+      process.exit(1);
+    }
+    console.log('[Claude Workspace] Running from pnpm global install, using pre-built bundle.');
+    needsRebuild = false;
+  }
+
   if (needsRebuild) {
     console.log('[Claude Workspace] Building production bundle...');
     console.log('[Claude Workspace] This may take a minute...');
@@ -222,7 +238,7 @@ async function startServer() {
       const safeNextBin = toShellSafePath(nextBin);
 
       // Run next build using local binary directly
-      execSync(`"${safeNextBin}" build --no-turbopack`, {
+      execSync(`"${safeNextBin}" build`, {
         cwd: packageRoot,
         stdio: 'inherit',
         shell: true,
@@ -239,9 +255,19 @@ async function startServer() {
       // Save current version for future checks
       fs.writeFileSync(versionPath, pkg.version);
     } catch (error) {
-      console.error('[Claude Workspace] Build failed:', error.message);
-      console.error('[Claude Workspace] Please ensure all dependencies are installed');
-      process.exit(1);
+      // Build failed - this can happen in global installations due to pnpm's symlink structure
+      // Fall back to using pre-built .next directory if available
+      if (fs.existsSync(buildIdPath)) {
+        console.log('[Claude Workspace] Build during installation failed, using pre-built bundle.');
+        console.log('[Claude Workspace] This is normal for global installations.');
+        console.log('');
+        // Don't exit - continue with the pre-built version
+      } else {
+        console.error('[Claude Workspace] Build failed:', error.message);
+        console.error('[Claude Workspace] No pre-built bundle found.');
+        console.error('[Claude Workspace] Please run "npm run build" in the package source first.');
+        process.exit(1);
+      }
     }
   } else {
     console.log('[Claude Workspace] Using cached build from:', nextBuildDir);
