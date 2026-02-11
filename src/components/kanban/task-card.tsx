@@ -3,7 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, getProjectColor } from '@/lib/utils';
 import { GripVertical, MessageSquare, Trash2, Search } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
@@ -139,7 +139,10 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
           {/* Header: Project badge - smaller */}
           {showProjectBadge && projectName && (
             <div style={{ marginBottom: '5px', lineHeight: '10px' }}>
-              <span className="inline-flex items-center text-[9px] font-medium text-muted-foreground/70 uppercase tracking-wide">
+              <span
+                className="inline-flex items-center text-[9px] font-medium uppercase tracking-wide"
+                style={{ color: getProjectColor(projectName) }}
+              >
                 {projectName}
               </span>
             </div>
