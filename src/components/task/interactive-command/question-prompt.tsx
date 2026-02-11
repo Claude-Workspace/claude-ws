@@ -59,12 +59,25 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   const allAnswered = questions.every((q) => answers[q.question] !== undefined);
   const answeredCount = questions.filter((q) => answers[q.question] !== undefined).length;
 
+  // Find the option index that matches a stored answer for a question
+  const getAnsweredOptionIndex = (questionIndex: number): number => {
+    const q = questions[questionIndex];
+    const answer = answers[q.question];
+    if (answer === undefined) return 0;
+    const answerStr = String(answer);
+    const predefinedIndex = q.options.findIndex((opt) => opt.label === answerStr);
+    if (predefinedIndex !== -1) return predefinedIndex;
+    // Custom answer → points to the "Type something" option (last one)
+    return q.options.length; // last option index in allOptions
+  };
+
   // Navigate to a specific question tab
   const navigateToTab = (index: number) => {
     if (index >= 0 && index < questions.length) {
       setShowSubmitView(false);
       setCurrentQuestionIndex(index);
-      setSelectedIndex(0);
+      // Point arrow at previously answered option, or 0 if unanswered
+      setSelectedIndex(getAnsweredOptionIndex(index));
       setSelectedMulti(new Set());
       // If the question was answered with custom text, pre-fill the input
       const existing = getCustomAnswer(index);
@@ -437,6 +450,13 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
               const isSelected = selectedIndex === index;
               const isChecked = selectedMulti.has(index);
               const isTypeOption = index === allOptions.length - 1;
+              // Check if this option is the previously answered one
+              const currentAnswer = answers[currentQuestion.question];
+              const isPreviousAnswer = currentAnswer !== undefined && (
+                isTypeOption
+                  ? existingCustom !== null // custom answer → type option is the answered one
+                  : currentQuestion.options[index]?.label === String(currentAnswer)
+              );
 
               return (
                 <button
@@ -472,12 +492,18 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                   )}
                 >
                   {/* Selection indicator */}
-                  <span className="shrink-0 w-4 text-primary font-bold">
+                  <span className={cn(
+                    'shrink-0 w-4 font-bold',
+                    isPreviousAnswer ? 'text-green-500' : 'text-primary'
+                  )}>
                     {isSelected ? '›' : ' '}
                   </span>
 
                   {/* Number */}
-                  <span className="shrink-0 text-sm text-muted-foreground">
+                  <span className={cn(
+                    'shrink-0 text-sm',
+                    isPreviousAnswer ? 'text-green-500' : 'text-muted-foreground'
+                  )}>
                     {index + 1}.
                   </span>
 
@@ -492,7 +518,12 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                           {isChecked && '✓'}
                         </span>
                       )}
-                      <span className="text-sm font-medium">{option.label}</span>
+                      <span className={cn(
+                        'text-sm font-medium',
+                        isPreviousAnswer && 'text-green-500'
+                      )}>
+                        {option.label}
+                      </span>
                     </div>
                     {option.description && (
                       <p className="text-xs text-muted-foreground mt-0.5 ml-6">
