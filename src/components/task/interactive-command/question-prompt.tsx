@@ -28,6 +28,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   const [customInput, setCustomInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [showSubmitView, setShowSubmitView] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const currentQuestion = questions[currentQuestionIndex];
@@ -42,10 +43,12 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
   // All questions answered?
   const allAnswered = questions.every((q) => answers[q.question] !== undefined);
+  const answeredCount = questions.filter((q) => answers[q.question] !== undefined).length;
 
   // Navigate to a specific question tab
   const navigateToTab = (index: number) => {
     if (index >= 0 && index < questions.length) {
+      setShowSubmitView(false);
       setCurrentQuestionIndex(index);
       setSelectedIndex(0);
       setSelectedMulti(new Set());
@@ -69,6 +72,38 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         return;
       }
 
+      // Submit view keyboard handling
+      if (showSubmitView) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, 1)); // 0=Submit, 1=Cancel
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          // Go back to last question
+          navigateToTab(questions.length - 1);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (selectedIndex === 0 && allAnswered) {
+            onAnswer(answers);
+          } else if (selectedIndex === 1) {
+            onCancel();
+          }
+        } else if (e.key === '1') {
+          e.preventDefault();
+          if (allAnswered) onAnswer(answers);
+        } else if (e.key === '2') {
+          e.preventDefault();
+          onCancel();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
+        }
+        return;
+      }
+
       // ← → arrow keys navigate between question tabs
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -78,9 +113,10 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         e.preventDefault();
         if (currentQuestionIndex < questions.length - 1) {
           navigateToTab(currentQuestionIndex + 1);
-        } else if (allAnswered) {
-          // On last question + all answered, → submits
-          onAnswer(answers);
+        } else {
+          // Last question → go to submit view
+          setShowSubmitView(true);
+          setSelectedIndex(0);
         }
         return;
       }
@@ -144,7 +180,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, isTyping, customInput, currentQuestion, allOptions.length, isLastOption, currentQuestionIndex, questions.length, allAnswered, answers]);
+  }, [selectedIndex, isTyping, customInput, currentQuestion, allOptions.length, isLastOption, currentQuestionIndex, questions.length, allAnswered, answers, showSubmitView]);
 
   const handleSubmitAnswer = (answer: string | string[]) => {
     // Use question text as key (SDK format expects "question" field, not "header")
@@ -159,8 +195,12 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       setSelectedMulti(new Set());
       setCustomInput('');
       setIsTyping(false);
+    } else if (questions.length > 1) {
+      // Last question answered in multi-question flow → show submit review
+      setShowSubmitView(true);
+      setSelectedIndex(0);
     } else {
-      // All questions answered
+      // Single question → submit directly
       onAnswer(newAnswers);
     }
   };
@@ -178,11 +218,17 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         <div className="flex items-center gap-1 px-4 mb-3 overflow-x-auto">
           {/* Back arrow */}
           <button
-            onClick={() => navigateToTab(currentQuestionIndex - 1)}
-            disabled={currentQuestionIndex === 0}
+            onClick={() => {
+              if (showSubmitView) {
+                navigateToTab(questions.length - 1);
+              } else {
+                navigateToTab(currentQuestionIndex - 1);
+              }
+            }}
+            disabled={!showSubmitView && currentQuestionIndex === 0}
             className={cn(
               'shrink-0 text-xs px-1',
-              currentQuestionIndex === 0
+              !showSubmitView && currentQuestionIndex === 0
                 ? 'text-muted-foreground/30 cursor-default'
                 : 'text-muted-foreground hover:text-foreground cursor-pointer'
             )}
@@ -192,7 +238,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
           {/* Question tabs */}
           {questions.map((q, i) => {
-            const isCurrent = i === currentQuestionIndex;
+            const isCurrent = i === currentQuestionIndex && !showSubmitView;
             const answered = isQuestionAnswered(i);
             return (
               <button
@@ -218,13 +264,16 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           {/* Submit tab */}
           <button
             onClick={() => {
-              if (allAnswered) onAnswer(answers);
+              setShowSubmitView(true);
+              setSelectedIndex(0);
             }}
             className={cn(
-              'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors',
-              allAnswered
-                ? 'text-primary hover:bg-primary/15 cursor-pointer'
-                : 'text-muted-foreground/30 cursor-default'
+              'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
+              showSubmitView
+                ? 'bg-primary/15 text-primary border border-primary/30'
+                : allAnswered
+                  ? 'text-primary hover:bg-primary/15'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             )}
           >
             <span className="text-[10px]">
@@ -236,16 +285,22 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           {/* Forward arrow */}
           <button
             onClick={() => {
+              if (showSubmitView) {
+                // Already on submit, nowhere to go
+                return;
+              }
               if (currentQuestionIndex < questions.length - 1) {
                 navigateToTab(currentQuestionIndex + 1);
-              } else if (allAnswered) {
-                onAnswer(answers);
+              } else {
+                // Last question → go to submit view
+                setShowSubmitView(true);
+                setSelectedIndex(0);
               }
             }}
-            disabled={currentQuestionIndex === questions.length - 1 && !allAnswered}
+            disabled={showSubmitView}
             className={cn(
               'shrink-0 text-xs px-1',
-              currentQuestionIndex === questions.length - 1 && !allAnswered
+              showSubmitView
                 ? 'text-muted-foreground/30 cursor-default'
                 : 'text-muted-foreground hover:text-foreground cursor-pointer'
             )}
@@ -255,115 +310,202 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         </div>
       )}
 
-      {/* Header badge (single question fallback) */}
-      {questions.length === 1 && (
-        <div className="px-4 mb-2">
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded">
-            {currentQuestion.header}
-          </span>
-        </div>
-      )}
+      {/* === SUBMIT REVIEW VIEW === */}
+      {showSubmitView ? (
+        <>
+          {/* Review header */}
+          <div className="px-4 mb-3">
+            <p className="text-sm font-bold">Review your answers</p>
+          </div>
 
-      {/* Question text */}
-      <div className="px-4 mb-4">
-        <p className="text-sm font-medium">{currentQuestion.question}</p>
-      </div>
+          {/* Warning if not all answered */}
+          {!allAnswered && (
+            <div className="px-4 mb-3">
+              <p className="text-sm text-yellow-500">⚠ You have not answered all questions</p>
+            </div>
+          )}
 
-      {/* Options */}
-      <div className="space-y-1">
-        {allOptions.map((option, index) => {
-          const isSelected = selectedIndex === index;
-          const isChecked = selectedMulti.has(index);
-          const isTypeOption = index === allOptions.length - 1;
+          {/* Answer summary */}
+          {answeredCount > 0 && (
+            <div className="px-4 mb-4 space-y-2">
+              {questions.map((q, i) => {
+                const answer = answers[q.question];
+                if (answer === undefined) return null;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => navigateToTab(i)}
+                    className="w-full text-left group"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 text-green-500 text-sm">●</span>
+                      <div className="min-w-0">
+                        <span className="text-sm text-muted-foreground">{q.question}</span>
+                        <div className="text-sm text-foreground">
+                          <span className="text-muted-foreground mr-1">→</span>
+                          {String(answer)}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          return (
+          {/* Submit prompt */}
+          <div className="px-4 mb-3">
+            <p className="text-sm text-muted-foreground">Ready to submit your answers?</p>
+          </div>
+
+          {/* Submit / Cancel options */}
+          <div className="space-y-1">
             <button
-              key={index}
-              onClick={() => {
-                setSelectedIndex(index);
-                if (isTypeOption) {
-                  setIsTyping(true);
-                  setTimeout(() => inputRef.current?.focus(), 0);
-                } else if (currentQuestion.multiSelect) {
-                  // Toggle selection for multi-select
-                  setSelectedMulti((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(index)) {
-                      next.delete(index);
-                    } else {
-                      next.add(index);
-                    }
-                    return next;
-                  });
-                } else {
-                  handleSubmitAnswer(currentQuestion.options[index].label);
-                }
-              }}
+              onClick={() => { if (allAnswered) onAnswer(answers); }}
               className={cn(
                 'w-full flex items-start gap-3 px-4 py-2 text-left transition-colors',
                 'hover:bg-muted/50',
-                isSelected && 'bg-muted/30'
+                selectedIndex === 0 && 'bg-muted/30',
+                !allAnswered && 'opacity-50'
               )}
             >
-              {/* Selection indicator */}
               <span className="shrink-0 w-4 text-primary font-bold">
-                {isSelected ? '›' : ' '}
+                {selectedIndex === 0 ? '›' : ' '}
               </span>
-
-              {/* Number */}
-              <span className="shrink-0 text-sm text-muted-foreground">
-                {index + 1}.
-              </span>
-
-              {/* Option content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  {currentQuestion.multiSelect && !isTypeOption && (
-                    <span className={cn(
-                      'size-4 border rounded flex items-center justify-center text-xs',
-                      isChecked && 'bg-primary text-primary-foreground'
-                    )}>
-                      {isChecked && '✓'}
-                    </span>
-                  )}
-                  <span className="text-sm font-medium">{option.label}</span>
-                </div>
-                {option.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 ml-6">
-                    {option.description}
-                  </p>
-                )}
-              </div>
+              <span className="shrink-0 text-sm text-muted-foreground">1.</span>
+              <span className="text-sm font-medium">Submit answers</span>
             </button>
-          );
-        })}
-      </div>
+            <button
+              onClick={() => onCancel()}
+              className={cn(
+                'w-full flex items-start gap-3 px-4 py-2 text-left transition-colors',
+                'hover:bg-muted/50',
+                selectedIndex === 1 && 'bg-muted/30'
+              )}
+            >
+              <span className="shrink-0 w-4 text-primary font-bold">
+                {selectedIndex === 1 ? '›' : ' '}
+              </span>
+              <span className="shrink-0 text-sm text-muted-foreground">2.</span>
+              <span className="text-sm font-medium">Cancel</span>
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* === QUESTION VIEW === */}
 
-      {/* Custom input field (shown when typing) */}
-      {isTyping && (
-        <div className="px-4 mt-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            placeholder="Type your answer..."
-            className="w-full px-3 py-2 text-sm border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-            autoFocus
-          />
-        </div>
-      )}
+          {/* Header badge (single question fallback) */}
+          {questions.length === 1 && (
+            <div className="px-4 mb-2">
+              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded">
+                {currentQuestion.header}
+              </span>
+            </div>
+          )}
 
-      {/* Multi-select submit button */}
-      {currentQuestion.multiSelect && selectedMulti.size > 0 && (
-        <div className="px-4 mt-3">
-          <button
-            onClick={handleMultiSubmit}
-            className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
-          >
-            Submit ({selectedMulti.size} selected)
-          </button>
-        </div>
+          {/* Question text */}
+          <div className="px-4 mb-4">
+            <p className="text-sm font-medium">{currentQuestion.question}</p>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-1">
+            {allOptions.map((option, index) => {
+              const isSelected = selectedIndex === index;
+              const isChecked = selectedMulti.has(index);
+              const isTypeOption = index === allOptions.length - 1;
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setSelectedIndex(index);
+                    if (isTypeOption) {
+                      setIsTyping(true);
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    } else if (currentQuestion.multiSelect) {
+                      // Toggle selection for multi-select
+                      setSelectedMulti((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(index)) {
+                          next.delete(index);
+                        } else {
+                          next.add(index);
+                        }
+                        return next;
+                      });
+                    } else {
+                      handleSubmitAnswer(currentQuestion.options[index].label);
+                    }
+                  }}
+                  className={cn(
+                    'w-full flex items-start gap-3 px-4 py-2 text-left transition-colors',
+                    'hover:bg-muted/50',
+                    isSelected && 'bg-muted/30'
+                  )}
+                >
+                  {/* Selection indicator */}
+                  <span className="shrink-0 w-4 text-primary font-bold">
+                    {isSelected ? '›' : ' '}
+                  </span>
+
+                  {/* Number */}
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    {index + 1}.
+                  </span>
+
+                  {/* Option content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {currentQuestion.multiSelect && !isTypeOption && (
+                        <span className={cn(
+                          'size-4 border rounded flex items-center justify-center text-xs',
+                          isChecked && 'bg-primary text-primary-foreground'
+                        )}>
+                          {isChecked && '✓'}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium">{option.label}</span>
+                    </div>
+                    {option.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 ml-6">
+                        {option.description}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom input field (shown when typing) */}
+          {isTyping && (
+            <div className="px-4 mt-3">
+              <input
+                ref={inputRef}
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="Type your answer..."
+                className="w-full px-3 py-2 text-sm border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                autoFocus
+              />
+            </div>
+          )}
+
+          {/* Multi-select submit button */}
+          {currentQuestion.multiSelect && selectedMulti.size > 0 && (
+            <div className="px-4 mt-3">
+              <button
+                onClick={handleMultiSubmit}
+                className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              >
+                Submit ({selectedMulti.size} selected)
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Footer hint */}
