@@ -204,7 +204,8 @@
     "deletions": "Löschungen",
     "noChangesToCommit": "Keine Änderungen zu committen",
     "noChanges": "Keine Änderungen",
-    "enterCommitMessage": "Commit-Nachricht eingeben"
+    "enterCommitMessage": "Commit-Nachricht eingeben",
+    "staged": "Bereitgestellt"
   },
   "settings": {
     "title": "Einstellungen",

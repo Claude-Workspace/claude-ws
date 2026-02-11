@@ -204,7 +204,8 @@
     "deletions": "suppressions",
     "noChangesToCommit": "Aucune modification à committer",
     "noChanges": "Aucune modification",
-    "enterCommitMessage": "Entrer le message de commit"
+    "enterCommitMessage": "Entrer le message de commit",
+    "staged": "Indexés"
   },
   "settings": {
     "title": "Paramètres",

@@ -204,7 +204,8 @@
     "deletions": "削除",
     "noChangesToCommit": "コミットする変更なし",
     "noChanges": "変更なし",
-    "enterCommitMessage": "コミットメッセージを入力"
+    "enterCommitMessage": "コミットメッセージを入力",
+    "staged": "ステージ済み"
   },
   "settings": {
     "title": "設定",
