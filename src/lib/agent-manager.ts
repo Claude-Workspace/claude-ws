@@ -675,6 +675,15 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         // Git stats collection failed - continue without it
       }
 
+      // Clean up any pending questions for this attempt
+      if (this.pendingQuestions.has(attemptId)) {
+        const pending = this.pendingQuestions.get(attemptId);
+        if (pending) {
+          pending.resolve(null); // Resolve with null to unblock the canUseTool callback
+        }
+        this.pendingQuestions.delete(attemptId);
+      }
+
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
@@ -697,6 +706,15 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       // Determine exit code based on error type
       const code = controller.signal.aborted ? null : 1;
+
+      // Clean up any pending questions for this attempt
+      if (this.pendingQuestions.has(attemptId)) {
+        const pending = this.pendingQuestions.get(attemptId);
+        if (pending) {
+          pending.resolve(null); // Resolve with null to unblock the canUseTool callback
+        }
+        this.pendingQuestions.delete(attemptId);
+      }
 
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code });

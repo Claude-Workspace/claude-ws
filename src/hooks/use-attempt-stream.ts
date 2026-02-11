@@ -481,9 +481,9 @@ export function useAttemptStream(
               const turns = historyData.turns || [];
               if (turns.length > 0) {
                 const lastTurn = turns[turns.length - 1];
-                // Always restore unanswered questions from the most recent turn
-                // But only if the attempt is actually alive (has active agent process)
-                if (lastTurn.attemptId) {
+                // Only restore questions if the attempt is actually running in the DB
+                // AND has an active agent process
+                if (lastTurn.attemptId && lastTurn.attemptStatus === 'running') {
                   const lastTurnMessages = lastTurn.messages || [];
                   // First check if the attempt is actually alive (has active agent)
                   try {

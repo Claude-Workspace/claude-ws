@@ -35,6 +35,25 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   const allOptions = [...currentQuestion.options, { label: 'Type something.', description: '' }];
   const isLastOption = selectedIndex === allOptions.length - 1;
 
+  // Check if a question has been answered
+  const isQuestionAnswered = (index: number) => {
+    return answers[questions[index].question] !== undefined;
+  };
+
+  // All questions answered?
+  const allAnswered = questions.every((q) => answers[q.question] !== undefined);
+
+  // Navigate to a specific question tab
+  const navigateToTab = (index: number) => {
+    if (index >= 0 && index < questions.length) {
+      setCurrentQuestionIndex(index);
+      setSelectedIndex(0);
+      setSelectedMulti(new Set());
+      setCustomInput('');
+      setIsTyping(false);
+    }
+  };
+
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,6 +65,22 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         } else if (e.key === 'Enter' && customInput.trim()) {
           e.preventDefault();
           handleSubmitAnswer(customInput.trim());
+        }
+        return;
+      }
+
+      // ← → arrow keys navigate between question tabs
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateToTab(currentQuestionIndex - 1);
+        return;
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentQuestionIndex < questions.length - 1) {
+          navigateToTab(currentQuestionIndex + 1);
+        } else if (allAnswered) {
+          // On last question + all answered, → submits
+          onAnswer(answers);
         }
         return;
       }
@@ -109,7 +144,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, isTyping, customInput, currentQuestion, allOptions.length, isLastOption]);
+  }, [selectedIndex, isTyping, customInput, currentQuestion, allOptions.length, isLastOption, currentQuestionIndex, questions.length, allAnswered, answers]);
 
   const handleSubmitAnswer = (answer: string | string[]) => {
     // Use question text as key (SDK format expects "question" field, not "header")
@@ -138,12 +173,96 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
   return (
     <div className="py-4">
-      {/* Header badge */}
-      <div className="px-4 mb-2">
-        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded">
-          {currentQuestion.header}
-        </span>
-      </div>
+      {/* Question tab bar */}
+      {questions.length > 1 && (
+        <div className="flex items-center gap-1 px-4 mb-3 overflow-x-auto">
+          {/* Back arrow */}
+          <button
+            onClick={() => navigateToTab(currentQuestionIndex - 1)}
+            disabled={currentQuestionIndex === 0}
+            className={cn(
+              'shrink-0 text-xs px-1',
+              currentQuestionIndex === 0
+                ? 'text-muted-foreground/30 cursor-default'
+                : 'text-muted-foreground hover:text-foreground cursor-pointer'
+            )}
+          >
+            ←
+          </button>
+
+          {/* Question tabs */}
+          {questions.map((q, i) => {
+            const isCurrent = i === currentQuestionIndex;
+            const answered = isQuestionAnswered(i);
+            return (
+              <button
+                key={i}
+                onClick={() => navigateToTab(i)}
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
+                  isCurrent
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : answered
+                      ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <span className="text-[10px]">
+                  {answered ? '✓' : '□'}
+                </span>
+                {q.header}
+              </button>
+            );
+          })}
+
+          {/* Submit tab */}
+          <button
+            onClick={() => {
+              if (allAnswered) onAnswer(answers);
+            }}
+            className={cn(
+              'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors',
+              allAnswered
+                ? 'text-primary hover:bg-primary/15 cursor-pointer'
+                : 'text-muted-foreground/30 cursor-default'
+            )}
+          >
+            <span className="text-[10px]">
+              {allAnswered ? '✓' : '□'}
+            </span>
+            Submit
+          </button>
+
+          {/* Forward arrow */}
+          <button
+            onClick={() => {
+              if (currentQuestionIndex < questions.length - 1) {
+                navigateToTab(currentQuestionIndex + 1);
+              } else if (allAnswered) {
+                onAnswer(answers);
+              }
+            }}
+            disabled={currentQuestionIndex === questions.length - 1 && !allAnswered}
+            className={cn(
+              'shrink-0 text-xs px-1',
+              currentQuestionIndex === questions.length - 1 && !allAnswered
+                ? 'text-muted-foreground/30 cursor-default'
+                : 'text-muted-foreground hover:text-foreground cursor-pointer'
+            )}
+          >
+            →
+          </button>
+        </div>
+      )}
+
+      {/* Header badge (single question fallback) */}
+      {questions.length === 1 && (
+        <div className="px-4 mb-2">
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded">
+            {currentQuestion.header}
+          </span>
+        </div>
+      )}
 
       {/* Question text */}
       <div className="px-4 mb-4">
@@ -252,6 +371,12 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         <kbd className="px-1 bg-muted rounded">Enter</kbd> to select
         <span className="mx-2">·</span>
         <kbd className="px-1 bg-muted rounded">↑/↓</kbd> to navigate
+        {questions.length > 1 && (
+          <>
+            <span className="mx-2">·</span>
+            <kbd className="px-1 bg-muted rounded">←/→</kbd> switch question
+          </>
+        )}
         <span className="mx-2">·</span>
         <kbd className="px-1 bg-muted rounded">Esc</kbd> to cancel
       </div>
