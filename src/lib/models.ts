@@ -22,7 +22,7 @@ export const AVAILABLE_MODELS: Model[] = [
   {
     id: 'claude-sonnet-4-5-20250929',
     name: 'Claude Sonnet 4.5',
-    description: 'Best speed/intelligence balance',
+    description: 'Latest Sonnet model',
     tier: 'sonnet',
   },
   {
