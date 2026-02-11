@@ -32,14 +32,28 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   const inputRef = useRef<HTMLInputElement>(null);
 
   const currentQuestion = questions[currentQuestionIndex];
-  // Add "Type something" as last option (like "Other" in Claude)
-  const allOptions = [...currentQuestion.options, { label: 'Type something.', description: '' }];
-  const isLastOption = selectedIndex === allOptions.length - 1;
 
   // Check if a question has been answered
   const isQuestionAnswered = (index: number) => {
     return answers[questions[index].question] !== undefined;
   };
+
+  // Check if an answer for a question was custom-typed (not a predefined option)
+  const getCustomAnswer = (questionIndex: number): string | null => {
+    const q = questions[questionIndex];
+    const answer = answers[q.question];
+    if (answer === undefined) return null;
+    const answerStr = String(answer);
+    const isPredefOption = q.options.some((opt) => opt.label === answerStr);
+    return isPredefOption ? null : answerStr;
+  };
+
+  // Add "Type something" as last option (like "Other" in Claude)
+  // If user already typed a custom answer, show it instead of "Type something."
+  const existingCustom = getCustomAnswer(currentQuestionIndex);
+  const typeOptionLabel = existingCustom ? `${existingCustom} (edit)` : 'Type something.';
+  const allOptions = [...currentQuestion.options, { label: typeOptionLabel, description: '' }];
+  const isLastOption = selectedIndex === allOptions.length - 1;
 
   // All questions answered?
   const allAnswered = questions.every((q) => answers[q.question] !== undefined);
@@ -52,7 +66,9 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       setCurrentQuestionIndex(index);
       setSelectedIndex(0);
       setSelectedMulti(new Set());
-      setCustomInput('');
+      // If the question was answered with custom text, pre-fill the input
+      const existing = getCustomAnswer(index);
+      setCustomInput(existing ?? '');
       setIsTyping(false);
     }
   };
@@ -130,7 +146,10 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (isLastOption) {
-          // Enter typing mode
+          // Enter typing mode, pre-fill with existing custom answer
+          if (!customInput && existingCustom) {
+            setCustomInput(existingCustom);
+          }
           setIsTyping(true);
           setTimeout(() => inputRef.current?.focus(), 0);
         } else if (currentQuestion.multiSelect) {
@@ -169,6 +188,9 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         if (num < allOptions.length) {
           setSelectedIndex(num);
           if (num === allOptions.length - 1) {
+            if (!customInput && existingCustom) {
+              setCustomInput(existingCustom);
+            }
             setIsTyping(true);
             setTimeout(() => inputRef.current?.focus(), 0);
           } else if (!currentQuestion.multiSelect) {
@@ -422,6 +444,10 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                   onClick={() => {
                     setSelectedIndex(index);
                     if (isTypeOption) {
+                      // Pre-fill with existing custom answer if returning to edit
+                      if (!customInput && existingCustom) {
+                        setCustomInput(existingCustom);
+                      }
                       setIsTyping(true);
                       setTimeout(() => inputRef.current?.focus(), 0);
                     } else if (currentQuestion.multiSelect) {
