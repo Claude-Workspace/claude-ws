@@ -288,6 +288,16 @@
     "filesHint": "Dateien",
     "pasteImageHint": "Bild einfügen"
   },
+  "agentProvider": {
+    "configureTitle": "Agent-Provider konfigurieren",
+    "configureDescription": "Wählen Sie, wie Sie sich bei der Claude API authentifizieren möchten:",
+    "reloadShowConfig": "Neu laden & Anzeigen",
+    "hideConfig": "Ausblenden",
+    "currentConfiguration": "Aktuelle Konfiguration",
+    "loading": "Laden...",
+    "activeProcessEnv": "Aktive process.env-Werte:",
+    "noProviderConfig": "Keine Provider-Konfiguration geladen"
+  },
   "accessAnywhere": {
     "title": "Überall zugreifen",
     "subtitle": "Greifen Sie von jedem Gerät auf Ihren Arbeitsbereich zu",
@@ -367,6 +377,21 @@
     "configureTunnel": "Tunnel konfigurieren",
     "addDnsRecord": "DNS-Eintrag hinzufügen",
     "runTunnel": "Tunnel ausführen",
-    "orInstallAsService": "Oder als Dienst installieren:"
+    "orInstallAsService": "Oder als Dienst installieren:",
+    "apiAccessKeyRequired": "API-Zugriffsschlüssel erforderlich",
+    "apiAccessKeyDescription": "Um \"Überall zugreifen\" zu aktivieren, müssen Sie einen API-Zugriffsschlüssel einrichten. Dieser Schlüssel schützt Ihren Arbeitsbereich vor unbefugtem Zugriff, wenn er über das Internet erreichbar ist.",
+    "apiAccessKeyWarning": "Bewahren Sie diesen Schlüssel sicher auf! Sie benötigen ihn, um auf Ihren Arbeitsbereich aus der Ferne zuzugreifen. Der Schlüssel wird in Ihrer .env-Datei gespeichert.",
+    "generatedApiKey": "API-Zugriffsschlüssel",
+    "enterCustomKey": "Geben Sie Ihren benutzerdefinierten Schlüssel ein...",
+    "copyKey": "Schlüssel kopieren",
+    "copied": "Kopiert!",
+    "regenerateKey": "Neuen Schlüssel generieren",
+    "useCustomKey": "Eigenen benutzerdefinierten Schlüssel verwenden",
+    "apiKeyStorageNote": "Dieser Schlüssel wird in Ihrer .env-Datei als API_ACCESS_KEY gespeichert. Möglicherweise müssen Sie den Server neu starten, damit die Änderungen vollständig wirksam werden.",
+    "apiKeyMinLength": "API-Schlüssel muss mindestens 16 Zeichen lang sein",
+    "apiKeyRequired": "API-Schlüssel ist erforderlich",
+    "cancel": "Abbrechen",
+    "saving": "Wird gespeichert...",
+    "saveAndContinue": "Speichern & Fortfahren"
   }
 }
