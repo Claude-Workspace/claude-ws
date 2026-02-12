@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ChevronDown, Maximize2, Check } from 'lucide-react';
+import { ChevronDown, Maximize2, Check, Pencil } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -296,14 +296,23 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
             onMouseDown={(e) => e.stopPropagation()}
           />
         ) : (
-          <span
-            className="line-clamp-2 cursor-text"
-            onDoubleClick={(e) => { e.stopPropagation(); handleStartEditTitle(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            data-no-drag
-          >
-            {task.title}
-          </span>
+          <div className="flex items-center gap-1">
+            <span
+              className="line-clamp-2"
+              onMouseDown={(e) => e.stopPropagation()}
+              data-no-drag
+            >
+              {task.title}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleStartEditTitle(); }}
+              className="p-0.5 hover:bg-accent rounded transition-colors shrink-0"
+              data-no-drag
+              title="Edit title"
+            >
+              <Pencil className="size-3 text-muted-foreground" />
+            </button>
+          </div>
         )
       }
       zIndex={zIndex}
