@@ -3,11 +3,11 @@ import { readFile, readdir, unlink, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { TEMP_DIR, UPLOADS_DIR, getMimeType } from '@/lib/file-utils';
 
-// Find file by tempId prefix in temp or attempt directories
+// Find file by tempId prefix in tmp or attempt directories
 async function findFile(
   fileId: string
 ): Promise<{ path: string; filename: string } | null> {
-  // Check temp directory first
+  // Check tmp directory first
   try {
     const tempFiles = await readdir(TEMP_DIR);
     const tempFile = tempFiles.find((f) => f.startsWith(fileId));
@@ -15,14 +15,14 @@ async function findFile(
       return { path: join(TEMP_DIR, tempFile), filename: tempFile };
     }
   } catch {
-    // Temp dir may not exist
+    // Tmp dir may not exist
   }
 
   // Check attempt directories
   try {
     const attemptDirs = await readdir(UPLOADS_DIR);
     for (const dir of attemptDirs) {
-      if (dir === 'temp') continue;
+      if (dir === 'tmp') continue;
       const attemptPath = join(UPLOADS_DIR, dir);
       const dirStat = await stat(attemptPath);
       if (!dirStat.isDirectory()) continue;
@@ -77,7 +77,7 @@ export async function GET(
   }
 }
 
-// DELETE /api/uploads/[fileId] - Remove pending (temp) file
+// DELETE /api/uploads/[fileId] - Remove pending (tmp) file
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
@@ -90,13 +90,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid file ID' }, { status: 400 });
     }
 
-    // Only allow deleting temp files (pending uploads)
+    // Only allow deleting tmp files (pending uploads)
     const tempFiles = await readdir(TEMP_DIR);
     const tempFile = tempFiles.find((f) => f.startsWith(fileId));
 
     if (!tempFile) {
       return NextResponse.json(
-        { error: 'Temp file not found' },
+        { error: 'Tmp file not found' },
         { status: 404 }
       );
     }
