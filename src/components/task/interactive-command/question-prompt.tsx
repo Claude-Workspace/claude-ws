@@ -230,13 +230,10 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       setSelectedMulti(new Set());
       setCustomInput('');
       setIsTyping(false);
-    } else if (questions.length > 1) {
-      // Last question answered in multi-question flow → show submit review
+    } else {
+      // Last (or only) question answered → show submit review
       setShowSubmitView(true);
       setSelectedIndex(0);
-    } else {
-      // Single question → submit directly
-      onAnswer(newAnswers);
     }
   };
 
@@ -249,9 +246,9 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   return (
     <div className="py-4">
       {/* Question tab bar */}
-      {questions.length > 1 && (
-        <div className="flex items-center gap-1 px-4 mb-3 overflow-x-auto">
-          {/* Back arrow */}
+      <div className="flex items-center gap-1 px-4 mb-3 overflow-x-auto">
+        {/* Back arrow (hidden for single question) */}
+        {questions.length > 1 && (
           <button
             onClick={() => {
               if (showSubmitView) {
@@ -270,54 +267,56 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           >
             ←
           </button>
+        )}
 
-          {/* Question tabs */}
-          {questions.map((q, i) => {
-            const isCurrent = i === currentQuestionIndex && !showSubmitView;
-            const answered = isQuestionAnswered(i);
-            return (
-              <button
-                key={i}
-                onClick={() => navigateToTab(i)}
-                className={cn(
-                  'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
-                  isCurrent
-                    ? 'bg-primary/15 text-primary border border-primary/30'
-                    : answered
-                      ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                )}
-              >
-                <span className="text-[10px]">
-                  {answered ? '✓' : '□'}
-                </span>
-                {q.header}
-              </button>
-            );
-          })}
+        {/* Question tabs */}
+        {questions.map((q, i) => {
+          const isCurrent = i === currentQuestionIndex && !showSubmitView;
+          const answered = isQuestionAnswered(i);
+          return (
+            <button
+              key={i}
+              onClick={() => navigateToTab(i)}
+              className={cn(
+                'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
+                isCurrent
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : answered
+                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              <span className="text-[10px]">
+                {answered ? '✓' : '□'}
+              </span>
+              {q.header}
+            </button>
+          );
+        })}
 
-          {/* Submit tab */}
-          <button
-            onClick={() => {
-              setShowSubmitView(true);
-              setSelectedIndex(0);
-            }}
-            className={cn(
-              'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
-              showSubmitView
-                ? 'bg-primary/15 text-primary border border-primary/30'
-                : allAnswered
-                  ? 'text-primary hover:bg-primary/15'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            )}
-          >
-            <span className="text-[10px]">
-              {allAnswered ? '✓' : '□'}
-            </span>
-            Submit
-          </button>
+        {/* Submit tab */}
+        <button
+          onClick={() => {
+            setShowSubmitView(true);
+            setSelectedIndex(0);
+          }}
+          className={cn(
+            'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors cursor-pointer',
+            showSubmitView
+              ? 'bg-primary/15 text-primary border border-primary/30'
+              : allAnswered
+                ? 'text-primary hover:bg-primary/15'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+        >
+          <span className="text-[10px]">
+            {allAnswered ? '✓' : '□'}
+          </span>
+          Submit
+        </button>
 
-          {/* Forward arrow */}
+        {/* Forward arrow (hidden for single question) */}
+        {questions.length > 1 && (
           <button
             onClick={() => {
               if (showSubmitView) {
@@ -342,8 +341,8 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           >
             →
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* === SUBMIT REVIEW VIEW === */}
       {showSubmitView ? (
@@ -428,15 +427,6 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       ) : (
         <>
           {/* === QUESTION VIEW === */}
-
-          {/* Header badge (single question fallback) */}
-          {questions.length === 1 && (
-            <div className="px-4 mb-2">
-              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded">
-                {currentQuestion.header}
-              </span>
-            </div>
-          )}
 
           {/* Question text */}
           <div className="px-4 mb-4">
