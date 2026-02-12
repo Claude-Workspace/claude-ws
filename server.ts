@@ -142,7 +142,7 @@ app.prepare().then(async () => {
           model
         } = data;
 
-        log.info('[Socket] attempt:start received:', {
+        log.info({
           taskId,
           prompt,
           force_create,
@@ -152,7 +152,7 @@ app.prepare().then(async () => {
           projectRootPath,
           outputFormat,
           hasOutputSchema: !!outputSchema
-        });
+        }, '[Socket] attempt:start received');
 
         try {
           let task = await db.query.tasks.findFirst({
@@ -173,12 +173,12 @@ app.prepare().then(async () => {
               where: eq(schema.projects.id, projectId),
             });
 
-            log.info('[Socket] Project exists?', !!project);
+            log.info({ exists: !!project }, '[Socket] Project exists?');
 
             // Create project if it doesn't exist
             if (!project) {
               log.info('[Socket] Project does not exist, checking projectName...');
-              log.info('[Socket] projectName value:', projectName);
+              log.info({ projectName }, '[Socket] projectName value');
 
               if (!projectName || projectName.trim() === '') {
                 log.info('[Socket] Project name required but not provided');
@@ -197,10 +197,10 @@ app.prepare().then(async () => {
 
               try {
                 await mkdir(projectPath, { recursive: true });
-                log.info('[Socket] Created project directory:', projectPath);
+                log.info({ projectPath }, '[Socket] Created project directory');
               } catch (mkdirError: any) {
                 if (mkdirError?.code !== 'EEXIST') {
-                  log.error('[Socket] Failed to create project folder:', mkdirError);
+                  log.error({ mkdirError }, '[Socket] Failed to create project folder');
                   socket.emit('error', { message: 'Failed to create project folder: ' + mkdirError.message });
                   return;
                 }
@@ -213,9 +213,9 @@ app.prepare().then(async () => {
                   path: projectPath,
                   createdAt: Date.now(),
                 });
-                log.info('[Socket] Created project:', projectId);
+                log.info({ projectId }, '[Socket] Created project');
               } catch (error) {
-                log.error('[Socket] Failed to create project:', error);
+                log.error({ error }, '[Socket] Failed to create project');
                 socket.emit('error', { message: 'Failed to create project' });
                 return;
               }
@@ -265,14 +265,14 @@ app.prepare().then(async () => {
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               });
-              log.info('[Socket] Created task:', taskId);
+              log.info({ taskId }, '[Socket] Created task');
 
               // Fetch the created task
               task = await db.query.tasks.findFirst({
                 where: eq(schema.tasks.id, taskId),
               });
             } catch (error) {
-              log.error('[Socket] Failed to create task:', error);
+              log.error({ error }, '[Socket] Failed to create task');
               socket.emit('error', { message: 'Failed to create task' });
               return;
             }
@@ -354,7 +354,7 @@ app.prepare().then(async () => {
           // Global event for all clients to track running tasks
           io.emit('task:started', { taskId });
         } catch (error) {
-          log.error('Error starting attempt:', error);
+          log.error({ error }, 'Error starting attempt');
           socket.emit('error', {
             message: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -413,7 +413,7 @@ app.prepare().then(async () => {
       'question:answer',
       async (data: { attemptId: string; toolUseId?: string; questions: unknown[]; answers: Record<string, string> }) => {
         const { attemptId, toolUseId, questions, answers } = data;
-        log.info(`[Server] Received answer for ${attemptId}:`, answers);
+        log.info({ attemptId, answers }, '[Server] Received answer');
 
         // Check if there's a pending question (canUseTool callback waiting)
         if (agentManager.hasPendingQuestion(attemptId)) {
@@ -554,7 +554,7 @@ app.prepare().then(async () => {
         if (ack) ack({ success: true });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to start edit';
-        log.error(`[Server] Inline edit start error:`, errorMsg);
+        log.error({ errorMsg }, '[Server] Inline edit start error');
         if (ack) ack({ success: false, error: errorMsg });
       }
     });
@@ -594,7 +594,7 @@ app.prepare().then(async () => {
         if (ack) ack({ success });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to stop shell';
-        log.error(`[Server] Shell stop error:`, errorMsg);
+        log.error({ errorMsg }, '[Server] Shell stop error');
         if (ack) ack({ success: false, error: errorMsg });
       }
     });
@@ -609,7 +609,7 @@ app.prepare().then(async () => {
         if (ack) ack({ logs });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to get logs';
-        log.error(`[Server] Shell getLogs error:`, errorMsg);
+        log.error({ errorMsg }, '[Server] Shell getLogs error');
         if (ack) ack({ logs: [], error: errorMsg });
       }
     });
@@ -622,7 +622,7 @@ app.prepare().then(async () => {
   // ========================================
   // Inline Edit Manager Event Handlers
   // ========================================
-  log.info('[Server] Setting up inlineEditManager event handlers, instance ID:', (inlineEditManager as unknown as { _id?: string })._id);
+  log.info({ instanceId: (inlineEditManager as unknown as { _id?: string })._id }, '[Server] Setting up inlineEditManager event handlers');
 
   // Forward inline edit deltas to subscribers
   inlineEditManager.on('delta', ({ sessionId, chunk }) => {
@@ -639,7 +639,7 @@ app.prepare().then(async () => {
 
   // Forward inline edit errors to subscribers
   inlineEditManager.on('error', ({ sessionId, error }) => {
-    log.error(`[Server] Inline edit ${sessionId} error:`, error);
+    log.error({ sessionId, error }, '[Server] Inline edit error');
     io.to(`inline-edit:${sessionId}`).emit('inline-edit:error', { sessionId, error });
   });
 
@@ -674,7 +674,7 @@ app.prepare().then(async () => {
         })
         .where(eq(schema.shells.id, shellId));
     } catch (error) {
-      log.error(`[Server] Failed to update shell ${shellId} in database:`, error);
+      log.error({ shellId, error }, '[Server] Failed to update shell in database');
     }
   });
 
@@ -773,11 +773,12 @@ app.prepare().then(async () => {
 
   // Handle AskUserQuestion detection from AgentManager
   agentManager.on('question', ({ attemptId, toolUseId, questions }) => {
-    log.info(`[Server] AskUserQuestion detected for ${attemptId}`, {
+    log.info({
+      attemptId,
       toolUseId,
       questionCount: questions?.length,
       questions: questions?.map((q: any) => ({ header: q.header, question: q.question?.substring(0, 50) }))
-    });
+    }, '[Server] AskUserQuestion detected');
     io.to(`attempt:${attemptId}`).emit('question:ask', {
       attemptId,
       toolUseId,
@@ -873,7 +874,7 @@ app.prepare().then(async () => {
 
       log.info(`[Server] Spawned background shell ${shellId} for project ${project.id}`);
     } catch (error) {
-      log.error(`[Server] Failed to spawn background shell:`, error);
+      log.error({ error }, '[Server] Failed to spawn background shell');
     }
   });
 
@@ -888,7 +889,7 @@ app.prepare().then(async () => {
       });
 
       if (!attempt) {
-        log.error(`[Server] Cannot track process: attempt not found`);
+        log.error('[Server] Cannot track process: attempt not found');
         return;
       }
 
@@ -897,7 +898,7 @@ app.prepare().then(async () => {
       });
 
       if (!task) {
-        log.error(`[Server] Cannot track process: task not found`);
+        log.error('[Server] Cannot track process: task not found');
         return;
       }
 
@@ -906,7 +907,7 @@ app.prepare().then(async () => {
       });
 
       if (!project) {
-        log.error(`[Server] Cannot track process: project not found`);
+        log.error('[Server] Cannot track process: project not found');
         return;
       }
 
@@ -931,7 +932,7 @@ app.prepare().then(async () => {
       });
 
       if (!shellId) {
-        log.error(`[Server] Failed to track process: PID ${pid} not alive`);
+        log.error({ pid }, '[Server] Failed to track process: PID not alive');
         return;
       }
 
@@ -948,7 +949,7 @@ app.prepare().then(async () => {
 
       log.info(`[Server] Tracking external process ${shellId} (PID ${pid}) for project ${project.id}`);
     } catch (error) {
-      log.error(`[Server] Failed to track process:`, error);
+      log.error({ error }, '[Server] Failed to track process');
     }
   });
 
@@ -1040,7 +1041,7 @@ app.prepare().then(async () => {
           );
         }
       } catch (error) {
-        log.error(`[Server] Failed to create checkpoint for ${attemptId}:`, error);
+        log.error({ attemptId, error }, '[Server] Failed to create checkpoint');
       }
     } else if (attempt) {
       // Clear checkpoint tracking on failure
@@ -1083,7 +1084,7 @@ app.prepare().then(async () => {
   // Forward tracking module events to Socket.io clients
   // Usage tracking (tokens, costs, model usage)
   usageTracker.on('usage-update', ({ attemptId, usage }) => {
-    log.info(`[Server] Emitting status:usage for ${attemptId}:`, usage.totalTokens, 'tokens');
+    log.info({ attemptId, totalTokens: usage.totalTokens }, '[Server] Emitting status:usage');
     io.to(`attempt:${attemptId}`).emit('status:usage', {
       attemptId,
       usage,
@@ -1094,7 +1095,7 @@ app.prepare().then(async () => {
   workflowTracker.on('workflow-update', ({ attemptId, workflow }) => {
     const summary = workflowTracker.getWorkflowSummary(attemptId);
     if (summary) {
-      log.info(`[Server] Emitting status:workflow for ${attemptId}:`, summary.chain);
+      log.info({ attemptId, chain: summary.chain }, '[Server] Emitting status:workflow');
       io.to(`attempt:${attemptId}`).emit('status:workflow', {
         attemptId,
         workflow: summary,
@@ -1138,7 +1139,7 @@ app.prepare().then(async () => {
   });
 
   tunnelService.on('error', ({ error }) => {
-    log.error(`[Server] Tunnel error: ${error}`);
+    log.error({ error }, '[Server] Tunnel error');
     io.emit('tunnel:error', { error });
   });
 
@@ -1152,7 +1153,7 @@ app.prepare().then(async () => {
 
     // Try to auto-reconnect tunnel after server is ready
     tunnelService.tryAutoReconnect().catch((err) => {
-      log.error('[Server] Failed to auto-reconnect tunnel:', err);
+      log.error({ err }, '[Server] Failed to auto-reconnect tunnel');
     });
 
     // Log cache stats every 5 minutes for monitoring
