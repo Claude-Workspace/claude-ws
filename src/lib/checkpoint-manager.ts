@@ -5,6 +5,7 @@
  * Captures user message UUIDs as restore points for rewindFiles().
  */
 
+import type { Query } from '@anthropic-ai/claude-agent-sdk';
 import { db, schema } from './db';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -25,14 +26,18 @@ export interface CheckpointData {
 }
 
 /**
- * In-memory storage for checkpoint UUIDs during active attempts
- * Maps attemptId -> FIRST user message UUID (for file checkpoint restore point)
+ * In-memory storage for checkpoint data during active attempts
+ * Maps attemptId -> { uuid, queryRef }
  *
  * IMPORTANT: File checkpoints are created BEFORE file modifications occur.
  * The FIRST user message UUID is the restore point for rewinding files,
  * because that's when the SDK captures the pre-modification file state.
  */
-const activeCheckpoints = new Map<string, string>();
+interface ActiveCheckpoint {
+  uuid: string;
+  queryRef?: Query;
+}
+const activeCheckpoints = new Map<string, ActiveCheckpoint>();
 
 export class CheckpointManager {
   /**
@@ -46,10 +51,10 @@ export class CheckpointManager {
   captureCheckpointUuid(attemptId: string, uuid: string): void {
     // Only capture the FIRST UUID - don't overwrite with subsequent ones
     if (!activeCheckpoints.has(attemptId)) {
-      activeCheckpoints.set(attemptId, uuid);
+      activeCheckpoints.set(attemptId, { uuid });
       log.info({ attemptId, uuid }, 'Captured FIRST checkpoint UUID');
     } else {
-      log.info({ attemptId, uuid, keeping: activeCheckpoints.get(attemptId) }, 'Skipping subsequent UUID (keeping first)');
+      log.info({ attemptId, uuid, keeping: activeCheckpoints.get(attemptId)?.uuid }, 'Skipping subsequent UUID (keeping first)');
     }
   }
 
@@ -57,13 +62,42 @@ export class CheckpointManager {
    * Get the latest checkpoint UUID for an attempt
    */
   getCheckpointUuid(attemptId: string): string | null {
-    return activeCheckpoints.get(attemptId) ?? null;
+    return activeCheckpoints.get(attemptId)?.uuid ?? null;
+  }
+
+  /**
+   * Set the SDK query reference for an attempt (used for rewindFiles on error)
+   */
+  setQueryRef(attemptId: string, queryRef: Query): void {
+    const existing = activeCheckpoints.get(attemptId);
+    if (existing) {
+      existing.queryRef = queryRef;
+    }
   }
 
   /**
    * Clear checkpoint tracking for an attempt (on completion/cancellation)
+   * Also reverts changed files using SDK rewindFiles if a checkpoint UUID was captured
    */
-  clearAttemptCheckpoint(attemptId: string): void {
+  async clearAttemptCheckpoint(attemptId: string): Promise<void> {
+    const checkpoint = activeCheckpoints.get(attemptId);
+    if (!checkpoint) return;
+
+    // Revert changed files if we have both UUID and query ref
+    if (checkpoint.uuid && checkpoint.queryRef) {
+      try {
+        log.info({ attemptId, checkpointUuid: checkpoint.uuid }, 'Reverting files on checkpoint clear');
+        const rewindResult = await checkpoint.queryRef.rewindFiles(checkpoint.uuid);
+        if (rewindResult.canRewind) {
+          log.info({ attemptId, filesChanged: rewindResult.filesChanged?.length || 0 }, 'Files reverted successfully');
+        } else {
+          log.warn({ attemptId, error: rewindResult.error }, 'Could not revert files');
+        }
+      } catch (rewindError) {
+        log.error({ err: rewindError, attemptId }, 'Failed to revert files');
+      }
+    }
+
     activeCheckpoints.delete(attemptId);
   }
 
@@ -77,7 +111,8 @@ export class CheckpointManager {
     messageCount: number,
     summary?: string
   ): Promise<string | null> {
-    const checkpointUuid = this.getCheckpointUuid(attemptId);
+    const checkpoint = activeCheckpoints.get(attemptId);
+    const checkpointUuid = checkpoint?.uuid;
 
     if (!checkpointUuid) {
       log.info({ attemptId }, 'No checkpoint UUID, skipping save');
@@ -100,8 +135,8 @@ export class CheckpointManager {
 
     log.info({ checkpointId, checkpointUuid }, 'Saved checkpoint');
 
-    // Cleanup in-memory tracking
-    this.clearAttemptCheckpoint(attemptId);
+    // Cleanup in-memory tracking (skip rewindFiles since this is a successful save)
+    activeCheckpoints.delete(attemptId);
 
     return checkpointId;
   }

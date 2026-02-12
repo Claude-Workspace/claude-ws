@@ -515,6 +515,9 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       // Store query reference for graceful close() on cancel
       instance.queryRef = response;
 
+      // Register query ref with checkpoint manager for file revert on errors
+      checkpointManager.setQueryRef(attemptId, response);
+
       // Stream SDK messages with per-message error handling
       // The SDK's internal partial-json-parser can throw on incomplete JSON
       for await (const message of response) {
@@ -636,6 +639,25 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           if (message.type === 'result') {
             const resultMsg = message as SDKResultMessage;
             usageTracker.trackResult(attemptId, resultMsg);
+
+            // If result contains errors, emit them as an assistant message so they appear in chat
+            if (resultMsg.errors && resultMsg.errors.length > 0) {
+              const errorText = resultMsg.errors.join('\n');
+              log.error({ attemptId, errors: resultMsg.errors }, 'SDK result contains errors');
+              this.emit('json', {
+                attemptId,
+                data: {
+                  type: 'assistant',
+                  message: {
+                    role: 'assistant',
+                    content: [{ type: 'text', text: `⚠️ Error:\n${errorText}\n\nAll file changes are reverted` }],
+                  },
+                },
+              });
+
+              // Clear checkpoint and revert changed files (rewindFiles is built into clearAttemptCheckpoint)
+              await checkpointManager.clearAttemptCheckpoint(attemptId);
+            }
           }
 
           // Note: AskUserQuestion is now handled via canUseTool callback

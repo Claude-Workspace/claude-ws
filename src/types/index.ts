@@ -121,6 +121,7 @@ export interface ClaudeOutput {
     thinking?: string;
   };
   outputFormat?: OutputFormat | string;
+  errors?: string[];
 }
 
 export interface ClaudeStreamEvent {
