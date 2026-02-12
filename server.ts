@@ -347,7 +347,7 @@ app.prepare().then(async () => {
               : 'new session';
           console.log(`[Server] Started attempt ${attemptId} (${sessionMode})${filePaths.length > 0 ? ` with ${filePaths.length} files` : ''}`);
 
-          socket.emit('attempt:started', { attemptId, taskId });
+          socket.emit('attempt:started', { attemptId, taskId, outputFormat, outputSchema });
           // Global event for all clients to track running tasks
           io.emit('task:started', { taskId });
         } catch (error) {
@@ -630,8 +630,59 @@ app.prepare().then(async () => {
       console.log(`[Server] Emitting output:json to attempt:${attemptId} (${clientCount} clients in room)`, data.type);
     }
 
+    // TRANSFORM RESULT DATA
+    let outputData: any = data;
+    if (data.type === 'result') {
+      // Log raw result to debug
+      console.log('[Server] Raw Result Data:', JSON.stringify(data, null, 2));
+
+      // Cast to any to inspect loose structure
+      const resultData = data as any;
+
+      // Check content property
+      let contentStr = '';
+      if (typeof resultData.content === 'string') {
+        contentStr = resultData.content;
+      } else if (resultData.text) {
+        contentStr = resultData.text;
+      } else if (resultData.message) { // Sometimes it might be in message?
+        if (typeof resultData.message === 'string') contentStr = resultData.message;
+        else if (resultData.message.content) contentStr = resultData.message.content; // text inside message object?
+      }
+
+      let outputContent: any = "Task completed. (No text content returned)";
+
+      if (contentStr) {
+        try {
+          // Generic JSON parsing - if it looks like JSON, parse it
+          // This handles both strict JSON content and some relaxed JSON
+          const trimmed = contentStr.trim();
+          if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+            outputContent = JSON.parse(trimmed);
+          } else {
+            // Check for markdown code blocks if the whole thing isn't JSON
+            const jsonMatch = contentStr.match(/```json\n([\s\S]*?)\n```/);
+            if (jsonMatch) {
+              outputContent = JSON.parse(jsonMatch[1]);
+            } else {
+              outputContent = contentStr;
+            }
+          }
+        } catch (e) {
+          // Fallback to raw string if parsing fails
+          outputContent = contentStr;
+        }
+      }
+
+      outputData = {
+        ...data,
+        content: outputContent
+      };
+    }
+
     // Always forward to subscribers (for real-time streaming)
-    io.to(`attempt:${attemptId}`).emit('output:json', { attemptId, data });
+    io.to(`attempt:${attemptId}`).emit('output:json', { attemptId, data: outputData });
   });
 
   agentManager.on('stderr', async ({ attemptId, content }) => {

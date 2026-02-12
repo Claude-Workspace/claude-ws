@@ -120,6 +120,7 @@ export interface ClaudeOutput {
     text?: string;
     thinking?: string;
   };
+  outputFormat?: OutputFormat | string;
 }
 
 export interface ClaudeStreamEvent {

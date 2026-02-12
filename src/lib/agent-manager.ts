@@ -13,7 +13,7 @@ process.env.CLAUDE_CODE_ENABLE_TASKS = 'true';
 
 import { EventEmitter } from 'events';
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { homedir } from 'os';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeOutput } from '../types';
@@ -202,6 +202,7 @@ interface AgentInstance {
   queryRef?: Query;  // SDK query reference for graceful close()
   startedAt: number;
   sessionId?: string;
+  outputFormat?: string;
 }
 
 // Pending question resolver type
@@ -303,8 +304,8 @@ class AgentManager extends EventEmitter {
     // Add output format instructions to user prompt
     // Works for both new and resumed sessions
     if (outputFormat) {
-      const dataDir = process.env.DATA_DIR || '.';
-      const outputFilePath = `${dataDir}/tmp/${attemptId}`;
+      const dataDir = process.env.DATA_DIR || process.cwd();
+      const outputFilePath = resolve(dataDir, 'tmp', attemptId);
 
       // Build example based on format
       let example = '';
@@ -369,6 +370,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       attemptId,
       controller,
       startedAt: Date.now(),
+      outputFormat,
     };
 
     this.agents.set(attemptId, instance);
@@ -648,7 +650,14 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           }
 
           // Emit adapted message
-          this.emit('json', { attemptId, data: adapted.output });
+          // If using custom output format, suppress the default 'result' output
+          // We will read the file and emit our own result at the end
+          if (!(adapted.output.type === 'result' && instance.outputFormat)) {
+            if (instance.outputFormat) {
+              adapted.output.outputFormat = instance.outputFormat;
+            }
+            this.emit('json', { attemptId, data: adapted.output });
+          }
         } catch (messageError) {
           // Handle per-message errors (e.g., SDK's partial-json-parser failures)
           // Log but continue streaming - don't let one bad message kill the stream
@@ -664,6 +673,37 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       // Query completed successfully
       log.info({ attemptId, durationMs: Date.now() - instance.startedAt }, 'Query completed successfully');
+
+      // Output Format Handling: Read the custom output file if requested
+      if (instance.outputFormat) {
+        try {
+          const fs = require('fs');
+          const dataDir = process.env.DATA_DIR || process.cwd();
+          const outputFilePath = resolve(dataDir, 'tmp', `${attemptId}.${instance.outputFormat}`);
+
+          if (fs.existsSync(outputFilePath)) {
+            console.log(`[AgentManager] Reading custom output file: ${outputFilePath}`);
+            const fileContent = fs.readFileSync(outputFilePath, 'utf-8');
+
+            // Emit as a 'result' event so server.ts handles it
+            this.emit('json', {
+              attemptId,
+              data: {
+                type: 'result',
+                subtype: 'success',
+                is_error: false,
+                content: fileContent,
+                outputFormat: instance.outputFormat
+              } as any
+            });
+          } else {
+            console.warn(`[AgentManager] Expected output file not found: ${outputFilePath}`);
+            this.emit('stderr', { attemptId, content: `Error: Expected output file not found: ${outputFilePath}` });
+          }
+        } catch (readError) {
+          console.error(`[AgentManager] Failed to read output file:`, readError);
+        }
+      }
 
       // Collect git stats snapshot on completion
       try {
