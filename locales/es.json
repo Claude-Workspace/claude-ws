@@ -204,7 +204,8 @@
     "deletions": "eliminaciones",
     "noChangesToCommit": "Sin cambios para confirmar",
     "noChanges": "Sin cambios",
-    "enterCommitMessage": "Ingrese mensaje de confirmación"
+    "enterCommitMessage": "Ingrese mensaje de confirmación",
+    "staged": "Preparados"
   },
   "settings": {
     "title": "Configuración",

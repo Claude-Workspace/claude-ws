@@ -13,6 +13,7 @@
 #deployment
 .npmrc
 
+tmp/
 # testing
 /coverage
 

@@ -204,7 +204,8 @@
     "deletions": "xóa",
     "noChangesToCommit": "Không có thay đổi để gửi",
     "noChanges": "Không có thay đổi",
-    "enterCommitMessage": "Nhập thông điệp gửi"
+    "enterCommitMessage": "Nhập thông điệp gửi",
+    "staged": "Đã chuẩn bị"
   },
   "settings": {
     "title": "Cài đặt",

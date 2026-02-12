@@ -171,9 +171,10 @@ export function ConversationView({
   const [isLoading, setIsLoading] = useState(true);
   const [lastIsRunning, setLastIsRunning] = useState(isRunning);
   const statusVerb = useRandomStatusVerb();
-  // Track if user is manually scrolling (to pause auto-scroll)
-  const userScrollingRef = useRef(false);
-  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track if user has scrolled away from bottom (>200px away)
+  const userScrolledAwayRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+  const programmaticScrollRef = useRef(false);
   // Track last prompt to detect new prompt submission
   const lastPromptRef = useRef<string | undefined>(currentPrompt);
   // Use parent refs if provided, otherwise use local refs (fallback for backward compatibility)
@@ -198,13 +199,13 @@ export function ConversationView({
   const isNearBottom = () => {
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
-      const threshold = 150;
+      const threshold = 100;
       return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < threshold;
     }
 
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
-    const threshold = 150; // pixels from bottom
+    const threshold = 200; // pixels from bottom
     return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
   };
 
@@ -225,6 +226,7 @@ export function ConversationView({
 
   // Force scroll to bottom (bypasses isNearBottom check)
   const scrollToBottom = () => {
+    programmaticScrollRef.current = true;
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
       detachedContainer.scrollTop = detachedContainer.scrollHeight;
@@ -234,10 +236,15 @@ export function ConversationView({
         viewport.scrollTop = viewport.scrollHeight;
       }
     }
+    // Reset flag after scroll completes
+    requestAnimationFrame(() => {
+      programmaticScrollRef.current = false;
+    });
   };
 
   // Scroll to bottom with retry for better reliability (especially in detached mode)
   const scrollToBottomWithRetry = (attempts = 3) => {
+    programmaticScrollRef.current = true;
     const attemptScroll = (remainingAttempts: number) => {
       // Check if we're in a detached window
       const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
@@ -246,9 +253,11 @@ export function ConversationView({
         // In detached mode, scroll the detached container
         detachedContainer.scrollTop = detachedContainer.scrollHeight;
         requestAnimationFrame(() => {
-          const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10;
+          const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10; // 10px tolerance for retry check
           if (!isAtBottom && remainingAttempts > 0) {
             setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+          } else {
+            programmaticScrollRef.current = false;
           }
         });
       } else {
@@ -260,11 +269,15 @@ export function ConversationView({
             const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
             if (!isAtBottom && remainingAttempts > 0) {
               setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+            } else {
+              programmaticScrollRef.current = false;
             }
           });
         } else if (remainingAttempts > 0) {
           // Viewport not ready, retry
           setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
+        } else {
+          programmaticScrollRef.current = false;
         }
       }
     };
@@ -318,7 +331,7 @@ export function ConversationView({
     if (!lastIsRunning && isRunning) {
       // New attempt started - scroll to bottom to show the new user prompt
       // Reset user scrolling flag so auto-scroll works during streaming
-      userScrollingRef.current = false;
+      userScrolledAwayRef.current = false;
 
       // Use multiple delayed attempts to ensure DOM is fully rendered
       setTimeout(() => {
@@ -360,7 +373,7 @@ export function ConversationView({
     let rafId: number | null = null;
 
     const performScroll = () => {
-      if (!userScrollingRef.current) {
+      if (!userScrolledAwayRef.current) {
         container.scrollTop = container.scrollHeight;
       }
       scrollPending = false;
@@ -396,7 +409,7 @@ export function ConversationView({
 
     if (promptChanged) {
       // New prompt submitted - force scroll to bottom after DOM updates
-      userScrollingRef.current = false;
+      userScrolledAwayRef.current = false;
 
       // Use multiple delayed attempts to ensure DOM is fully rendered
       setTimeout(() => scrollToBottomWithRetry(3), 50);
@@ -406,7 +419,7 @@ export function ConversationView({
     lastPromptRef.current = currentPrompt;
   }, [currentPrompt]);
 
-  // Detect user scroll to pause auto-scroll
+  // Detect user scroll to pause/resume auto-scroll
   useEffect(() => {
     const getScrollContainer = () => {
       const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
@@ -415,40 +428,44 @@ export function ConversationView({
     };
 
     const handleScroll = () => {
-      // Mark user as scrolling
-      userScrollingRef.current = true;
+      // Ignore programmatic scrolls (initiated by our code)
+      if (programmaticScrollRef.current) return;
 
-      // Clear previous timeout
-      if (userScrollTimeoutRef.current) {
-        clearTimeout(userScrollTimeoutRef.current);
+      // Update scroll position and check if user scrolled away
+      const container = getScrollContainer();
+      if (!container) return;
+
+      const newScrollTop = container.scrollTop;
+      const isScrollingUp = newScrollTop < lastScrollTopRef.current;
+
+      // User scrolled up and is now >200px from bottom
+      if (!isNearBottom()) {
+        userScrolledAwayRef.current = true;
+      } else {
+        // User is back near bottom - resume auto-scroll
+        userScrolledAwayRef.current = false;
       }
 
-      // Reset after user stops scrolling AND is near bottom
-      userScrollTimeoutRef.current = setTimeout(() => {
-        if (isNearBottom()) {
-          userScrollingRef.current = false;
-        }
-      }, 150);
+      lastScrollTopRef.current = newScrollTop;
     };
 
     const container = getScrollContainer();
     if (container) {
       container.addEventListener('scroll', handleScroll, { passive: true });
+      // Initialize last scroll position
+      lastScrollTopRef.current = container.scrollTop;
     }
 
     return () => {
       if (container) {
         container.removeEventListener('scroll', handleScroll);
       }
-      if (userScrollTimeoutRef.current) {
-        clearTimeout(userScrollTimeoutRef.current);
-      }
     };
   }, [isLoading]);
 
-  // Auto-scroll to bottom on new messages (only if user is near bottom and not manually scrolling)
+  // Auto-scroll to bottom on new messages (only if user is near bottom)
   useEffect(() => {
-    if (!userScrollingRef.current) {
+    if (!userScrolledAwayRef.current) {
       scrollToBottomIfNear();
     }
   }, [currentMessages, historicalTurns, isRunning]);

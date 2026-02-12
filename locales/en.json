@@ -204,7 +204,8 @@
     "deletions": "deletions",
     "noChangesToCommit": "No changes to commit",
     "noChanges": "No changes",
-    "enterCommitMessage": "Enter commit message"
+    "enterCommitMessage": "Enter commit message",
+    "staged": "Staged"
   },
   "settings": {
     "title": "Settings",

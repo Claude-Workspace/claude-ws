@@ -23,6 +23,66 @@ import {
 const log = createLogger('AnthropicProxy');
 const DEFAULT_ANTHROPIC_URL = 'https://api.anthropic.com';
 
+// Retry configuration from environment
+const RETRY_TIMES = parseInt(process.env.ANTHROPIC_API_RETRY_TIMES || '3', 10);
+const RETRY_DELAY_MS = parseInt(process.env.ANTHROPIC_API_RETRY_DELAY_MS || '10000', 10);
+
+/**
+ * Fetch with retry logic
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  attempt = 1
+): Promise<Response> {
+  log.info({ attempt, retryTimes: RETRY_TIMES, url }, `fetchWithRetry attempt ${attempt}/${RETRY_TIMES} to ${url}`);
+  try {
+    const response = await fetch(url, options);
+
+    // Retry on network errors or 5xx server errors
+    if (!response.ok && response.status >= 500 && attempt < RETRY_TIMES) {
+      log.warn(
+        { attempt, retryTimes: RETRY_TIMES, status: response.status, url },
+        `Anthropic API request failed (attempt ${attempt}/${RETRY_TIMES}), retrying in ${RETRY_DELAY_MS}ms...`
+      );
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return fetchWithRetry(url, options, attempt + 1);
+    }
+
+    // Log error when all retries exhausted for 5xx errors
+    if (!response.ok && response.status >= 500) {
+      log.error(
+        { attempt, retryTimes: RETRY_TIMES, status: response.status, statusText: response.statusText, url },
+        `Anthropic API request failed after ${RETRY_TIMES} attempts`
+      );
+    }
+
+    // 4xx errors should not be retried
+    if (!response.ok && response.status >= 400 && response.status < 500) {
+      return response;
+    }
+
+    return response;
+  } catch (error) {
+    // Network errors - retry if attempts remaining
+    if (attempt < RETRY_TIMES) {
+      log.warn(
+        { attempt, retryTimes: RETRY_TIMES, error, url },
+        `Anthropic API network error (attempt ${attempt}/${RETRY_TIMES}), retrying in ${RETRY_DELAY_MS}ms...`
+      );
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return fetchWithRetry(url, options, attempt + 1);
+    }
+
+    // Log error when all retries exhausted for network errors
+    log.error(
+      { attempt, retryTimes: RETRY_TIMES, error, url },
+      `Anthropic API network error after ${RETRY_TIMES} attempts`
+    );
+    throw error;
+  }
+}
+
 /**
  * Get the target URL for proxying requests
  */
@@ -37,6 +97,7 @@ async function proxyRequest(
   request: NextRequest,
   method: string
 ): Promise<Response> {
+  log.info('[AnthropicProxy] ===== proxyRequest called =====');
   const targetBase = getTargetBaseUrl();
 
   // Get the path after /api/proxy/anthropic
@@ -104,10 +165,10 @@ async function proxyRequest(
   }
 
   try {
-    log.trace({ targetUrl, requestBody: JSON.stringify(body) }, 'Start proxying request');
-    const response = await fetch(targetUrl, fetchOptions);
+    log.info({ targetUrl, hasBody: !!body }, 'Start proxying request');
+    const response = await fetchWithRetry(targetUrl, fetchOptions);
     const contentType = response.headers.get('content-type') || '';
-    log.trace({ targetUrl, responseBody: JSON.stringify(response) }, 'End proxying request');
+    log.info({ targetUrl, status: response.status }, 'End proxying request');
 
     if (!response.ok) {
       log.error({ targetUrl, status: response.status, statusText: response.statusText, requestBody: JSON.stringify(body), responseBody: JSON.stringify(await response.text()) }, 'Anthropic API error');

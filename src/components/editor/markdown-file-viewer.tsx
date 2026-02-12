@@ -1,12 +1,22 @@
 'use client';
 
-import { memo, useMemo, useState, useEffect, useCallback } from 'react';
+import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/claude/code-block';
 import { ExternalLink, FileText, Folder } from 'lucide-react';
-import { useFileSync } from '@/hooks/use-file-sync';
+
+// Simple hash function for content comparison
+function hashContent(content: string): number {
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+}
 
 interface MarkdownFileViewerProps {
   content: string;
@@ -212,7 +222,29 @@ function createMarkdownComponents(
   };
 }
 
+/**
+ * Cached Markdown Component
+ * Uses a key-based cache to prevent re-parsing when content hasn't changed
+ */
+const CachedMarkdown = memo(function CachedMarkdown({
+  content,
+  components,
+}: {
+  content: string;
+  components: ReturnType<typeof createMarkdownComponents>;
+}) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if content actually changed (use hash for comparison)
+  return hashContent(prevProps.content) === hashContent(nextProps.content);
+});
+
 // Memoized markdown viewer for file content
+// Custom comparison to avoid re-renders when only callback refs change
 export const MarkdownFileViewer = memo(function MarkdownFileViewer({
   content,
   className,
@@ -220,31 +252,6 @@ export const MarkdownFileViewer = memo(function MarkdownFileViewer({
   basePath,
   onLocalFileClick
 }: MarkdownFileViewerProps) {
-  // Internal state for content (allows silent updates)
-  const [internalContent, setInternalContent] = useState(content);
-
-  // Update internal content when prop changes (file switched)
-  useEffect(() => {
-    setInternalContent(content);
-  }, [content]);
-
-  // Silent update callback when file changes on disk
-  const handleSilentUpdate = useCallback((remoteContent: string) => {
-    setInternalContent(remoteContent);
-  }, []);
-
-  // File sync hook for polling remote changes
-  useFileSync({
-    filePath: currentFilePath ?? null,
-    basePath: basePath ?? null,
-    currentContent: internalContent,
-    originalContent: content,
-    pollInterval: 5000,
-    enabled: !!currentFilePath && !!basePath,
-    onSilentUpdate: handleSilentUpdate,
-    // No onRemoteChange callback - markdown viewer is read-only
-  });
-
   // Memoize markdown components to avoid recreating on every render
   const markdownComponents = useMemo(
     () => createMarkdownComponents(currentFilePath, onLocalFileClick),
@@ -254,10 +261,15 @@ export const MarkdownFileViewer = memo(function MarkdownFileViewer({
   return (
     <div className={cn('h-full overflow-auto', className)}>
       <div className="max-w-4xl mx-auto px-6 py-8 prose-sm">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-          {internalContent}
-        </ReactMarkdown>
+        <CachedMarkdown content={content} components={markdownComponents} />
       </div>
     </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if content or filePath changes
+  // Ignore changes to callback refs (onLocalFileClick) to avoid unnecessary re-renders
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.currentFilePath === nextProps.currentFilePath
   );
 });
