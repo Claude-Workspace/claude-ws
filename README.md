@@ -64,7 +64,6 @@ CLAUDE_PATH=/path/to/claude
 |----------|-------------|---------|
 | `PORT` | Server port | `8556` |
 | `API_ACCESS_KEY` | API authentication key | (empty) |
-| `CLAUDE_PATH` | Claude CLI path | Auto-detected |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error`, `silent` | `debug` (dev), `warn` (prod) |
 
 ---
@@ -72,12 +71,17 @@ CLAUDE_PATH=/path/to/claude
 ## Production (PM2)
 
 ```bash
-npm install -g pm2
-pnpm pm2:start    # Start server (auto-builds)
-pnpm pm2:logs     # View logs
-pnpm pm2:restart  # Restart
-pnpm pm2:stop     # Stop
+npm install claude-ws
 ```
+
+Go to a folder that you want to run you claude-ws instance
+Config your .env (if prefferred)
+Start claude-ws instance
+```bash
+claude-ws
+```
+
+You can use it with pm2 for auto startup with system starts.
 
 ---
 
