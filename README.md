@@ -65,6 +65,8 @@ CLAUDE_PATH=/path/to/claude
 | `PORT` | Server port | `8556` |
 | `API_ACCESS_KEY` | API authentication key | (empty) |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error`, `silent` | `debug` (dev), `warn` (prod) |
+| `ANTHROPIC_API_RETRY_TIMES` | Number of retry attempts for failed Anthropic API requests (5xx errors or network failures) | `3` |
+| `ANTHROPIC_API_RETRY_DELAY_MS` | Delay between retry attempts in milliseconds | `10000` |
 
 ---
 

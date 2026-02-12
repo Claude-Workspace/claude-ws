@@ -15,46 +15,45 @@ interface ResponseRendererProps {
 export function ResponseRenderer({ messages, className }: ResponseRendererProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const userScrollingRef = useRef(false);
-  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userScrolledAwayRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
   // Check if user is near bottom
   const isNearBottom = () => {
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
-    const threshold = 150;
+    const threshold = 100;
     return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
   };
 
-  // Detect user scroll to pause auto-scroll
+  // Detect user scroll to pause/resume auto-scroll
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return;
 
     const handleScroll = () => {
-      userScrollingRef.current = true;
-      if (userScrollTimeoutRef.current) {
-        clearTimeout(userScrollTimeoutRef.current);
+      // User scrolled away from bottom (>200px)
+      if (!isNearBottom()) {
+        userScrolledAwayRef.current = true;
+      } else {
+        // User is back near bottom - resume auto-scroll
+        userScrolledAwayRef.current = false;
       }
-      userScrollTimeoutRef.current = setTimeout(() => {
-        if (isNearBottom()) {
-          userScrollingRef.current = false;
-        }
-      }, 150);
+      lastScrollTopRef.current = viewport.scrollTop;
     };
 
     viewport.addEventListener('scroll', handleScroll, { passive: true });
+    // Initialize last scroll position
+    lastScrollTopRef.current = viewport.scrollTop;
+
     return () => {
       viewport.removeEventListener('scroll', handleScroll);
-      if (userScrollTimeoutRef.current) {
-        clearTimeout(userScrollTimeoutRef.current);
-      }
     };
   }, []);
 
-  // Auto-scroll to bottom on new messages (only if not manually scrolling)
+  // Auto-scroll to bottom on new messages (only if user is near bottom)
   useEffect(() => {
-    if (!userScrollingRef.current && isNearBottom()) {
+    if (!userScrolledAwayRef.current && isNearBottom()) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);

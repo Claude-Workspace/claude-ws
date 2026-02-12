@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
     }
 
     const ext = path.extname(fullPath).toLowerCase();
+    const mtimeMs = stats.mtimeMs; // Modified time in milliseconds
 
     // Check if binary
     if (BINARY_EXTENSIONS.includes(ext)) {
@@ -127,6 +128,7 @@ export async function GET(request: NextRequest) {
         size: stats.size,
         isBinary: true,
         mimeType: getMimeType(ext),
+        mtime: mtimeMs,
       });
     }
 
@@ -140,6 +142,7 @@ export async function GET(request: NextRequest) {
       size: stats.size,
       isBinary: false,
       mimeType: getMimeType(ext),
+      mtime: mtimeMs,
     });
   } catch (error) {
     console.error('Error reading file:', error);

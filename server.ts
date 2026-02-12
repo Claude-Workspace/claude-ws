@@ -31,6 +31,9 @@ import { checkpointManager } from './src/lib/checkpoint-manager';
 import { inlineEditManager } from './src/lib/inline-edit-manager';
 import { shellManager } from './src/lib/shell-manager';
 import { db, schema } from './src/lib/db';
+import { createLogger } from './src/lib/logger';
+
+const log = createLogger('Server');
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { AttemptStatus } from './src/types';
@@ -91,7 +94,7 @@ app.prepare().then(async () => {
     }
   }
 
-  console.log(`[Server] Restored ${shellManager.runningCount} running shells`);
+  log.info(`[Server] Restored ${shellManager.runningCount} running shells`);
 
   // Initialize Socket.io
   const io = new SocketIOServer(httpServer, {
@@ -105,7 +108,7 @@ app.prepare().then(async () => {
 
   // Socket.io connection handler
   io.on('connection', (socket) => {
-    console.log(`Client connected: ${socket.id}`);
+    log.info(`Client connected: ${socket.id}`);
 
     // Start new attempt
     socket.on(
@@ -139,7 +142,7 @@ app.prepare().then(async () => {
           model
         } = data;
 
-        console.log('[Socket] attempt:start received:', {
+        log.info('[Socket] attempt:start received:', {
           taskId,
           prompt,
           force_create,
@@ -158,7 +161,7 @@ app.prepare().then(async () => {
 
           // Handle force_create logic
           if (force_create && !task) {
-            console.log('[Socket] Task not found, force_create=true');
+            log.info('[Socket] Task not found, force_create=true');
 
             if (!projectId) {
               socket.emit('error', { message: 'projectId required' });
@@ -170,15 +173,15 @@ app.prepare().then(async () => {
               where: eq(schema.projects.id, projectId),
             });
 
-            console.log('[Socket] Project exists?', !!project);
+            log.info('[Socket] Project exists?', !!project);
 
             // Create project if it doesn't exist
             if (!project) {
-              console.log('[Socket] Project does not exist, checking projectName...');
-              console.log('[Socket] projectName value:', projectName);
+              log.info('[Socket] Project does not exist, checking projectName...');
+              log.info('[Socket] projectName value:', projectName);
 
               if (!projectName || projectName.trim() === '') {
-                console.log('[Socket] Project name required but not provided');
+                log.info('[Socket] Project name required but not provided');
                 socket.emit('error', { message: 'projectName required' });
                 return;
               }
@@ -194,10 +197,10 @@ app.prepare().then(async () => {
 
               try {
                 await mkdir(projectPath, { recursive: true });
-                console.log('[Socket] Created project directory:', projectPath);
+                log.info('[Socket] Created project directory:', projectPath);
               } catch (mkdirError: any) {
                 if (mkdirError?.code !== 'EEXIST') {
-                  console.error('[Socket] Failed to create project folder:', mkdirError);
+                  log.error('[Socket] Failed to create project folder:', mkdirError);
                   socket.emit('error', { message: 'Failed to create project folder: ' + mkdirError.message });
                   return;
                 }
@@ -210,9 +213,9 @@ app.prepare().then(async () => {
                   path: projectPath,
                   createdAt: Date.now(),
                 });
-                console.log('[Socket] Created project:', projectId);
+                log.info('[Socket] Created project:', projectId);
               } catch (error) {
-                console.error('[Socket] Failed to create project:', error);
+                log.error('[Socket] Failed to create project:', error);
                 socket.emit('error', { message: 'Failed to create project' });
                 return;
               }
@@ -225,7 +228,7 @@ app.prepare().then(async () => {
 
             // Check taskTitle
             if (!taskTitle || taskTitle.trim() === '') {
-              console.log('[Socket] Task title required but not provided');
+              log.info('[Socket] Task title required but not provided');
               socket.emit('error', { message: 'taskTitle required' });
               return;
             }
@@ -262,14 +265,14 @@ app.prepare().then(async () => {
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               });
-              console.log('[Socket] Created task:', taskId);
+              log.info('[Socket] Created task:', taskId);
 
               // Fetch the created task
               task = await db.query.tasks.findFirst({
                 where: eq(schema.tasks.id, taskId),
               });
             } catch (error) {
-              console.error('[Socket] Failed to create task:', error);
+              log.error('[Socket] Failed to create task:', error);
               socket.emit('error', { message: 'Failed to create task' });
               return;
             }
@@ -310,10 +313,10 @@ app.prepare().then(async () => {
           // Process file attachments if any
           let filePaths: string[] = [];
           if (fileIds.length > 0) {
-            console.log(`[Server] Processing ${fileIds.length} file attachments for attempt ${attemptId}`);
+            log.info(`[Server] Processing ${fileIds.length} file attachments for attempt ${attemptId}`);
             const processedFiles = await processAttachments(attemptId, fileIds);
             filePaths = processedFiles.map(f => f.absolutePath);
-            console.log(`[Server] Processed ${processedFiles.length} files`);
+            log.info(`[Server] Processed ${processedFiles.length} files`);
           }
 
           // Update task status to in_progress if it was todo
@@ -345,13 +348,13 @@ app.prepare().then(async () => {
             : sessionOptions.resume
               ? `resuming session ${sessionOptions.resume}`
               : 'new session';
-          console.log(`[Server] Started attempt ${attemptId} (${sessionMode})${filePaths.length > 0 ? ` with ${filePaths.length} files` : ''}`);
+          log.info(`[Server] Started attempt ${attemptId} (${sessionMode})${filePaths.length > 0 ? ` with ${filePaths.length} files` : ''}`);
 
           socket.emit('attempt:started', { attemptId, taskId, outputFormat, outputSchema });
           // Global event for all clients to track running tasks
           io.emit('task:started', { taskId });
         } catch (error) {
-          console.error('Error starting attempt:', error);
+          log.error('Error starting attempt:', error);
           socket.emit('error', {
             message: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -396,7 +399,7 @@ app.prepare().then(async () => {
 
     // Subscribe to attempt logs
     socket.on('attempt:subscribe', (data: { attemptId: string }) => {
-      console.log(`[Server] Socket ${socket.id} subscribing to attempt:${data.attemptId}`);
+      log.info(`[Server] Socket ${socket.id} subscribing to attempt:${data.attemptId}`);
       socket.join(`attempt:${data.attemptId}`);
     });
 
@@ -410,21 +413,21 @@ app.prepare().then(async () => {
       'question:answer',
       async (data: { attemptId: string; questions: unknown[]; answers: Record<string, string> }) => {
         const { attemptId, questions, answers } = data;
-        console.log(`[Server] Received answer for ${attemptId}:`, answers);
+        log.info(`[Server] Received answer for ${attemptId}:`, answers);
 
         // Check if there's a pending question (canUseTool callback waiting)
         if (agentManager.hasPendingQuestion(attemptId)) {
           // Resolve the pending Promise - SDK will resume streaming
           const success = agentManager.answerQuestion(attemptId, questions, answers);
           if (success) {
-            console.log(`[Server] Resumed streaming for ${attemptId}`);
+            log.info(`[Server] Resumed streaming for ${attemptId}`);
           } else {
-            console.error(`[Server] Failed to answer question for ${attemptId}`);
+            log.error(`[Server] Failed to answer question for ${attemptId}`);
             socket.emit('error', { message: 'Failed to answer question' });
           }
         } else {
           // Fallback: No pending question (legacy behavior or reconnection)
-          console.warn(`[Server] No pending question for ${attemptId}, attempting legacy flow`);
+          log.warn(`[Server] No pending question for ${attemptId}, attempting legacy flow`);
           socket.emit('error', { message: 'No pending question found' });
         }
       }
@@ -435,11 +438,11 @@ app.prepare().then(async () => {
       'question:cancel',
       async (data: { attemptId: string }) => {
         const { attemptId } = data;
-        console.log(`[Server] Cancelling question for ${attemptId}`);
+        log.info(`[Server] Cancelling question for ${attemptId}`);
 
         if (agentManager.hasPendingQuestion(attemptId)) {
           agentManager.cancelQuestion(attemptId);
-          console.log(`[Server] Question cancelled for ${attemptId}`);
+          log.info(`[Server] Question cancelled for ${attemptId}`);
         }
       }
     );
@@ -450,7 +453,7 @@ app.prepare().then(async () => {
 
     // Subscribe to inline edit session (with acknowledgment)
     socket.on('inline-edit:subscribe', (data: { sessionId: string }, ack?: (ok: boolean) => void) => {
-      console.log(`[Server] Socket ${socket.id} subscribing to inline-edit:${data.sessionId}`);
+      log.info(`[Server] Socket ${socket.id} subscribing to inline-edit:${data.sessionId}`);
       socket.join(`inline-edit:${data.sessionId}`);
       // Send acknowledgment that subscription is complete
       if (ack) ack(true);
@@ -465,7 +468,7 @@ app.prepare().then(async () => {
       selectedCode: string;
       instruction: string;
     }, ack?: (result: { success: boolean; error?: string }) => void) => {
-      console.log(`[Server] Starting inline edit session ${data.sessionId}`);
+      log.info(`[Server] Starting inline edit session ${data.sessionId}`);
       try {
         await inlineEditManager.startEdit({
           sessionId: data.sessionId,
@@ -478,14 +481,14 @@ app.prepare().then(async () => {
         if (ack) ack({ success: true });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to start edit';
-        console.error(`[Server] Inline edit start error:`, errorMsg);
+        log.error(`[Server] Inline edit start error:`, errorMsg);
         if (ack) ack({ success: false, error: errorMsg });
       }
     });
 
     // Cancel inline edit session
     socket.on('inline-edit:cancel', (data: { sessionId: string }) => {
-      console.log(`[Server] Cancelling inline edit session ${data.sessionId}`);
+      log.info(`[Server] Cancelling inline edit session ${data.sessionId}`);
       inlineEditManager.cancelEdit(data.sessionId);
     });
 
@@ -495,7 +498,7 @@ app.prepare().then(async () => {
 
     // Subscribe to shell events for a project
     socket.on('shell:subscribe', (data: { projectId: string }) => {
-      console.log(`[Server] Socket ${socket.id} subscribing to shell:project:${data.projectId}`);
+      log.info(`[Server] Socket ${socket.id} subscribing to shell:project:${data.projectId}`);
       socket.join(`shell:project:${data.projectId}`);
     });
 
@@ -506,7 +509,7 @@ app.prepare().then(async () => {
 
     // Stop a running shell
     socket.on('shell:stop', async (data: { shellId: string }, ack?: (result: { success: boolean; error?: string }) => void) => {
-      console.log(`[Server] Stopping shell ${data.shellId}`);
+      log.info(`[Server] Stopping shell ${data.shellId}`);
       try {
         const success = shellManager.stop(data.shellId);
         if (success) {
@@ -518,7 +521,7 @@ app.prepare().then(async () => {
         if (ack) ack({ success });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to stop shell';
-        console.error(`[Server] Shell stop error:`, errorMsg);
+        log.error(`[Server] Shell stop error:`, errorMsg);
         if (ack) ack({ success: false, error: errorMsg });
       }
     });
@@ -533,20 +536,20 @@ app.prepare().then(async () => {
         if (ack) ack({ logs });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to get logs';
-        console.error(`[Server] Shell getLogs error:`, errorMsg);
+        log.error(`[Server] Shell getLogs error:`, errorMsg);
         if (ack) ack({ logs: [], error: errorMsg });
       }
     });
 
     socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      log.info(`Client disconnected: ${socket.id}`);
     });
   });
 
   // ========================================
   // Inline Edit Manager Event Handlers
   // ========================================
-  console.log('[Server] Setting up inlineEditManager event handlers, instance ID:', (inlineEditManager as unknown as { _id?: string })._id);
+  log.info('[Server] Setting up inlineEditManager event handlers, instance ID:', (inlineEditManager as unknown as { _id?: string })._id);
 
   // Forward inline edit deltas to subscribers
   inlineEditManager.on('delta', ({ sessionId, chunk }) => {
@@ -557,13 +560,13 @@ app.prepare().then(async () => {
   inlineEditManager.on('complete', ({ sessionId, code, diff }) => {
     const room = `inline-edit:${sessionId}`;
     const sockets = io.sockets.adapter.rooms.get(room);
-    console.log(`[Server] Inline edit ${sessionId} completed, ${code.length} chars, room ${room} has ${sockets?.size || 0} sockets`);
+    log.info(`[Server] Inline edit ${sessionId} completed, ${code.length} chars, room ${room} has ${sockets?.size || 0} sockets`);
     io.to(room).emit('inline-edit:complete', { sessionId, code, diff });
   });
 
   // Forward inline edit errors to subscribers
   inlineEditManager.on('error', ({ sessionId, error }) => {
-    console.error(`[Server] Inline edit ${sessionId} error:`, error);
+    log.error(`[Server] Inline edit ${sessionId} error:`, error);
     io.to(`inline-edit:${sessionId}`).emit('inline-edit:error', { sessionId, error });
   });
 
@@ -573,7 +576,7 @@ app.prepare().then(async () => {
 
   // Forward shell started events
   shellManager.on('started', ({ shellId, projectId, pid, command }) => {
-    console.log(`[Server] Shell ${shellId} started with PID ${pid}`);
+    log.info(`[Server] Shell ${shellId} started with PID ${pid}`);
     io.to(`shell:project:${projectId}`).emit('shell:started', { shellId, projectId, pid, command });
   });
 
@@ -584,7 +587,7 @@ app.prepare().then(async () => {
 
   // Forward shell exit events
   shellManager.on('exit', async ({ shellId, projectId, code, signal }) => {
-    console.log(`[Server] Shell ${shellId} exited with code ${code}, signal ${signal}`);
+    log.info(`[Server] Shell ${shellId} exited with code ${code}, signal ${signal}`);
     io.to(`shell:project:${projectId}`).emit('shell:exit', { shellId, projectId, code, signal });
 
     // Update database
@@ -598,13 +601,13 @@ app.prepare().then(async () => {
         })
         .where(eq(schema.shells.id, shellId));
     } catch (error) {
-      console.error(`[Server] Failed to update shell ${shellId} in database:`, error);
+      log.error(`[Server] Failed to update shell ${shellId} in database:`, error);
     }
   });
 
   // Forward AgentManager events to WebSocket clients
   agentManager.on('started', ({ attemptId, taskId }) => {
-    console.log(`[Server] Agent started for attempt ${attemptId}, task ${taskId}`);
+    log.info(`[Server] Agent started for attempt ${attemptId}, task ${taskId}`);
     // Emit to all clients so they can subscribe if they're viewing this task
     io.emit('attempt:started', { attemptId, taskId });
   });
@@ -627,14 +630,14 @@ app.prepare().then(async () => {
     const room = io.sockets.adapter.rooms.get(`attempt:${attemptId}`);
     const clientCount = room ? room.size : 0;
     if (!isStreamingDelta) {
-      console.log(`[Server] Emitting output:json to attempt:${attemptId} (${clientCount} clients in room)`, data.type);
+      log.info(`[Server] Emitting output:json to attempt:${attemptId} (${clientCount} clients in room)`, data.type);
     }
 
     // TRANSFORM RESULT DATA
     let outputData: any = data;
     if (data.type === 'result') {
       // Log raw result to debug
-      console.log('[Server] Raw Result Data:', JSON.stringify(data, null, 2));
+      log.info('[Server] Raw Result Data:', JSON.stringify(data, null, 2));
 
       // Cast to any to inspect loose structure
       const resultData = data as any;
@@ -697,7 +700,7 @@ app.prepare().then(async () => {
 
   // Handle AskUserQuestion detection from AgentManager
   agentManager.on('question', ({ attemptId, toolUseId, questions }) => {
-    console.log(`[Server] AskUserQuestion detected for ${attemptId}`, {
+    log.info(`[Server] AskUserQuestion detected for ${attemptId}`, {
       toolUseId,
       questionCount: questions?.length,
       questions: questions?.map((q: any) => ({ header: q.header, question: q.question?.substring(0, 50) }))
@@ -707,7 +710,7 @@ app.prepare().then(async () => {
       toolUseId,
       questions,
     });
-    console.log(`[Server] Emitted question:ask to attempt:${attemptId}`);
+    log.info(`[Server] Emitted question:ask to attempt:${attemptId}`);
   });
 
   // Handle background shell detection from AgentManager (Bash with run_in_background=true)
@@ -715,7 +718,7 @@ app.prepare().then(async () => {
   // We spawn our own detached shell that survives.
   // The command should kill existing processes first to avoid port conflicts.
   agentManager.on('backgroundShell', async ({ attemptId, shell }) => {
-    console.log(`[Server] Background shell detected for ${attemptId}: ${shell.command}`);
+    log.info(`[Server] Background shell detected for ${attemptId}: ${shell.command}`);
 
     try {
       const attempt = await db.query.attempts.findFirst({
@@ -738,7 +741,7 @@ app.prepare().then(async () => {
       const portMatch = shell.originalCommand?.match(/lsof\s+-ti\s+:(\d+)/);
       if (portMatch) {
         const port = portMatch[1];
-        console.log(`[Server] Waiting 6.6s for process to bind to port ${port}...`);
+        log.info(`[Server] Waiting 6.6s for process to bind to port ${port}...`);
         await new Promise(resolve => setTimeout(resolve, 6666));
         try {
           const { execSync } = require('child_process');
@@ -747,7 +750,7 @@ app.prepare().then(async () => {
             const pid = parseInt(pidOutput.split('\n')[0], 10);
             if (pid) {
               // Track existing process instead of respawning
-              console.log(`[Server] Found existing process on port ${port}: PID ${pid}`);
+              log.info(`[Server] Found existing process on port ${port}: PID ${pid}`);
               const shellId = shellManager.trackExternalProcess({
                 projectId: project.id,
                 attemptId,
@@ -766,7 +769,7 @@ app.prepare().then(async () => {
                   pid,
                   status: 'running',
                 });
-                console.log(`[Server] Tracking external process ${shellId} (PID ${pid})`);
+                log.info(`[Server] Tracking external process ${shellId} (PID ${pid})`);
                 return;
               }
             }
@@ -795,16 +798,16 @@ app.prepare().then(async () => {
         status: 'running',
       });
 
-      console.log(`[Server] Spawned background shell ${shellId} for project ${project.id}`);
+      log.info(`[Server] Spawned background shell ${shellId} for project ${project.id}`);
     } catch (error) {
-      console.error(`[Server] Failed to spawn background shell:`, error);
+      log.error(`[Server] Failed to spawn background shell:`, error);
     }
   });
 
   // Handle tracked process from BGPID pattern in bash output
   // Track existing process instead of kill-and-respawn to avoid port conflicts
   agentManager.on('trackedProcess', async ({ attemptId, pid, command, logFile: eventLogFile }) => {
-    console.log(`[Server] Tracked process detected for ${attemptId}: PID ${pid}`);
+    log.info(`[Server] Tracked process detected for ${attemptId}: PID ${pid}`);
 
     try {
       const attempt = await db.query.attempts.findFirst({
@@ -812,7 +815,7 @@ app.prepare().then(async () => {
       });
 
       if (!attempt) {
-        console.error(`[Server] Cannot track process: attempt not found`);
+        log.error(`[Server] Cannot track process: attempt not found`);
         return;
       }
 
@@ -821,7 +824,7 @@ app.prepare().then(async () => {
       });
 
       if (!task) {
-        console.error(`[Server] Cannot track process: task not found`);
+        log.error(`[Server] Cannot track process: task not found`);
         return;
       }
 
@@ -830,7 +833,7 @@ app.prepare().then(async () => {
       });
 
       if (!project) {
-        console.error(`[Server] Cannot track process: project not found`);
+        log.error(`[Server] Cannot track process: project not found`);
         return;
       }
 
@@ -842,7 +845,7 @@ app.prepare().then(async () => {
         actualCommand = nohupMatch[1].trim();
         logFile = logFile || nohupMatch[2];
       }
-      console.log(`[Server] Extracted command: ${actualCommand}, logFile: ${logFile}`);
+      log.info(`[Server] Extracted command: ${actualCommand}, logFile: ${logFile}`);
 
       // Track existing process via ShellManager (no kill-and-respawn)
       const shellId = shellManager.trackExternalProcess({
@@ -855,7 +858,7 @@ app.prepare().then(async () => {
       });
 
       if (!shellId) {
-        console.error(`[Server] Failed to track process: PID ${pid} not alive`);
+        log.error(`[Server] Failed to track process: PID ${pid} not alive`);
         return;
       }
 
@@ -870,9 +873,9 @@ app.prepare().then(async () => {
         status: 'running',
       });
 
-      console.log(`[Server] Tracking external process ${shellId} (PID ${pid}) for project ${project.id}`);
+      log.info(`[Server] Tracking external process ${shellId} (PID ${pid}) for project ${project.id}`);
     } catch (error) {
-      console.error(`[Server] Failed to track process:`, error);
+      log.error(`[Server] Failed to track process:`, error);
     }
   });
 
@@ -884,7 +887,7 @@ app.prepare().then(async () => {
     });
 
     if (!attempt) {
-      console.error(`[Server] Attempt ${attemptId} not found`);
+      log.error(`[Server] Attempt ${attemptId} not found`);
       return;
     }
 
@@ -940,7 +943,7 @@ app.prepare().then(async () => {
         // This prevents re-rewinding on subsequent attempts
         if (await sessionManager.hasPendingRewind(attempt.taskId)) {
           await sessionManager.clearRewindState(attempt.taskId);
-          console.log(`[Server] Cleared rewind state for task ${attempt.taskId}`);
+          log.info(`[Server] Cleared rewind state for task ${attempt.taskId}`);
         }
 
         const sessionId = await sessionManager.getSessionId(attemptId);
@@ -964,24 +967,24 @@ app.prepare().then(async () => {
           );
         }
       } catch (error) {
-        console.error(`[Server] Failed to create checkpoint for ${attemptId}:`, error);
+        log.error(`[Server] Failed to create checkpoint for ${attemptId}:`, error);
       }
     } else if (attempt) {
       // Clear checkpoint tracking on failure
       checkpointManager.clearAttemptCheckpoint(attemptId);
 
       // Log session clearing for debugging
-      console.log(`[Server] Attempt ${attemptId} failed - session_id cleared to prevent resume from corrupted session`);
+      log.info(`[Server] Attempt ${attemptId} failed - session_id cleared to prevent resume from corrupted session`);
 
       // Clear rewind state on failure too - stale sessions cause API errors
       // This allows next attempt to start fresh instead of repeating failure
       if (await sessionManager.hasPendingRewind(attempt.taskId)) {
         await sessionManager.clearRewindState(attempt.taskId);
-        console.log(`[Server] Cleared stale rewind state for task ${attempt.taskId} after failure`);
+        log.info(`[Server] Cleared stale rewind state for task ${attempt.taskId} after failure`);
       }
     }
 
-    console.log(`[Server] Emitting attempt:finished for ${attemptId} with status ${status}`);
+    log.info(`[Server] Emitting attempt:finished for ${attemptId} with status ${status}`);
     io.to(`attempt:${attemptId}`).emit('attempt:finished', {
       attemptId,
       status,
@@ -991,7 +994,7 @@ app.prepare().then(async () => {
     // Emit git stats if available
     const gitStats = gitStatsCache.get(attemptId);
     if (gitStats) {
-      console.log(`[Server] Emitting status:git for ${attemptId}: +${gitStats.additions} -${gitStats.deletions}`);
+      log.info(`[Server] Emitting status:git for ${attemptId}: +${gitStats.additions} -${gitStats.deletions}`);
       io.to(`attempt:${attemptId}`).emit('status:git', {
         attemptId,
         stats: gitStats,
@@ -1007,7 +1010,7 @@ app.prepare().then(async () => {
   // Forward tracking module events to Socket.io clients
   // Usage tracking (tokens, costs, model usage)
   usageTracker.on('usage-update', ({ attemptId, usage }) => {
-    console.log(`[Server] Emitting status:usage for ${attemptId}:`, usage.totalTokens, 'tokens');
+    log.info(`[Server] Emitting status:usage for ${attemptId}:`, usage.totalTokens, 'tokens');
     io.to(`attempt:${attemptId}`).emit('status:usage', {
       attemptId,
       usage,
@@ -1018,7 +1021,7 @@ app.prepare().then(async () => {
   workflowTracker.on('workflow-update', ({ attemptId, workflow }) => {
     const summary = workflowTracker.getWorkflowSummary(attemptId);
     if (summary) {
-      console.log(`[Server] Emitting status:workflow for ${attemptId}:`, summary.chain);
+      log.info(`[Server] Emitting status:workflow for ${attemptId}:`, summary.chain);
       io.to(`attempt:${attemptId}`).emit('status:workflow', {
         attemptId,
         workflow: summary,
@@ -1057,26 +1060,26 @@ app.prepare().then(async () => {
   });
 
   tunnelService.on('connected', ({ url }) => {
-    console.log(`[Server] Tunnel connected: ${url}`);
+    log.info(`[Server] Tunnel connected: ${url}`);
     io.emit('tunnel:connected', { url });
   });
 
   tunnelService.on('error', ({ error }) => {
-    console.error(`[Server] Tunnel error: ${error}`);
+    log.error(`[Server] Tunnel error: ${error}`);
     io.emit('tunnel:error', { error });
   });
 
   tunnelService.on('closed', () => {
-    console.log('[Server] Tunnel closed');
+    log.info('[Server] Tunnel closed');
     io.emit('tunnel:closed');
   });
 
   httpServer.listen(port, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
+    log.info(`> Ready on http://${hostname}:${port}`);
 
     // Try to auto-reconnect tunnel after server is ready
     tunnelService.tryAutoReconnect().catch((err) => {
-      console.error('[Server] Failed to auto-reconnect tunnel:', err);
+      log.error('[Server] Failed to auto-reconnect tunnel:', err);
     });
 
     // Log cache stats every 5 minutes for monitoring
@@ -1087,30 +1090,30 @@ app.prepare().then(async () => {
 
   // Graceful shutdown handler
   const shutdown = async (signal: string) => {
-    console.log(`\n> ${signal} received, shutting down gracefully...`);
+    log.info(`\n> ${signal} received, shutting down gracefully...`);
 
     // Stop tunnel
     await tunnelService.stop();
-    console.log('> Tunnel stopped');
+    log.info('> Tunnel stopped');
 
     // Cancel all Claude agents first
     agentManager.cancelAll();
-    console.log('> Cancelled all Claude agents');
+    log.info('> Cancelled all Claude agents');
 
     // Close all socket connections
     io.close(() => {
-      console.log('> Socket.io closed');
+      log.info('> Socket.io closed');
     });
 
     // Close HTTP server
     httpServer.close(() => {
-      console.log('> HTTP server closed');
+      log.info('> HTTP server closed');
       process.exit(0);
     });
 
     // Force exit after 5 seconds if graceful shutdown fails
     setTimeout(() => {
-      console.error('> Forced exit after timeout');
+      log.error('> Forced exit after timeout');
       process.exit(1);
     }, 5000);
   };
