@@ -12,6 +12,28 @@ import { cn } from '@/lib/utils';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.filePreview;
 
+// Trim filename in middle if too long (keep 10 from start, 5 before extension)
+function trimFileName(fileName: string, maxLength = 25): string {
+  if (fileName.length <= maxLength) return fileName;
+
+  // Find last dot for extension
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    // No extension, keep 10 from start and 5 from end
+    return `${fileName.slice(0, 10)}...${fileName.slice(-5)}`;
+  }
+
+  const extension = fileName.slice(lastDotIndex); // .ext
+  const nameWithoutExt = fileName.slice(0, lastDotIndex);
+
+  // Keep 10 from start, 5 from end of name (before extension)
+  if (nameWithoutExt.length <= 15) {
+    return fileName; // Too short to trim meaningfully
+  }
+
+  return `${nameWithoutExt.slice(0, 10)}...${nameWithoutExt.slice(-5)}${extension}`;
+}
+
 export function FileTabsPanel() {
   const {
     openTabs,
@@ -107,7 +129,7 @@ export function FileTabsPanel() {
                     'text-sm whitespace-nowrap',
                     isActive ? 'text-foreground' : 'text-muted-foreground'
                   )}>
-                    {fileName}
+                    {trimFileName(fileName)}
                   </span>
                   {tab.isDirty && (
                     <span className="text-amber-500 text-lg leading-none shrink-0">•</span>
