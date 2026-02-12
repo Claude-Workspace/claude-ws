@@ -115,14 +115,14 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           navigateToTab(questions.length - 1);
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          if (selectedIndex === 0) {
+          if (selectedIndex === 0 && answeredCount > 0) {
             onAnswer(answers);
           } else if (selectedIndex === 1) {
             onCancel();
           }
         } else if (e.key === '1') {
           e.preventDefault();
-          onAnswer(answers);
+          if (answeredCount > 0) onAnswer(answers);
         } else if (e.key === '2') {
           e.preventDefault();
           onCancel();
@@ -395,18 +395,19 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           {/* Submit / Cancel options */}
           <div className="space-y-1">
             <button
-              onClick={() => onAnswer(answers)}
+              onClick={() => { if (answeredCount > 0) onAnswer(answers); }}
               className={cn(
                 'w-full flex items-start gap-3 px-4 py-2 text-left transition-colors',
                 'hover:bg-muted/50',
-                selectedIndex === 0 && 'bg-muted/30'
+                selectedIndex === 0 && 'bg-muted/30',
+                answeredCount === 0 && 'opacity-50'
               )}
             >
               <span className="shrink-0 w-4 text-primary font-bold">
                 {selectedIndex === 0 ? '›' : ' '}
               </span>
               <span className="shrink-0 text-sm text-muted-foreground">1.</span>
-              <span className="text-sm font-medium">Submit answers</span>
+              <span className="text-sm font-medium">Submit answers{answeredCount > 0 ? ` (${answeredCount}/${questions.length})` : ''}</span>
             </button>
             <button
               onClick={() => onCancel()}
