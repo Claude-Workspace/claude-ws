@@ -34,6 +34,7 @@ interface TaskStore {
   createTask: (projectId: string, title: string, description: string | null) => Promise<Task>;
   reorderTasks: (taskId: string, newStatus: TaskStatus, newPosition: number) => Promise<void>;
   updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
+  renameTask: (taskId: string, title: string) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -294,6 +295,39 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       if (selected?.id === taskId && task) {
         set({ selectedTask: { ...selected, status: task.status, position: task.position } });
       }
+    }
+  },
+
+  renameTask: async (taskId: string, title: string) => {
+    const oldTasks = get().tasks;
+    const task = oldTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic update
+    get().updateTask(taskId, { title });
+
+    // Update selectedTask if it's the same task
+    const selected = get().selectedTask;
+    if (selected?.id === taskId) {
+      set({ selectedTask: { ...selected, title } });
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error('Failed to rename task');
+    } catch (error) {
+      // Revert on failure
+      get().updateTask(taskId, { title: task.title });
+      const selected = get().selectedTask;
+      if (selected?.id === taskId) {
+        set({ selectedTask: { ...selected, title: task.title } });
+      }
+      log.error({ error, taskId }, 'Error renaming task');
+      throw error;
     }
   },
 

@@ -42,7 +42,7 @@ interface FloatingChatWindowProps {
 export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus }: FloatingChatWindowProps) {
   const t = useTranslations('chat');
   const tk = useTranslations('kanban');
-  const { updateTaskStatus, setTaskChatInit, moveTaskToInProgress, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask } = useTaskStore();
+  const { updateTaskStatus, setTaskChatInit, moveTaskToInProgress, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, renameTask } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
   const { shells } = useShellStore();
@@ -54,8 +54,11 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [shellPanelExpanded, setShellPanelExpanded] = useState(false);
   const [showQuestionPrompt, setShowQuestionPrompt] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   const promptInputRef = useRef<PromptInputRef>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const lastCompletedTaskRef = useRef<string | null>(null);
   const hasAutoStartedRef = useRef(false);
 
@@ -161,6 +164,29 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     startAttempt(task.id, prompt, displayPrompt, fileIds, getTaskModel(task.id, task.lastModel));
   };
 
+  const handleStartEditTitle = () => {
+    setEditTitleValue(task.title);
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const handleSaveTitle = async () => {
+    const trimmed = editTitleValue.trim();
+    if (trimmed && trimmed !== task.title) {
+      try {
+        await renameTask(task.id, trimmed);
+      } catch {
+        // Store reverts on failure
+      }
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditingTitle(false);
+    setEditTitleValue('');
+  };
+
   const renderConversation = () => (
     <div className="flex-1 overflow-hidden min-w-0 relative z-0">
       <ConversationView
@@ -185,6 +211,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
           <div className="border-t bg-muted/30">
             {activeQuestion ? (
               <QuestionPrompt
+                key={activeQuestion.toolUseId}
                 questions={activeQuestion.questions}
                 onAnswer={(answers) => {
                   if (task.status !== 'in_progress') {
@@ -247,7 +274,38 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
       initialSize={{ width: 500, height: 600 }}
       footer={renderFooter()}
       storageKey={`chat-${task.id}`}
-      titleCenter={task.title}
+      titleCenter={
+        isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            data-no-drag
+            value={editTitleValue}
+            onChange={(e) => setEditTitleValue(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSaveTitle();
+              } else if (e.key === 'Escape') {
+                handleCancelEditTitle();
+              }
+            }}
+            className="text-sm font-medium w-full bg-transparent border-b border-primary/50 outline-none text-center"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span
+            className="line-clamp-2 cursor-text"
+            onDoubleClick={(e) => { e.stopPropagation(); handleStartEditTitle(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            data-no-drag
+          >
+            {task.title}
+          </span>
+        )
+      }
       zIndex={zIndex}
       onFocus={onFocus}
       title={

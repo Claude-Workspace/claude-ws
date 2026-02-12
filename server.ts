@@ -411,14 +411,14 @@ app.prepare().then(async () => {
     // Handle AskUserQuestion response - resolve pending canUseTool callback
     socket.on(
       'question:answer',
-      async (data: { attemptId: string; questions: unknown[]; answers: Record<string, string> }) => {
-        const { attemptId, questions, answers } = data;
+      async (data: { attemptId: string; toolUseId?: string; questions: unknown[]; answers: Record<string, string> }) => {
+        const { attemptId, toolUseId, questions, answers } = data;
         log.info(`[Server] Received answer for ${attemptId}:`, answers);
 
         // Check if there's a pending question (canUseTool callback waiting)
         if (agentManager.hasPendingQuestion(attemptId)) {
           // Resolve the pending Promise - SDK will resume streaming
-          const success = agentManager.answerQuestion(attemptId, questions, answers);
+          const success = agentManager.answerQuestion(attemptId, toolUseId, questions, answers);
           if (success) {
             log.info(`[Server] Resumed streaming for ${attemptId}`);
           } else {
@@ -426,9 +426,82 @@ app.prepare().then(async () => {
             socket.emit('error', { message: 'Failed to answer question' });
           }
         } else {
-          // Fallback: No pending question (legacy behavior or reconnection)
+          // No pending question - agent likely crashed or server restarted
+          // Auto-retry by creating a new attempt with the user's answer as the prompt
           log.warn(`[Server] No pending question for ${attemptId}, attempting legacy flow`);
-          socket.emit('error', { message: 'No pending question found' });
+
+          try {
+            // Look up the attempt to get taskId
+            const attempt = await db.query.attempts.findFirst({
+              where: eq(schema.attempts.id, attemptId),
+            });
+
+            if (!attempt) {
+              socket.emit('error', { message: 'Attempt not found for auto-retry' });
+              return;
+            }
+
+            // Look up the task to get projectId
+            const task = await db.query.tasks.findFirst({
+              where: eq(schema.tasks.id, attempt.taskId),
+            });
+
+            if (!task) {
+              socket.emit('error', { message: 'Task not found for auto-retry' });
+              return;
+            }
+
+            // Look up the project to get path
+            const project = await db.query.projects.findFirst({
+              where: eq(schema.projects.id, task.projectId),
+            });
+
+            if (!project) {
+              socket.emit('error', { message: 'Project not found for auto-retry' });
+              return;
+            }
+
+            // Get session options for conversation continuation
+            const sessionOptions = await sessionManager.getSessionOptionsWithAutoFix(attempt.taskId);
+
+            // If no resume session is available, we can't auto-retry
+            if (!sessionOptions.resume && !sessionOptions.resumeSessionAt) {
+              socket.emit('error', { message: 'No session available to resume - cannot auto-retry' });
+              return;
+            }
+
+            // Format the answer as a prompt string
+            const answerPrompt = `The user answered the previous question:\n${Object.entries(answers).map(([q, a]) => `Q: ${q}\nA: ${a}`).join('\n\n')}\n\nPlease continue.`;
+
+            // Create a new attempt in the DB
+            const newAttemptId = nanoid();
+            await db.insert(schema.attempts).values({
+              id: newAttemptId,
+              taskId: attempt.taskId,
+              prompt: answerPrompt,
+              displayPrompt: 'Auto-retry: answer to previous question',
+              status: 'running' as AttemptStatus,
+            });
+
+            // Join the socket to the new attempt room
+            socket.join(`attempt:${newAttemptId}`);
+
+            // Start the agent
+            agentManager.start({
+              attemptId: newAttemptId,
+              projectPath: project.path,
+              prompt: answerPrompt,
+              sessionOptions,
+            });
+
+            // Emit attempt:started to the client so the UI knows a new attempt started
+            socket.emit('attempt:started', { attemptId: newAttemptId, taskId: attempt.taskId });
+
+            log.warn(`[Server] Auto-retried answer for ${attemptId} as new attempt ${newAttemptId}`);
+          } catch (error) {
+            log.error({error},`[Server] Auto-retry failed for ${attemptId}:`);
+            socket.emit('error', { message: 'Auto-retry failed: ' + (error instanceof Error ? error.message : 'Unknown error') });
+          }
         }
       }
     );

@@ -249,6 +249,8 @@ export interface AgentStartOptions {
 class AgentManager extends EventEmitter {
   private agents = new Map<string, AgentInstance>();
   private pendingQuestions = new Map<string, PendingQuestion>();
+  // Queryable question data so reconnecting clients can fetch the current pending question
+  private pendingQuestionData = new Map<string, { toolUseId: string; questions: unknown[]; timestamp: number }>();
   // Track Bash tool_use commands to correlate with BGPID results
   private pendingBashCommands = new Map<string, { command: string; attemptId: string }>();
 
@@ -453,6 +455,9 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
             const questions = (input.questions as unknown[]) || [];
             log.debug({ attemptId, toolUseId, questionCount: questions.length }, 'Emitting question event');
 
+            // Store queryable question data (so reconnecting clients can fetch it)
+            this.pendingQuestionData.set(attemptId, { toolUseId, questions, timestamp: Date.now() });
+
             // Emit question event to frontend (streaming is paused here)
             this.emit('question', { attemptId, toolUseId, questions });
 
@@ -463,6 +468,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
             // Clean up pending question
             this.pendingQuestions.delete(attemptId);
+            this.pendingQuestionData.delete(attemptId);
 
             // Check if cancellation (null/empty answers)
             if (!answer || Object.keys(answer.answers).length === 0) {
@@ -715,6 +721,16 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         // Git stats collection failed - continue without it
       }
 
+      // Clean up any pending questions for this attempt
+      if (this.pendingQuestions.has(attemptId)) {
+        const pending = this.pendingQuestions.get(attemptId);
+        if (pending) {
+          pending.resolve(null); // Resolve with null to unblock the canUseTool callback
+        }
+        this.pendingQuestions.delete(attemptId);
+        this.pendingQuestionData.delete(attemptId);
+      }
+
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
@@ -738,6 +754,16 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       // Determine exit code based on error type
       const code = controller.signal.aborted ? null : 1;
 
+      // Clean up any pending questions for this attempt
+      if (this.pendingQuestions.has(attemptId)) {
+        const pending = this.pendingQuestions.get(attemptId);
+        if (pending) {
+          pending.resolve(null); // Resolve with null to unblock the canUseTool callback
+        }
+        this.pendingQuestions.delete(attemptId);
+        this.pendingQuestionData.delete(attemptId);
+      }
+
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code });
     }
@@ -747,15 +773,22 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
    * Answer a pending AskUserQuestion
    * Resolves the waiting canUseTool callback and resumes streaming
    */
-  answerQuestion(attemptId: string, questions: unknown[], answers: Record<string, string>): boolean {
+  answerQuestion(attemptId: string, toolUseId: string | undefined, questions: unknown[], answers: Record<string, string>): boolean {
     const pending = this.pendingQuestions.get(attemptId);
     if (!pending) {
+      return false;
+    }
+
+    // Validate toolUseId if provided - prevents stale answers for wrong question
+    if (toolUseId && pending.toolUseId !== toolUseId) {
+      log.warn({ attemptId, expectedToolUseId: pending.toolUseId, receivedToolUseId: toolUseId }, 'Rejecting stale answer for wrong toolUseId');
       return false;
     }
 
     // Resolve the pending Promise - SDK will resume streaming
     pending.resolve({ questions, answers });
     this.pendingQuestions.delete(attemptId);
+    this.pendingQuestionData.delete(attemptId);
     return true;
   }
 
@@ -773,6 +806,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     // canUseTool callback will return { behavior: 'deny' }
     pending.resolve(null);
     this.pendingQuestions.delete(attemptId);
+    this.pendingQuestionData.delete(attemptId);
     return true;
   }
 
@@ -781,6 +815,13 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
    */
   hasPendingQuestion(attemptId: string): boolean {
     return this.pendingQuestions.has(attemptId);
+  }
+
+  /**
+   * Get pending question data for an attempt (used by reconnecting clients)
+   */
+  getPendingQuestionData(attemptId: string): { toolUseId: string; questions: unknown[]; timestamp: number } | null {
+    return this.pendingQuestionData.get(attemptId) || null;
   }
 
   /**
@@ -812,6 +853,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     if (pending) {
       pending.resolve(null); // Resolve with null to unblock and signal cancellation
       this.pendingQuestions.delete(attemptId);
+      this.pendingQuestionData.delete(attemptId);
     }
 
     // Graceful close via SDK (cleans up subprocess, MCP transports, pending requests)
@@ -840,6 +882,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       pending.resolve(null);
     }
     this.pendingQuestions.clear();
+    this.pendingQuestionData.clear();
 
     // Graceful close all agents via SDK
     for (const [, instance] of this.agents) {
