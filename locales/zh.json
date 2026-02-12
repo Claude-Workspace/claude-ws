@@ -204,7 +204,8 @@
     "deletions": "删除",
     "noChangesToCommit": "没有要提交的更改",
     "noChanges": "无更改",
-    "enterCommitMessage": "输入提交信息"
+    "enterCommitMessage": "输入提交信息",
+    "staged": "已暂存"
   },
   "settings": {
     "title": "设置",

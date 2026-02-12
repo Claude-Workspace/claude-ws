@@ -204,7 +204,8 @@
     "deletions": "삭제",
     "noChangesToCommit": "커밋할 변경사항 없음",
     "noChanges": "변경사항 없음",
-    "enterCommitMessage": "커밋 메시지 입력"
+    "enterCommitMessage": "커밋 메시지 입력",
+    "staged": "스테이징됨"
   },
   "settings": {
     "title": "설정",
