@@ -45,6 +45,33 @@ export function waitForElement<T extends Element = Element>(
 }
 
 /**
+ * Predefined color palette for distinguishing projects visually.
+ * Colors are chosen to be readable on dark backgrounds.
+ */
+const PROJECT_COLORS = [
+  '#F28B82', // red
+  '#FCAD70', // orange
+  '#FDD663', // yellow
+  '#81C995', // green
+  '#78D9EC', // cyan
+  '#8AB4F8', // blue
+  '#C58AF9', // purple
+  '#FF8BCB', // pink
+];
+
+/**
+ * Generate a deterministic color for a project based on its name.
+ * Uses a simple string hash to consistently assign the same color to the same project.
+ */
+export function getProjectColor(projectName: string): string {
+  let hash = 0;
+  for (let i = 0; i < projectName.length; i++) {
+    hash = ((hash << 5) - hash + projectName.charCodeAt(i)) | 0;
+  }
+  return PROJECT_COLORS[Math.abs(hash) % PROJECT_COLORS.length];
+}
+
+/**
  * Extract the folder/directory name from a file path.
  * Handles both Unix (/) and Windows (\) path separators.
  * @param path - Full file path
