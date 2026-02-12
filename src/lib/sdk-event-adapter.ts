@@ -58,7 +58,6 @@ export interface SDKResultMessage {
   duration_ms?: number;
   duration_api_ms?: number;
   num_turns?: number;
-  errors?: string[];
 }
 
 // Streaming event types from Anthropic API (wrapped by SDK)
@@ -99,7 +98,7 @@ export type SDKMessage =
   | SDKUserMessage
   | SDKResultMessage
   | SDKStreamEvent
-  | { type: string;[key: string]: unknown }; // Fallback for other types
+  | { type: string; [key: string]: unknown }; // Fallback for other types
 
 /**
  * Runtime type guard for SDK messages
@@ -333,7 +332,6 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
         subtype: res.subtype,
         session_id: res.session_id,
         is_error: res.is_error,
-        ...(res.errors && res.errors.length > 0 ? { errors: res.errors } : {}),
       };
       if (res.session_id) {
         result.sessionId = res.session_id;
