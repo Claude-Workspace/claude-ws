@@ -256,6 +256,7 @@ export function initAnthropicProxy(): void {
 
   // Set ANTHROPIC_BASE_URL to our proxy
   process.env.ANTHROPIC_BASE_URL = localProxyUrl;
+  log.info({ localProxyUrl }, '[AnthropicProxy] ANTHROPIC_BASE_URL set to proxy');
 
   // Wrap process.env with Proxy to intercept future writes to ANTHROPIC_BASE_URL
   const originalEnv = process.env;

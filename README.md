@@ -66,6 +66,8 @@ CLAUDE_PATH=/path/to/claude
 | `API_ACCESS_KEY` | API authentication key | (empty) |
 | `CLAUDE_PATH` | Claude CLI path | Auto-detected |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error`, `silent` | `debug` (dev), `warn` (prod) |
+| `ANTHROPIC_API_RETRY_TIMES` | Number of retry attempts for failed Anthropic API requests (5xx errors or network failures) | `3` |
+| `ANTHROPIC_API_RETRY_DELAY_MS` | Delay between retry attempts in milliseconds | `10000` |
 
 ---
 
