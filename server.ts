@@ -64,9 +64,11 @@ app.prepare().then(async () => {
     const isProxyEndpoint = pathname.startsWith('/api/proxy/anthropic');
     const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
     const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
+    // Uploads GET is public (for serving files), POST/DELETE require API key
+    const isUploadsGetEndpoint = pathname.startsWith('/api/uploads/') && req.method === 'GET';
 
-    // Skip auth for verify, tunnel status, and api-access-key endpoints
-    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint && apiAccessKey && apiAccessKey.length > 0) {
+    // Skip auth for verify, tunnel status, api-access-key, and uploads GET endpoints
+    if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint && !isUploadsGetEndpoint && apiAccessKey && apiAccessKey.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
       if (!providedKey || providedKey !== apiAccessKey) {
