@@ -296,17 +296,14 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
             onMouseDown={(e) => e.stopPropagation()}
           />
         ) : (
-          <div className="flex items-center gap-1">
-            <span
-              className="line-clamp-2"
-              onMouseDown={(e) => e.stopPropagation()}
-              data-no-drag
-            >
+          <div className="flex items-center gap-1 cursor-grab active:cursor-grabbing">
+            <span className="line-clamp-2">
               {task.title}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); handleStartEditTitle(); }}
-              className="p-0.5 hover:bg-accent rounded transition-colors shrink-0"
+              onMouseDown={(e) => e.stopPropagation()}
+              className="p-0.5 hover:bg-accent rounded transition-colors shrink-0 cursor-pointer"
               data-no-drag
               title="Edit title"
             >
