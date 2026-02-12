@@ -115,14 +115,14 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           navigateToTab(questions.length - 1);
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          if (selectedIndex === 0 && allAnswered) {
+          if (selectedIndex === 0) {
             onAnswer(answers);
           } else if (selectedIndex === 1) {
             onCancel();
           }
         } else if (e.key === '1') {
           e.preventDefault();
-          if (allAnswered) onAnswer(answers);
+          onAnswer(answers);
         } else if (e.key === '2') {
           e.preventDefault();
           onCancel();
@@ -396,12 +396,11 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           {/* Submit / Cancel options */}
           <div className="space-y-1">
             <button
-              onClick={() => { if (allAnswered) onAnswer(answers); }}
+              onClick={() => onAnswer(answers)}
               className={cn(
                 'w-full flex items-start gap-3 px-4 py-2 text-left transition-colors',
                 'hover:bg-muted/50',
-                selectedIndex === 0 && 'bg-muted/30',
-                !allAnswered && 'opacity-50'
+                selectedIndex === 0 && 'bg-muted/30'
               )}
             >
               <span className="shrink-0 w-4 text-primary font-bold">
