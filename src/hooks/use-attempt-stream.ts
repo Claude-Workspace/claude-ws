@@ -81,6 +81,17 @@ export function useAttemptStream(
       setCurrentAttemptId((currentId) => {
         if (currentId) {
           socketInstance.emit('attempt:subscribe', { attemptId: currentId });
+          // Fetch pending question from server on reconnect
+          // This recovers questions that were emitted while we were disconnected
+          fetch(`/api/attempts/${currentId}/pending-question`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data?.question) {
+                log.debug({ question: data.question }, 'Recovered pending question on reconnect');
+                setActiveQuestion(data.question);
+              }
+            })
+            .catch(() => {});
         }
         return currentId;
       });
@@ -344,98 +355,18 @@ export function useAttemptStream(
     // Don't clear currentTaskIdRef here - we'll update it in checkRunningAttempt
   }, [taskId]);
 
-  // Helper to scan messages for unanswered AskUserQuestion tools
-  const checkForUnansweredQuestion = useCallback((messages: ClaudeOutput[], attemptId: string) => {
-    // Build a set of tool_use_ids that have results
-    // Check both top-level tool_result messages (from conversation API)
-    // and tool_result content blocks inside user messages (from running-attempt raw logs)
-    const answeredToolIds = new Set<string>();
-    // Also track if any user_answer log exists (saved by answer API as fallback)
-    let hasUserAnswerLog = false;
-    for (const msg of messages) {
-      if (msg.type === 'tool_result' && msg.tool_data?.tool_use_id) {
-        answeredToolIds.add(String(msg.tool_data.tool_use_id));
+  // Fetch pending question from server (authoritative source)
+  const fetchPendingQuestion = useCallback(async (attemptId: string) => {
+    try {
+      const res = await fetch(`/api/attempts/${attemptId}/pending-question`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.question) {
+        log.debug({ question: data.question }, 'Restored pending question from server');
+        setActiveQuestion(data.question);
       }
-      // Check user messages with tool_result content blocks (raw streaming logs)
-      if (msg.type === 'user' && msg.message?.content) {
-        for (const block of msg.message.content) {
-          if ((block as any).type === 'tool_result' && (block as any).tool_use_id) {
-            answeredToolIds.add(String((block as any).tool_use_id));
-          }
-        }
-      }
-      // Detect user_answer logs (saved by /api/attempts/[id]/answer)
-      // These indicate a question was answered even if tool_result hasn't been logged yet
-      if ((msg as any).type === 'user_answer') {
-        hasUserAnswerLog = true;
-      }
-    }
-    log.debug({ answeredToolIds: Array.from(answeredToolIds), hasUserAnswerLog }, 'Answered tool IDs');
-
-    // Collect all AskUserQuestion tool_use_ids from messages (in order)
-    const askQuestionIds: string[] = [];
-    for (const msg of messages) {
-      if (msg.type === 'tool_use' && msg.tool_name === 'AskUserQuestion' && msg.id) {
-        askQuestionIds.push(msg.id);
-      }
-      if (msg.type === 'assistant' && msg.message?.content) {
-        for (const block of msg.message.content) {
-          if ((block as any).type === 'tool_use' &&
-              (block as any).name === 'AskUserQuestion' &&
-              (block as any).id) {
-            askQuestionIds.push(String((block as any).id));
-          }
-        }
-      }
-    }
-
-    // If user_answer log exists but no tool_result matched, mark the last AskUserQuestion as answered
-    // This handles the timing gap where answer was saved but SDK hasn't sent tool_result yet
-    if (hasUserAnswerLog && askQuestionIds.length > 0) {
-      const lastAskId = askQuestionIds[askQuestionIds.length - 1];
-      if (!answeredToolIds.has(lastAskId)) {
-        log.debug({ lastAskId }, 'Marking last AskUserQuestion as answered via user_answer log');
-        answeredToolIds.add(lastAskId);
-      }
-    }
-
-    // Find first unanswered AskUserQuestion
-    for (const msg of messages) {
-      if (msg.type === 'tool_use' && msg.tool_name === 'AskUserQuestion' && msg.id) {
-        if (!answeredToolIds.has(msg.id)) {
-          // Found unanswered question - restore activeQuestion state
-          const questions = (msg as any).tool_data?.questions;
-          if (questions && Array.isArray(questions)) {
-            setActiveQuestion({
-              attemptId,
-              toolUseId: msg.id,
-              questions
-            });
-            return; // Only restore the first unanswered question
-          }
-        }
-      }
-      // Also check assistant messages with content blocks
-      if (msg.type === 'assistant' && msg.message?.content) {
-        for (const block of msg.message.content) {
-          if ((block as any).type === 'tool_use' &&
-              (block as any).name === 'AskUserQuestion' &&
-              (block as any).id) {
-            const toolUseId = String((block as any).id);
-            if (!answeredToolIds.has(toolUseId)) {
-              const questions = (block as any).input?.questions;
-              if (questions && Array.isArray(questions)) {
-                setActiveQuestion({
-                  attemptId,
-                  toolUseId,
-                  questions
-                });
-                return;
-              }
-            }
-          }
-        }
-      }
+    } catch (err) {
+      log.error({ err }, 'Failed to fetch pending question');
     }
   }, []);
 
@@ -461,49 +392,15 @@ export function useAttemptStream(
           setIsRunning(true);
           addRunningTask(taskId);
 
-          // Check for unanswered AskUserQuestion in loaded messages
-          // This restores activeQuestion state after server restart
-          checkForUnansweredQuestion(loadedMessages, data.attempt.id);
+          // Fetch pending question from server (authoritative source)
+          // This replaces fragile message-history scanning
+          await fetchPendingQuestion(data.attempt.id);
 
           // Only subscribe if socket is connected
           if (isConnected) {
             socketRef.current?.emit('attempt:subscribe', { attemptId: data.attempt.id });
           }
         } else {
-          // No running attempt, but check conversation history for unanswered AskUserQuestion
-          // This handles the case where the attempt status changed but question wasn't answered
-          try {
-            const historyRes = await fetch(`/api/tasks/${taskId}/conversation`);
-            if (historyRes.ok) {
-              const historyData = await historyRes.json();
-              // Only check the MOST RECENT turn (last one), not all history
-              // This avoids showing old questions from previous conversations
-              const turns = historyData.turns || [];
-              if (turns.length > 0) {
-                const lastTurn = turns[turns.length - 1];
-                // Only restore questions if the attempt is actually running in the DB
-                // AND has an active agent process
-                if (lastTurn.attemptId && lastTurn.attemptStatus === 'running') {
-                  const lastTurnMessages = lastTurn.messages || [];
-                  // First check if the attempt is actually alive (has active agent)
-                  try {
-                    const aliveRes = await fetch(`/api/attempts/${lastTurn.attemptId}/alive`);
-                    if (aliveRes.ok) {
-                      const aliveData = await aliveRes.json();
-                      if (aliveData.alive) {
-                        // Attempt has an active agent, can restore the question
-                        checkForUnansweredQuestion(lastTurnMessages, lastTurn.attemptId);
-                      }
-                    }
-                  } catch {
-                    // Failed to check attempt alive status
-                  }
-                }
-              }
-            }
-          } catch {
-            // Failed to load conversation history
-          }
           // Ensure currentTaskIdRef is updated
           currentTaskIdRef.current = taskId;
         }
@@ -513,7 +410,7 @@ export function useAttemptStream(
       }
     };
     checkRunningAttempt();
-  }, [taskId, checkForUnansweredQuestion]); // Remove isConnected from deps - we handle it inside
+  }, [taskId, fetchPendingQuestion]); // Remove isConnected from deps - we handle it inside
 
   const startAttempt = useCallback((taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[], model?: string) => {
     const socket = socketRef.current;
@@ -536,11 +433,13 @@ export function useAttemptStream(
     if (!socket || !activeQuestion) return;
 
     const attemptId = activeQuestion.attemptId;
+    const answeredToolUseId = activeQuestion.toolUseId;
 
-    // Send SDK format: { attemptId, questions, answers }
+    // Send SDK format with toolUseId for server-side validation
     // The agent-manager's canUseTool callback will resume streaming
     socket.emit('question:answer', {
       attemptId,
+      toolUseId: answeredToolUseId,
       questions,
       answers,
     });
@@ -574,8 +473,11 @@ export function useAttemptStream(
       }
     ]);
 
-    // Delay hiding the question dialog to prevent click event from hitting Stop button
-    setTimeout(() => setActiveQuestion(null), 250);
+    // Clear only if activeQuestion is still the one we just answered
+    // This prevents wiping a NEW question that arrived between answering and clearing
+    setActiveQuestion((prev) =>
+      prev?.toolUseId === answeredToolUseId ? null : prev
+    );
   }, [activeQuestion]);
 
   const cancelQuestion = useCallback(() => {

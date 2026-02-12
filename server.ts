@@ -408,14 +408,14 @@ app.prepare().then(async () => {
     // Handle AskUserQuestion response - resolve pending canUseTool callback
     socket.on(
       'question:answer',
-      async (data: { attemptId: string; questions: unknown[]; answers: Record<string, string> }) => {
-        const { attemptId, questions, answers } = data;
-        console.log(`[Server] Received answer for ${attemptId}:`, answers);
+      async (data: { attemptId: string; toolUseId?: string; questions: unknown[]; answers: Record<string, string> }) => {
+        const { attemptId, toolUseId, questions, answers } = data;
+        console.log(`[Server] Received answer for ${attemptId} (toolUseId: ${toolUseId}):`, answers);
 
         // Check if there's a pending question (canUseTool callback waiting)
         if (agentManager.hasPendingQuestion(attemptId)) {
           // Resolve the pending Promise - SDK will resume streaming
-          const success = agentManager.answerQuestion(attemptId, questions, answers);
+          const success = agentManager.answerQuestion(attemptId, toolUseId, questions, answers);
           if (success) {
             console.log(`[Server] Resumed streaming for ${attemptId}`);
           } else {
