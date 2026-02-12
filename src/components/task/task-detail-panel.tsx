@@ -44,7 +44,7 @@ const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'can
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const t = useTranslations('chat');
   const tk = useTranslations('kanban');
-  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress } = useTaskStore();
+  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress, renameTask } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
@@ -58,9 +58,12 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [shellPanelExpanded, setShellPanelExpanded] = useState(false);
   const [showQuestionPrompt, setShowQuestionPrompt] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   const panelRef = useRef<HTMLDivElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const { shells } = useShellStore();
   const hasAutoStartedRef = useRef(false);
   const lastCompletedTaskRef = useRef<string | null>(null);
@@ -168,6 +171,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setCurrentAttemptFiles([]);
     setShellPanelExpanded(false);
     setShowQuestionPrompt(false);
+    setIsEditingTitle(false);
+    setEditTitleValue('');
     lastCompletedTaskRef.current = null;
     hasAutoStartedRef.current = false;
 
@@ -246,6 +251,29 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setSelectedTask(null);
   };
 
+  const handleStartEditTitle = () => {
+    setEditTitleValue(selectedTask.title);
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const handleSaveTitle = async () => {
+    const trimmed = editTitleValue.trim();
+    if (trimmed && trimmed !== selectedTask.title) {
+      try {
+        await renameTask(selectedTask.id, trimmed);
+      } catch {
+        // Store reverts on failure, toast handled by store
+      }
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditingTitle(false);
+    setEditTitleValue('');
+  };
+
   const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
     if (selectedTask?.status !== 'in_progress') {
       moveTaskToInProgress(selectedTask.id);
@@ -286,6 +314,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           <div className="border-t bg-muted/30">
             {activeQuestion ? (
               <QuestionPrompt
+                key={activeQuestion.toolUseId}
                 questions={activeQuestion.questions}
                 onAnswer={(answers) => {
                   if (selectedTask?.status !== 'in_progress') {
@@ -428,7 +457,31 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
             </Button>
           </div>
         </div>
-        <h2 className="text-base sm:text-lg font-semibold line-clamp-2">{selectedTask.title}</h2>
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={editTitleValue}
+            onChange={(e) => setEditTitleValue(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSaveTitle();
+              } else if (e.key === 'Escape') {
+                handleCancelEditTitle();
+              }
+            }}
+            className="text-base sm:text-lg font-semibold w-full bg-transparent border-b border-primary/50 outline-none py-0"
+          />
+        ) : (
+          <h2
+            className="text-base sm:text-lg font-semibold line-clamp-2 cursor-text"
+            onDoubleClick={handleStartEditTitle}
+          >
+            {selectedTask.title}
+          </h2>
+        )}
       </div>
 
       {renderContent()}
