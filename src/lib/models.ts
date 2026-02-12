@@ -11,18 +11,25 @@ export interface Model {
 }
 
 // Available Claude models - single source of truth
+// Model IDs from: https://platform.claude.com/docs/en/about-claude/models/overview
 export const AVAILABLE_MODELS: Model[] = [
   {
-    id: 'claude-opus-4-5-20251101',
-    name: 'Claude Opus 4.5',
+    id: 'claude-opus-4-6',
+    name: 'Claude Opus 4.6',
     description: 'Most capable model',
     tier: 'opus',
   },
   {
-    id: 'claude-sonnet-4-20250514',
-    name: 'Claude Sonnet 4',
+    id: 'claude-sonnet-4-5-20250929',
+    name: 'Claude Sonnet 4.5',
     description: 'Latest Sonnet model',
     tier: 'sonnet',
+  },
+  {
+    id: 'claude-haiku-4-5-20251001',
+    name: 'Claude Haiku 4.5',
+    description: 'Fastest model',
+    tier: 'haiku',
   },
   {
     id: 'claude-3-5-sonnet-20241022',
@@ -30,16 +37,10 @@ export const AVAILABLE_MODELS: Model[] = [
     description: 'Previous Sonnet model',
     tier: 'sonnet',
   },
-  {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
-    description: 'Fast and efficient',
-    tier: 'haiku',
-  },
 ];
 
 // Default model ID (fallback when no env/cache)
-export const DEFAULT_MODEL_ID = 'claude-opus-4-5-20251101';
+export const DEFAULT_MODEL_ID = 'claude-opus-4-6';
 
 // SDK model alias (used by agent-manager)
 export const DEFAULT_MODEL_ALIAS = 'opus';
