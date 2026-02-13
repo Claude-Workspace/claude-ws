@@ -213,7 +213,7 @@ export function ConversationView({
     }
   };
 
-  // Auto-scroll: when new content arrives, scroll if near bottom
+  // Auto-scroll: when new content arrives, scroll if was near bottom
   useEffect(() => {
     if (isNearBottom()) {
       scrollToBottom();
@@ -227,15 +227,24 @@ export function ConversationView({
     }
   }, [isRunning]);
 
-  // Auto-scroll: during streaming, always scroll to bottom on new content
+  // Auto-scroll: during streaming, scroll if was near bottom recently (300ms threshold)
   useEffect(() => {
     if (!isRunning) return;
 
     const contentContainer = scrollAreaRef.current;
     if (!contentContainer) return;
 
+    let lastNearBottomTime = Date.now();
+    const NEAR_BOTTOM_THRESHOLD = 300; // 300ms
+
     const observer = new MutationObserver(() => {
-      scrollToBottom();
+      if (isNearBottom()) {
+        lastNearBottomTime = Date.now();
+      }
+      const wasNearBottomRecently = Date.now() - lastNearBottomTime < NEAR_BOTTOM_THRESHOLD;
+      if (wasNearBottomRecently) {
+        scrollToBottom();
+      }
     });
 
     observer.observe(contentContainer, {
@@ -244,7 +253,20 @@ export function ConversationView({
       characterData: true,
     });
 
-    return () => observer.disconnect();
+    // Resume auto-scroll when user scrolls back near bottom
+    const handleScroll = () => {
+      if (isNearBottom()) {
+        lastNearBottomTime = Date.now();
+      }
+    };
+
+    const viewport = contentContainer.querySelector('[data-slot="scroll-area-viewport"]');
+    viewport?.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      viewport?.removeEventListener('scroll', handleScroll);
+    };
   }, [isRunning]);
 
 
@@ -280,6 +302,13 @@ export function ConversationView({
   useEffect(() => {
     loadHistory();
   }, [taskId]);
+
+  // Auto-scroll to bottom after history is loaded (when opening a task)
+  useEffect(() => {
+    if (!isLoading) {
+      scrollToBottom();
+    }
+  }, [isLoading]);
 
   // Removed continuous RAF loop which caused performance issues when switching tabs
 
