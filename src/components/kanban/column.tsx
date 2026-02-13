@@ -20,9 +20,11 @@ interface ColumnProps {
   searchQuery?: string;
   isMobile?: boolean;
   chatHistoryMatches?: Map<string, ChatHistoryMatch>;
+  /** When true, column fills available width instead of fixed 280px */
+  fullWidth?: boolean;
 }
 
-export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false, chatHistoryMatches = new Map() }: ColumnProps) {
+export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false, chatHistoryMatches = new Map(), fullWidth = false }: ColumnProps) {
   const t = useTranslations('kanban');
   const { deleteTasksByStatus } = useTaskStore();
   const { setNodeRef, isOver } = useDroppable({
@@ -48,8 +50,8 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
   };
 
   return (
-    <div className="flex flex-col h-full w-[280px] shrink-0">
-      <div className="flex items-center justify-between px-3 py-2 mb-3">
+    <div className={cn('flex flex-col h-full', fullWidth ? 'w-full' : 'w-[280px] shrink-0')}>
+      <div className={cn('flex items-center justify-between py-2 mb-3', fullWidth ? 'px-4' : 'px-3')}>
         <h2 className="font-semibold text-sm text-foreground/80">
           {title}
         </h2>
@@ -87,6 +89,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
         ref={setNodeRef}
         className={cn(
           'flex-1 rounded-lg bg-muted/50 p-2 transition-colors border border-border/50 overflow-y-auto min-h-0 kanban-scrollbar',
+          fullWidth && 'rounded-none border-x-0 px-4',
           isOver && 'bg-accent/50 border-accent'
         )}
       >

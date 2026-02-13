@@ -21,6 +21,7 @@ import { Task } from '@/types';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 
 function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -29,6 +30,7 @@ function KanbanApp() {
 
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
+  const isMobile = useIsMobileViewport();
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading, error: projectError } = useProjectStore();
   const { selectedTask, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
@@ -100,6 +102,15 @@ function KanbanApp() {
       useTaskStore.getState().fetchTasks(selectedProjectIds);
     }
   }, [selectedProjectIds, projectLoading]);
+
+  // Mobile: redirect panel selection to floating window
+  useEffect(() => {
+    if (isMobile && selectedTask) {
+      const { openWindow } = useFloatingWindowsStore.getState();
+      openWindow(selectedTask.id, 'chat', selectedTask.projectId);
+      setSelectedTask(null);
+    }
+  }, [isMobile, selectedTask, setSelectedTask]);
 
   // Handle task created event - select task if startNow is true
   const handleTaskCreated = (task: Task, startNow: boolean, processedPrompt?: string, fileIds?: string[]) => {
@@ -231,8 +242,8 @@ function KanbanApp() {
           )}
         </main>
 
-        {/* Task detail panel - right sidebar */}
-        {selectedTask && <TaskDetailPanel />}
+        {/* Task detail panel - right sidebar (desktop only) */}
+        {selectedTask && !isMobile && <TaskDetailPanel />}
       </div>
 
       {/* Dialogs */}

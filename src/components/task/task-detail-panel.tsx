@@ -21,11 +21,11 @@ import { useAttemptStream } from '@/hooks/use-attempt-stream';
 import { useAttachmentStore } from '@/stores/attachment-store';
 import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
 import { useModelStore } from '@/stores/model-store';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { cn } from '@/lib/utils';
 import type { TaskStatus, PendingFile } from '@/types';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.taskDetail;
-const MOBILE_BREAKPOINT = 768;
 
 interface TaskDetailPanelProps {
   className?: string;
@@ -51,9 +51,9 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const { openWindow } = useFloatingWindowsStore();
   const { getTaskModel } = useModelStore();
 
+  const isMobile = useIsMobileViewport();
   const [conversationKey, setConversationKey] = useState(0);
   const [currentAttemptFiles, setCurrentAttemptFiles] = useState<PendingFile[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
   const [hasSentFirstMessage, setHasSentFirstMessage] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [shellPanelExpanded, setShellPanelExpanded] = useState(false);
@@ -75,14 +75,6 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     direction: 'left',
     onWidthChange: (w) => setPanelWidth('taskDetail', w),
   });
-
-  // Detect mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Close status dropdown when clicking outside
   useEffect(() => {
