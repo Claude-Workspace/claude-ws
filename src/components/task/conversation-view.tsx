@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBlock } from '@/components/claude/message-block';
@@ -169,14 +169,7 @@ export function ConversationView({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [historicalTurns, setHistoricalTurns] = useState<ConversationTurn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastIsRunning, setLastIsRunning] = useState(isRunning);
   const statusVerb = useRandomStatusVerb();
-  // Track if user has scrolled away from bottom (>200px away)
-  const userScrolledAwayRef = useRef(false);
-  const lastScrollTopRef = useRef(0);
-  const programmaticScrollRef = useRef(false);
-  // Track last prompt to detect new prompt submission
-  const lastPromptRef = useRef<string | undefined>(currentPrompt);
   // Use parent refs if provided, otherwise use local refs (fallback for backward compatibility)
   const localLastFetchedTaskIdRef = useRef<string | null>(null);
   const localIsFetchingRef = useRef(false);
@@ -195,38 +188,20 @@ export function ConversationView({
     [currentMessages]
   );
 
-  // Check if user is near bottom of scroll area (within threshold)
+
+  // Auto-scroll: check if near bottom (within 50px)
   const isNearBottom = () => {
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
-      const threshold = 100;
-      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < threshold;
+      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 50;
     }
-
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
-    const threshold = 200; // pixels from bottom
-    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
+    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50;
   };
 
-  // Scroll to bottom of scroll area viewport (only if user is near bottom)
-  const scrollToBottomIfNear = () => {
-    if (isNearBottom()) {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) {
-        detachedContainer.scrollTop = detachedContainer.scrollHeight;
-      } else {
-        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-        if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight;
-        }
-      }
-    }
-  };
-
-  // Force scroll to bottom (bypasses isNearBottom check)
+  // Auto-scroll: scroll to bottom
   const scrollToBottom = () => {
-    programmaticScrollRef.current = true;
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
       detachedContainer.scrollTop = detachedContainer.scrollHeight;
@@ -236,53 +211,42 @@ export function ConversationView({
         viewport.scrollTop = viewport.scrollHeight;
       }
     }
-    // Reset flag after scroll completes
-    requestAnimationFrame(() => {
-      programmaticScrollRef.current = false;
+  };
+
+  // Auto-scroll: when new content arrives, scroll if near bottom
+  useEffect(() => {
+    if (isNearBottom()) {
+      scrollToBottom();
+    }
+  }, [currentMessages, historicalTurns]);
+
+  // Auto-scroll: always scroll to bottom when a new attempt starts
+  useEffect(() => {
+    if (isRunning) {
+      scrollToBottom();
+    }
+  }, [isRunning]);
+
+  // Auto-scroll: during streaming, always scroll to bottom on new content
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const contentContainer = scrollAreaRef.current;
+    if (!contentContainer) return;
+
+    const observer = new MutationObserver(() => {
+      scrollToBottom();
     });
-  };
 
-  // Scroll to bottom with retry for better reliability (especially in detached mode)
-  const scrollToBottomWithRetry = (attempts = 3) => {
-    programmaticScrollRef.current = true;
-    const attemptScroll = (remainingAttempts: number) => {
-      // Check if we're in a detached window
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
+    observer.observe(contentContainer, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
 
-      if (detachedContainer) {
-        // In detached mode, scroll the detached container
-        detachedContainer.scrollTop = detachedContainer.scrollHeight;
-        requestAnimationFrame(() => {
-          const isAtBottom = detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 10; // 10px tolerance for retry check
-          if (!isAtBottom && remainingAttempts > 0) {
-            setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
-          } else {
-            programmaticScrollRef.current = false;
-          }
-        });
-      } else {
-        // Normal mode, scroll the ScrollArea viewport
-        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-        if (viewport && viewport.scrollHeight > 0) {
-          viewport.scrollTop = viewport.scrollHeight;
-          requestAnimationFrame(() => {
-            const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 10;
-            if (!isAtBottom && remainingAttempts > 0) {
-              setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
-            } else {
-              programmaticScrollRef.current = false;
-            }
-          });
-        } else if (remainingAttempts > 0) {
-          // Viewport not ready, retry
-          setTimeout(() => attemptScroll(remainingAttempts - 1), 100);
-        } else {
-          programmaticScrollRef.current = false;
-        }
-      }
-    };
-    attemptScroll(attempts);
-  };
+    return () => observer.disconnect();
+  }, [isRunning]);
+
 
   // Load historical conversation
   const loadHistory = async () => {
@@ -317,160 +281,6 @@ export function ConversationView({
     loadHistory();
   }, [taskId]);
 
-  // Auto-scroll to bottom when switching to a new task (after history loads)
-  useEffect(() => {
-    if (!isLoading) {
-      // Use retry logic for better reliability in detached mode
-      scrollToBottomWithRetry(5);
-    }
-  }, [taskId, isLoading]);
-
-  // Scroll to bottom when a new attempt starts (isRunning: false → true)
-  // And refresh history when an attempt finishes (isRunning: true → false)
-  useEffect(() => {
-    if (!lastIsRunning && isRunning) {
-      // New attempt started - scroll to bottom to show the new user prompt
-      // Reset user scrolling flag so auto-scroll works during streaming
-      userScrolledAwayRef.current = false;
-
-      // Use multiple delayed attempts to ensure DOM is fully rendered
-      setTimeout(() => {
-        scrollToBottomWithRetry(3);
-      }, 50);
-
-      setTimeout(() => {
-        scrollToBottomWithRetry(3);
-      }, 150);
-
-      setTimeout(() => {
-        scrollToBottomWithRetry(3);
-      }, 300);
-    } else if (lastIsRunning && !isRunning) {
-      // Attempt finished - refresh history
-      setTimeout(() => loadHistory(), 500);
-    }
-    setLastIsRunning(isRunning);
-  }, [isRunning, lastIsRunning]);
-
-  // Use MutationObserver to detect content changes and scroll to bottom
-  // Throttled to prevent excessive scroll operations during streaming
-  useEffect(() => {
-    if (!isRunning) return;
-
-    const getScrollContainer = () => {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) return detachedContainer;
-      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    };
-
-    const container = getScrollContainer();
-    const contentContainer = scrollAreaRef.current;
-
-    if (!container || !contentContainer) return;
-
-    // Throttle scroll operations to once per 100ms
-    let scrollPending = false;
-    let rafId: number | null = null;
-
-    const performScroll = () => {
-      if (!userScrolledAwayRef.current) {
-        container.scrollTop = container.scrollHeight;
-      }
-      scrollPending = false;
-      rafId = null;
-    };
-
-    const observer = new MutationObserver(() => {
-      // Only schedule scroll if not already pending
-      if (!scrollPending) {
-        scrollPending = true;
-        rafId = requestAnimationFrame(performScroll);
-      }
-    });
-
-    observer.observe(contentContainer, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-
-    return () => {
-      observer.disconnect();
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-    };
-  }, [isRunning]);
-
-  // Scroll to bottom when new prompt is submitted (currentPrompt changes to a new value)
-  useEffect(() => {
-    // Detect when prompt changes to a new non-empty value (indicating new user input)
-    const promptChanged = currentPrompt && currentPrompt !== lastPromptRef.current;
-
-    if (promptChanged) {
-      // New prompt submitted - force scroll to bottom after DOM updates
-      userScrolledAwayRef.current = false;
-
-      // Use multiple delayed attempts to ensure DOM is fully rendered
-      setTimeout(() => scrollToBottomWithRetry(3), 50);
-      setTimeout(() => scrollToBottomWithRetry(3), 150);
-      setTimeout(() => scrollToBottomWithRetry(3), 300);
-    }
-    lastPromptRef.current = currentPrompt;
-  }, [currentPrompt]);
-
-  // Detect user scroll to pause/resume auto-scroll
-  useEffect(() => {
-    const getScrollContainer = () => {
-      const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
-      if (detachedContainer) return detachedContainer;
-      return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
-    };
-
-    const handleScroll = () => {
-      // Ignore programmatic scrolls (initiated by our code)
-      if (programmaticScrollRef.current) return;
-
-      // Update scroll position and check if user scrolled away
-      const container = getScrollContainer();
-      if (!container) return;
-
-      const newScrollTop = container.scrollTop;
-      const isScrollingUp = newScrollTop < lastScrollTopRef.current;
-
-      // User scrolled up and is now >200px from bottom
-      if (!isNearBottom()) {
-        userScrolledAwayRef.current = true;
-      } else {
-        // User is back near bottom - resume auto-scroll
-        userScrolledAwayRef.current = false;
-      }
-
-      lastScrollTopRef.current = newScrollTop;
-    };
-
-    const container = getScrollContainer();
-    if (container) {
-      container.addEventListener('scroll', handleScroll, { passive: true });
-      // Initialize last scroll position
-      lastScrollTopRef.current = container.scrollTop;
-    }
-
-    return () => {
-      if (container) {
-        container.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, [isLoading]);
-
-  // Auto-scroll to bottom on new messages (only if user is near bottom)
-  useEffect(() => {
-    if (!userScrolledAwayRef.current) {
-      scrollToBottomIfNear();
-    }
-  }, [currentMessages, historicalTurns, isRunning]);
-
-  // Auto-scroll during streaming is now handled by the MutationObserver above
   // Removed continuous RAF loop which caused performance issues when switching tabs
 
   const renderContentBlock = (
