@@ -54,10 +54,9 @@ function KanbanApp() {
     useProjectStore.getState().fetchProjects();
 
     // Initialize tunnel store
-    const { initSocketListeners, fetchStatus, checkOnboarding } = useTunnelStore.getState();
+    const { initSocketListeners, fetchStatus } = useTunnelStore.getState();
     initSocketListeners();
     fetchStatus();
-    checkOnboarding();
   }, []);
 
   // Read project from URL and select it

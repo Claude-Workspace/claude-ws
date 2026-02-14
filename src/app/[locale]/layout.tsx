@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
-import { AgentProviderConfigProvider } from '@/components/providers/agent-provider-config';
-import { RemoteAccessKeyProvider } from '@/components/providers/remote-access-key-provider';
+import { UnifiedSetupProvider } from '@/components/providers/unified-setup-provider';
 import { ApiKeyProvider } from '@/components/auth/api-key-dialog';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -73,11 +72,9 @@ export default async function RootLayout({
           <ApiKeyProvider>
             <SocketProvider>
               <ThemeProvider>
-                <AgentProviderConfigProvider>
-                  <RemoteAccessKeyProvider>
-                    {children}
-                  </RemoteAccessKeyProvider>
-                </AgentProviderConfigProvider>
+                <UnifiedSetupProvider>
+                  {children}
+                </UnifiedSetupProvider>
                 <Toaster position="top-right" richColors closeButton />
               </ThemeProvider>
             </SocketProvider>
