@@ -37,6 +37,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const lastReorderRef = useRef<string>('');
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
   const [mobileActiveColumn, setMobileActiveColumn] = useState<TaskStatus>('in_progress');
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
   const isMobileViewport = useIsMobileViewport();
 
@@ -230,6 +231,30 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     setActiveTask(null);
   };
 
+  // Mobile swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    // Only trigger if horizontal swipe is dominant and exceeds threshold
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+
+    const columnIds = KANBAN_COLUMNS.map(c => c.id);
+    const currentIndex = columnIds.indexOf(mobileActiveColumn);
+
+    if (dx < 0 && currentIndex < columnIds.length - 1) {
+      setMobileActiveColumn(columnIds[currentIndex + 1]);
+    } else if (dx > 0 && currentIndex > 0) {
+      setMobileActiveColumn(columnIds[currentIndex - 1]);
+    }
+  };
+
   // Mobile: single column view with tab bar
   if (isMobileViewport) {
     const activeColumnTasks = tasksByStatus.get(mobileActiveColumn) || [];
@@ -279,8 +304,8 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
             </div>
           </div>
 
-          {/* Active column - full width */}
-          <div className="flex-1 min-h-0">
+          {/* Active column - full width, swipeable */}
+          <div className="flex-1 min-h-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <Column
               key={mobileActiveColumn}
               status={mobileActiveColumn}
