@@ -226,6 +226,7 @@ interface AgentEvents {
   question: (data: { attemptId: string; toolUseId: string; questions: unknown[] }) => void;
   backgroundShell: (data: { attemptId: string; shell: BackgroundShellInfo }) => void;
   trackedProcess: (data: { attemptId: string; pid: number; command: string; logFile?: string }) => void;
+  promptTooLong: (data: { attemptId: string }) => void;
 }
 
 export interface AgentStartOptions {
@@ -783,6 +784,13 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       this.emit('stderr', { attemptId, content: `${errorName}: ${errorMessage}` });
 
+      // Detect "prompt too long" errors for auto-compact handling
+      const isPromptTooLong = errorMessage.toLowerCase().includes('prompt is too long') ||
+                              errorMessage.toLowerCase().includes('request too large');
+      if (isPromptTooLong) {
+        this.emit('promptTooLong', { attemptId });
+      }
+
       // Determine exit code based on error type
       const code = wasAborted ? null : 1;
 
@@ -870,6 +878,27 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     // This will be handled by creating a new attempt in server.ts
     // Return false to signal caller should create continuation attempt
     return false;
+  }
+
+  /**
+   * Compact a conversation by starting a fresh session with context summary
+   * Cannot resume the old session (it's at/near context limit), so we start
+   * fresh and carry forward key context via the prompt.
+   */
+  async compact(options: { attemptId: string; projectPath: string; conversationSummary?: string }): Promise<void> {
+    const { attemptId, projectPath, conversationSummary } = options;
+
+    const compactPrompt = conversationSummary
+      ? `You are continuing a previous conversation that reached the context limit. Here is a summary of the previous context:\n\n${conversationSummary}\n\nPlease acknowledge this context briefly and let the user know you're ready to continue.`
+      : 'A previous conversation reached the context limit. Please let the user know you are ready to continue with a fresh context.';
+
+    // Start a FRESH session — do NOT resume the old session since it's at/near the context limit
+    await this.start({
+      attemptId,
+      projectPath,
+      prompt: compactPrompt,
+      maxTurns: 1,
+    });
   }
 
   /**

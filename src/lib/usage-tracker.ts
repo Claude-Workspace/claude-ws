@@ -26,11 +26,11 @@ export interface UsageStats {
   durationMs: number;
   durationApiMs: number;
 
-  // Context usage tracking (Active Context Only)
-  contextUsed: number;        // Active context tokens (excludes cache_read)
+  // Context usage tracking (full context window)
+  contextUsed: number;        // Total context tokens (input + cache_read + cache_creation + output)
   contextLimit: number;        // Max context window (200K for Opus/Sonnet)
   contextPercentage: number;   // (contextUsed / contextLimit) * 100
-  baselineContext: number;     // Cached baseline tokens (for reference, not in active count)
+  baselineContext: number;     // First-turn cache_read tokens (for reference)
 
   // Context health metrics (ClaudeKit formulas)
   contextHealth?: ContextHealth;
@@ -142,20 +142,19 @@ class UsageTracker extends EventEmitter {
       stats.totalCacheReadTokens += usage.cache_read_input_tokens || 0;
       stats.totalTokens = stats.totalInputTokens + stats.totalOutputTokens;
 
-      // Calculate ACTIVE context usage (excludes cache_read)
+      // Calculate context usage (all tokens in the context window)
       //
-      // According to Anthropic's Prompt Caching:
-      // - cache_read_input_tokens: Tokens loaded FROM cache (NOT in active window)
-      // - cache_creation_input_tokens: NEW tokens being cached (IN active window)
-      // - input_tokens: New user input (IN active window)
-      // - output_tokens: Model response (IN active window)
+      // Anthropic's Prompt Caching:
+      // - cache_read_input_tokens: Tokens loaded from cache (still occupy context window)
+      // - cache_creation_input_tokens: New tokens being cached (occupy context window)
+      // - input_tokens: New user input (occupy context window)
+      // - output_tokens: Model response (occupy context window)
       //
-      // Active Context Window (200K limit) includes:
+      // Context Window (200K limit) includes ALL of these:
       // - input_tokens: New user message
+      // - cache_read_input_tokens: Cached content (served from cache but still in window)
       // - cache_creation_input_tokens: New cache entries
       // - output_tokens: Current response
-      //
-      // Cache read does NOT count toward 200K limit (stored separately)
       const inputTokens = usage.input_tokens || 0;
       const cacheRead = usage.cache_read_input_tokens || 0;
       const cacheCreation = usage.cache_creation_input_tokens || 0;
@@ -167,17 +166,17 @@ class UsageTracker extends EventEmitter {
         log.info(`First turn baseline (cached): ${cacheRead} tokens`);
       }
 
-      // Active context = NEW tokens only (cache_read NOT included)
-      const activeContext = inputTokens + cacheCreation + outputTokens;
+      // Context = all tokens in the window (cache_read included)
+      const activeContext = inputTokens + cacheRead + cacheCreation + outputTokens;
 
       // Update stats with active context (what's actually in 200K window)
       stats.contextUsed = activeContext;
       stats.contextPercentage = (stats.contextUsed / stats.contextLimit) * 100;
 
-      // Calculate health metrics using active context
+      // Calculate health metrics using full context
       stats.contextHealth = calculateContextHealth(
-        inputTokens + cacheCreation, // active input
-        outputTokens,                 // active output
+        inputTokens + cacheRead + cacheCreation, // total input (including cached)
+        outputTokens,                              // output
         stats.contextLimit
       );
 
@@ -187,10 +186,11 @@ class UsageTracker extends EventEmitter {
         contextPercentage: stats.contextPercentage.toFixed(1),
         healthStatus: stats.contextHealth.status,
         inputTokens,
+        cacheRead,
         cacheCreation,
         outputTokens,
-        cacheRead,
-      }, 'Active context updated');
+        totalInput: inputTokens + cacheRead + cacheCreation,
+      }, 'Context updated (includes cache_read)');
     }
 
     // Aggregate cost (common field)

@@ -527,6 +527,48 @@ app.prepare().then(async () => {
       }
     );
 
+    // Handle manual compact request
+    socket.on('attempt:compact', async (data: { taskId: string }) => {
+      const { taskId: compactTaskId } = data;
+      log.info({ taskId: compactTaskId }, '[Server] Manual compact requested');
+
+      try {
+        const task = await db.query.tasks.findFirst({
+          where: eq(schema.tasks.id, compactTaskId),
+        });
+        if (!task) { socket.emit('error', { message: 'Task not found' }); return; }
+
+        const project = await db.query.projects.findFirst({
+          where: eq(schema.projects.id, task.projectId),
+        });
+        if (!project) { socket.emit('error', { message: 'Project not found' }); return; }
+
+        const conversationSummary = await sessionManager.getConversationSummary(compactTaskId);
+
+        const compactAttemptId = nanoid();
+        await db.insert(schema.attempts).values({
+          id: compactAttemptId,
+          taskId: compactTaskId,
+          prompt: 'Manual compact: summarize conversation context',
+          displayPrompt: 'Compacting conversation...',
+          status: 'running',
+        });
+
+        socket.join(`attempt:${compactAttemptId}`);
+        socket.emit('attempt:started', { attemptId: compactAttemptId, taskId: compactTaskId });
+        io.to(`attempt:${compactAttemptId}`).emit('context:compacting', { attemptId: compactAttemptId, taskId: compactTaskId });
+
+        agentManager.compact({
+          attemptId: compactAttemptId,
+          projectPath: project.path,
+          conversationSummary,
+        });
+      } catch (error) {
+        log.error({ error }, '[Server] Manual compact failed');
+        socket.emit('error', { message: 'Compact failed: ' + (error instanceof Error ? error.message : 'Unknown error') });
+      }
+    });
+
     // ========================================
     // Inline Edit Socket Handlers
     // ========================================
@@ -1038,6 +1080,31 @@ app.prepare().then(async () => {
     }
   });
 
+  // Handle "prompt too long" error - trigger auto-compact if enabled
+  agentManager.on('promptTooLong', async ({ attemptId }) => {
+    log.warn({ attemptId }, '[Server] Prompt too long detected');
+
+    try {
+      const autoCompactSetting = await db
+        .select()
+        .from(schema.appSettings)
+        .where(eq(schema.appSettings.key, 'auto_compact_enabled'))
+        .limit(1);
+
+      const autoCompactEnabled = autoCompactSetting.length > 0 && autoCompactSetting[0].value === 'true';
+
+      io.to(`attempt:${attemptId}`).emit('context:prompt-too-long', {
+        attemptId,
+        autoCompactEnabled,
+        message: autoCompactEnabled
+          ? 'Context limit exceeded. Auto-compacting...'
+          : 'Context limit exceeded. Use /compact to reduce context size, or start a new conversation.',
+      });
+    } catch (error) {
+      log.error({ error }, '[Server] Failed to handle prompt-too-long');
+    }
+  });
+
   // Register exit event handler
   agentManager.on('exit', async ({ attemptId, code }) => {
     // Get attempt to retrieve taskId and current status
@@ -1163,6 +1230,49 @@ app.prepare().then(async () => {
     // Global event for all clients to track completed tasks
     if (attempt?.taskId) {
       io.emit('task:finished', { taskId: attempt.taskId, status });
+    }
+
+    // Auto-compact check: if context exceeded threshold and auto-compact is enabled
+    if (status === 'completed' && usageStats?.contextHealth?.shouldCompact && attempt?.taskId) {
+      try {
+        const autoCompactSetting = await db
+          .select()
+          .from(schema.appSettings)
+          .where(eq(schema.appSettings.key, 'auto_compact_enabled'))
+          .limit(1);
+
+        const autoCompactEnabled = autoCompactSetting.length > 0 && autoCompactSetting[0].value === 'true';
+
+        if (autoCompactEnabled) {
+          const project = await db.query.projects.findFirst({
+            where: eq(schema.projects.id, (await db.query.tasks.findFirst({ where: eq(schema.tasks.id, attempt.taskId) }))!.projectId),
+          });
+
+          if (project) {
+            const conversationSummary = await sessionManager.getConversationSummary(attempt.taskId);
+
+            const compactAttemptId = nanoid();
+            await db.insert(schema.attempts).values({
+              id: compactAttemptId,
+              taskId: attempt.taskId,
+              prompt: 'Auto-compact: summarize conversation context',
+              displayPrompt: 'Auto-compacting conversation...',
+              status: 'running',
+            });
+
+            log.info({ attemptId: compactAttemptId, taskId: attempt.taskId }, '[Server] Auto-compacting conversation');
+            io.to(`attempt:${attemptId}`).emit('context:compacting', { attemptId: compactAttemptId, taskId: attempt.taskId });
+
+            agentManager.compact({
+              attemptId: compactAttemptId,
+              projectPath: project.path,
+              conversationSummary,
+            });
+          }
+        }
+      } catch (compactError) {
+        log.error({ compactError }, '[Server] Auto-compact failed');
+      }
     }
   });
 
