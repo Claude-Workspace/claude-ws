@@ -19,6 +19,7 @@ import { useAttachmentStore } from '@/stores/attachment-store';
 import { useModelStore } from '@/stores/model-store';
 import { cn } from '@/lib/utils';
 import { DetachableWindow } from '@/components/ui/detachable-window';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import type { Task, TaskStatus, PendingFile } from '@/types';
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -42,6 +43,7 @@ interface FloatingChatWindowProps {
 export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus }: FloatingChatWindowProps) {
   const t = useTranslations('chat');
   const tk = useTranslations('kanban');
+  const isMobile = useIsMobileViewport();
   const { updateTaskStatus, setTaskChatInit, moveTaskToInProgress, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, renameTask } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
@@ -358,14 +360,16 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
         </div>
       }
       headerEnd={
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onMaximize}
-          title="Maximize to panel"
-        >
-          <Maximize2 className="size-4" />
-        </Button>
+        !isMobile ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onMaximize}
+            title="Maximize to panel"
+          >
+            <Maximize2 className="size-4" />
+          </Button>
+        ) : undefined
       }
     >
       {renderConversation()}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 
 interface DetachableWindowProps {
   isOpen: boolean;
@@ -124,6 +125,7 @@ export function DetachableWindow({
   zIndex = 60,
   onFocus,
 }: DetachableWindowProps) {
+  const isMobile = useIsMobileViewport();
   const [{ position, size }, setWindowState] = useState(() =>
     loadWindowData(storageKey, initialSize)
   );
@@ -139,12 +141,12 @@ export function DetachableWindow({
   // Sync isOpen prop with internal state
   useEffect(() => {
     setIsOpenState(isOpen);
-    // Reload saved position/size when reopening
-    if (isOpen) {
+    // Reload saved position/size when reopening (desktop only)
+    if (isOpen && !isMobile) {
       const saved = loadWindowData(storageKey, initialSize);
       setWindowState({ position: saved.position, size: saved.size });
     }
-  }, [isOpen, storageKey, initialSize]);
+  }, [isOpen, storageKey, initialSize, isMobile]);
 
   // Reset isOpenState when the component re-renders while in detached mode
   useEffect(() => {
@@ -159,6 +161,7 @@ export function DetachableWindow({
   };
 
   const handleDragStart = (e: React.MouseEvent) => {
+    if (isMobile) return;
     // Only drag from header area
     if ((e.target as HTMLElement).closest('[data-no-drag]')) {
       return;
@@ -171,6 +174,7 @@ export function DetachableWindow({
   };
 
   const handleResizeStart = (direction: ResizeDirection, e: React.MouseEvent) => {
+    if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
     setResizeDirection(direction);
@@ -187,9 +191,9 @@ export function DetachableWindow({
     setWindowState((prev) => ({ ...prev, size: newSize }));
   };
 
-  // Handle dragging
+  // Handle dragging (desktop only)
   useEffect(() => {
-    if (!isDragging) return;
+    if (!isDragging || isMobile) return;
 
     const startPos = dragStartPosition.current;
     const handleMouseMove = (e: MouseEvent) => {
@@ -218,11 +222,11 @@ export function DetachableWindow({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, storageKey]);
+  }, [isDragging, storageKey, isMobile]);
 
-  // Handle resizing from all sides/corners
+  // Handle resizing from all sides/corners (desktop only)
   useEffect(() => {
-    if (!resizeDirection) return;
+    if (!resizeDirection || isMobile) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       const dx = e.clientX - dragStartPos.current.x;
@@ -272,11 +276,11 @@ export function DetachableWindow({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [resizeDirection, storageKey]);
+  }, [resizeDirection, storageKey, isMobile]);
 
-  // Ensure window stays within viewport
+  // Ensure window stays within viewport (desktop only)
   useEffect(() => {
-    if (!windowRef.current) return;
+    if (!windowRef.current || isMobile) return;
 
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -317,7 +321,7 @@ export function DetachableWindow({
       setWindowState({ position: newPos, size: newSize });
       saveWindowData(storageKey, newPos, newSize);
     }
-  }, [position, size, storageKey]);
+  }, [position, size, storageKey, isMobile]);
 
   if (!isOpenState) return null;
 
@@ -326,6 +330,59 @@ export function DetachableWindow({
     onFocus?.();
   };
 
+  // Mobile: simple flex container that fills its parent
+  if (isMobile) {
+    return (
+      <div
+        ref={windowRef}
+        className={cn(
+          'flex flex-col flex-1 min-h-0 bg-background',
+          className
+        )}
+      >
+        {/* Header - no drag */}
+        <div
+          className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 select-none gap-2 relative"
+          style={{ height: `${HEADER_HEIGHT}px` }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {title || (
+              <span className="text-sm font-medium">Chat</span>
+            )}
+          </div>
+          {titleCenter && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm text-muted-foreground text-center line-clamp-2 max-w-[50%] leading-tight font-medium">
+              {titleCenter}
+            </div>
+          )}
+          <div className="flex items-center gap-1 min-w-0" data-no-drag>
+            {headerEnd}
+            <button
+              onClick={handleClose}
+              className="p-1 hover:bg-accent rounded transition-colors shrink-0"
+              title="Close"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div ref={contentScrollRef} className="flex-1 overflow-auto" data-detached-scroll-container>
+            {children}
+          </div>
+          {footer && (
+            <div className="flex-shrink-0 bg-background">
+              {footer}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: fixed positioned, draggable, resizable window
   return (
     <div
       ref={windowRef}

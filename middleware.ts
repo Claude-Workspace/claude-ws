@@ -24,9 +24,11 @@ export default function middleware(request: NextRequest) {
     const isVerifyEndpoint = pathname === '/api/auth/verify';
     const isTunnelStatusEndpoint = pathname === '/api/tunnel/status';
     const isApiAccessKeyEndpoint = pathname === '/api/settings/api-access-key';
+    // Uploads GET is public (for serving files), DELETE requires API key
+    const isUploadsGetEndpoint = pathname.startsWith('/api/uploads/') && request.method === 'GET';
 
     // Skip auth for whitelisted endpoints
-    if (isVerifyEndpoint || isTunnelStatusEndpoint || isApiAccessKeyEndpoint) {
+    if (isVerifyEndpoint || isTunnelStatusEndpoint || isApiAccessKeyEndpoint || isUploadsGetEndpoint) {
       return NextResponse.next();
     }
 

@@ -230,8 +230,11 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
       setSelectedMulti(new Set());
       setCustomInput('');
       setIsTyping(false);
+    } else if (questions.length === 1) {
+      // Single question → submit immediately, no review screen needed
+      onAnswer(newAnswers);
     } else {
-      // Last (or only) question answered → show submit review
+      // Last question in multi-question set → show submit review
       setShowSubmitView(true);
       setSelectedIndex(0);
     }

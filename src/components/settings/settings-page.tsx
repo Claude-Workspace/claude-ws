@@ -1,17 +1,55 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, FolderOpen, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, FolderOpen, X, Bot, Shield, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjectStore } from '@/stores/project-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
+import { dispatchAgentProviderConfig } from '@/components/auth/agent-provider-dialog';
+import { ApiAccessKeySetupForm } from '@/components/access-anywhere/api-access-key-setup-modal';
 
 export function SettingsPage() {
   const { currentProject, updateProject } = useProjectStore();
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const [editingName, setEditingName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+
+  const [agentProviderConfigured, setAgentProviderConfigured] = useState(false);
+  const [apiAccessKeyConfigured, setApiAccessKeyConfigured] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      setLoadingStatus(true);
+      try {
+        const [providerRes, apiKeyRes] = await Promise.allSettled([
+          fetch('/api/settings/provider').then(r => r.json()),
+          fetch('/api/settings/api-access-key').then(r => r.json()),
+        ]);
+
+        if (providerRes.status === 'fulfilled') {
+          const providers = providerRes.value.providers;
+          setAgentProviderConfigured(!!(
+            providers?.custom?.configured ||
+            providers?.settings?.configured ||
+            providers?.console?.configured ||
+            providers?.oauth?.configured
+          ));
+        }
+
+        if (apiKeyRes.status === 'fulfilled') {
+          setApiAccessKeyConfigured(!!apiKeyRes.value.configured);
+        }
+      } catch {
+        // Ignore
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+
+    fetchStatus();
+  }, []);
 
   const handleSaveName = async () => {
     if (!currentProject || !editingName.trim()) return;
@@ -96,6 +134,76 @@ export function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Agent Provider Section */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Agent Provider</h2>
+          <div className="p-4 border rounded-lg bg-card">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bot className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Claude API Configuration</p>
+                  <p className="text-sm text-muted-foreground">
+                    {loadingStatus
+                      ? 'Checking...'
+                      : agentProviderConfigured
+                        ? 'A provider is configured'
+                        : 'No provider configured'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {!loadingStatus && agentProviderConfigured && (
+                  <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-3 w-3" />
+                    Configured
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => dispatchAgentProviderConfig()}
+                >
+                  Configure
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* API Access Key Section */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">API Access Key</h2>
+          <div className="p-4 border rounded-lg bg-card space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Remote Access Authentication</p>
+                  <p className="text-sm text-muted-foreground">
+                    {loadingStatus
+                      ? 'Checking...'
+                      : apiAccessKeyConfigured
+                        ? 'An API access key is configured'
+                        : 'No API access key configured'
+                    }
+                  </p>
+                </div>
+              </div>
+              {!loadingStatus && apiAccessKeyConfigured && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                  <Check className="h-3 w-3" />
+                  Configured
+                </span>
+              )}
+            </div>
+            <ApiAccessKeySetupForm
+              onSuccess={() => setApiAccessKeyConfigured(true)}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
