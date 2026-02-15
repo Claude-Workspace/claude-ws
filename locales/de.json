@@ -283,6 +283,7 @@
     "running": "Läuft...",
     "attachFilesTitle": "Dateien anhängen",
     "describeWhatYouWant": "Beschreiben Sie, was Claude tun soll...",
+    "interruptAndSend": "Nachricht senden, um Claude zu unterbrechen...",
     "pasteImageOrText": "Bild oder Text einfügen",
     "dropFilesHere": "Dateien hier ablegen",
     "commandsHint": "Befehle",

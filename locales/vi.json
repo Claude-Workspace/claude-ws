@@ -283,6 +283,7 @@
     "running": "Đang chạy...",
     "attachFilesTitle": "Đính kèm tập tin",
     "describeWhatYouWant": "Mô tả những gì bạn muốn Claude làm...",
+    "interruptAndSend": "Gửi tin nhắn để ngắt Claude...",
     "pasteImageOrText": "Dán hình ảnh hoặc văn bản",
     "dropFilesHere": "Thả tập tin vào đây",
     "commandsHint": "lệnh",
