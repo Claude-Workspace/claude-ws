@@ -13,6 +13,7 @@ import { useSidebarStore } from '@/stores/sidebar-store';
 import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store';
 import { useProjectStore } from '@/stores/project-store';
 import { cn } from '@/lib/utils';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.leftSidebar;
 
@@ -34,6 +35,7 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
     getSelectedProjects
   } = useProjectStore();
   const panelRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobileViewport();
 
   const { width, isResizing, handleMouseDown } = useResizable({
     initialWidth: widths.leftSidebar,
@@ -50,16 +52,17 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
 
   if (!isOpen) return null;
 
-  return (
+  const sidebarContent = (
     <div
       ref={panelRef}
       className={cn(
         'h-full bg-background border-r flex flex-col shrink-0 relative',
         'animate-in slide-in-from-left duration-200',
+        isMobile && 'fixed inset-y-0 left-0 z-[50] shadow-lg',
         isResizing && 'select-none',
         className
       )}
-      style={{ width: `${width}px` }}
+      style={{ width: isMobile ? '280px' : `${width}px` }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b">
@@ -138,12 +141,30 @@ export function SidebarPanel({ className }: SidebarPanelProps) {
         )}
       </Tabs>
 
-      {/* Resize handle */}
-      <ResizeHandle
-        position="right"
-        onMouseDown={handleMouseDown}
-        isResizing={isResizing}
-      />
+      {/* Resize handle (desktop only) */}
+      {!isMobile && (
+        <ResizeHandle
+          position="right"
+          onMouseDown={handleMouseDown}
+          isResizing={isResizing}
+        />
+      )}
     </div>
   );
+
+  // Mobile: wrap with backdrop overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-[40] bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        />
+        {sidebarContent}
+      </>
+    );
+  }
+
+  return sidebarContent;
 }

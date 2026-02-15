@@ -19,7 +19,9 @@ import { Column } from './column';
 import { TaskCard } from './task-card';
 import { useTaskStore } from '@/stores/task-store';
 import { useTouchDetection } from '@/hooks/use-touch-detection';
+import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { useChatHistorySearch } from '@/hooks/use-chat-history-search';
+import { cn } from '@/lib/utils';
 
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
@@ -34,7 +36,10 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const [, startTransition] = useTransition();
   const lastReorderRef = useRef<string>('');
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
+  const [mobileActiveColumn, setMobileActiveColumn] = useState<TaskStatus>('in_progress');
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
+  const isMobileViewport = useIsMobileViewport();
 
   // Search chat history for matches
   const { matches: chatHistoryMatches } = useChatHistorySearch(searchQuery);
@@ -226,6 +231,112 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     setActiveTask(null);
   };
 
+  // Mobile swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    // Only trigger if horizontal swipe is dominant and exceeds threshold
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+
+    const columnIds = KANBAN_COLUMNS.map(c => c.id);
+    const currentIndex = columnIds.indexOf(mobileActiveColumn);
+
+    if (dx < 0 && currentIndex < columnIds.length - 1) {
+      setMobileActiveColumn(columnIds[currentIndex + 1]);
+    } else if (dx > 0 && currentIndex > 0) {
+      setMobileActiveColumn(columnIds[currentIndex - 1]);
+    }
+  };
+
+  // Mobile: single column view with tab bar
+  if (isMobileViewport) {
+    const activeColumnTasks = tasksByStatus.get(mobileActiveColumn) || [];
+
+    return (
+      <DndContext
+        sensors={sensors}
+        autoScroll={{
+          acceleration: 10,
+          interval: 5,
+          threshold: { x: 0.2, y: 0.2 },
+        }}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="flex flex-col h-full">
+          {/* Column tab bar */}
+          <div className="flex-shrink-0 border-b overflow-x-auto">
+            <div className="flex min-w-min">
+              {KANBAN_COLUMNS.map((column) => {
+                const count = (tasksByStatus.get(column.id) || []).length;
+                const isActive = column.id === mobileActiveColumn;
+
+                return (
+                  <button
+                    key={column.id}
+                    onClick={() => setMobileActiveColumn(column.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2',
+                      isActive
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {t(column.titleKey)}
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full',
+                      isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                    )}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Active column - full width, swipeable */}
+          <div className="flex-1 min-h-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <Column
+              key={mobileActiveColumn}
+              status={mobileActiveColumn}
+              title={t(KANBAN_COLUMNS.find(c => c.id === mobileActiveColumn)!.titleKey)}
+              tasks={activeColumnTasks}
+              attemptCounts={attemptCounts}
+              onCreateTask={onCreateTask}
+              searchQuery={searchQuery}
+              isMobile={isMobile}
+              chatHistoryMatches={chatHistoryMatches}
+              fullWidth
+            />
+          </div>
+        </div>
+
+        <DragOverlay>
+          {activeTask ? (
+            <div className="rotate-3">
+              <TaskCard
+                task={activeTask}
+                attemptCount={attemptCounts.get(activeTask.id) || 0}
+                isMobile={isMobile}
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    );
+  }
+
+  // Desktop: horizontal scrolling columns
   return (
     <DndContext
       sensors={sensors}

@@ -108,9 +108,6 @@ export const useTunnelStore = create<TunnelState>()(
           // Onboarding is complete only if both subdomain and API key are set
           const completed = !!(data.tunnel_subdomain && data.tunnel_apikey);
           set({ onboardingCompleted: completed });
-          if (!completed) {
-            set({ wizardOpen: true });
-          }
         } catch (err) {
           log.error({ err }, 'Failed to check onboarding');
         }

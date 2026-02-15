@@ -35,7 +35,9 @@ claude-ws
 # Option 3: From source
 git clone https://github.com/Claude-Workspace/claude-ws.git
 cd claude-ws
-pnpm install && pnpm dev
+pnpm install && pnpm run dev
+or
+pnpm install && pmpm run build && pnpm start
 ```
 
 Open http://localhost:8556
@@ -68,22 +70,6 @@ CLAUDE_PATH=/path/to/claude
 | `ANTHROPIC_API_RETRY_TIMES` | Number of retry attempts for failed Anthropic API requests (5xx errors or network failures) | `3` |
 | `ANTHROPIC_API_RETRY_DELAY_MS` | Delay between retry attempts in milliseconds | `10000` |
 
----
-
-## Production (PM2)
-
-```bash
-npm install claude-ws
-```
-
-Go to a folder that you want to run you claude-ws instance
-Config your .env (if prefferred)
-Start claude-ws instance
-```bash
-claude-ws
-```
-
-You can use it with pm2 for auto startup with system starts.
 
 ---
 
