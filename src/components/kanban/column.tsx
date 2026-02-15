@@ -22,9 +22,11 @@ interface ColumnProps {
   chatHistoryMatches?: Map<string, ChatHistoryMatch>;
   /** When true, column fills available width instead of fixed 280px */
   fullWidth?: boolean;
+  /** When true, hides the column header (used on mobile where tabs show name/count) */
+  hideHeader?: boolean;
 }
 
-export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false, chatHistoryMatches = new Map(), fullWidth = false }: ColumnProps) {
+export function Column({ status, title, tasks, attemptCounts = new Map(), onCreateTask, searchQuery = '', isMobile = false, chatHistoryMatches = new Map(), fullWidth = false, hideHeader = false }: ColumnProps) {
   const t = useTranslations('kanban');
   const { deleteTasksByStatus } = useTaskStore();
   const { setNodeRef, isOver } = useDroppable({
@@ -50,40 +52,31 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
   };
 
   return (
-    <div className={cn('flex flex-col h-full', fullWidth ? 'w-full' : 'w-[280px] shrink-0')}>
-      <div className={cn('flex items-center justify-between py-2 mb-3', fullWidth ? 'px-4' : 'px-3')}>
-        <h2 className="font-semibold text-sm text-foreground/80">
-          {title}
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-            {tasks.length}
-          </span>
-          {isTodoColumn && onCreateTask && (
-            <Button
-              variant="default"
-              size="sm"
-              className="h-6 px-2 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={onCreateTask}
-              title={t('newTaskShortcut')}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              {t('addNew')}
-            </Button>
-          )}
-          {isArchiveColumn && tasks.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-destructive"
-              onClick={handleEmptyColumn}
-              title={t('deleteAllTasks', { count: tasks.length })}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
+    <div className={cn('flex flex-col h-full relative', fullWidth ? 'w-full' : 'w-[280px] shrink-0')}>
+      {!hideHeader && (
+        <div className={cn('flex items-center justify-between py-2 mb-3', fullWidth ? 'px-4' : 'px-3')}>
+          <h2 className="font-semibold text-sm text-foreground/80">
+            {title}
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              {tasks.length}
+            </span>
+            {isTodoColumn && onCreateTask && (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-6 px-2 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={onCreateTask}
+                title={t('newTaskShortcut')}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                {t('addNew')}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div
         ref={setNodeRef}

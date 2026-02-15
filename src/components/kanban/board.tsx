@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
+import { Trash2 } from 'lucide-react';
 import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { Column } from './column';
 import { TaskCard } from './task-card';
@@ -31,6 +32,7 @@ interface BoardProps {
 
 export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardProps) {
   const t = useTranslations('kanban');
+  const tCommon = useTranslations('common');
   const { tasks, reorderTasks, selectTask, setPendingAutoStartTask } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [, startTransition] = useTransition();
@@ -305,7 +307,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
           </div>
 
           {/* Active column - full width, swipeable */}
-          <div className="flex-1 min-h-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className="flex-1 min-h-0 relative" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <Column
               key={mobileActiveColumn}
               status={mobileActiveColumn}
@@ -317,7 +319,26 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
               isMobile={isMobile}
               chatHistoryMatches={chatHistoryMatches}
               fullWidth
+              hideHeader
             />
+
+            {/* Fixed Delete All button for Done/Cancelled columns */}
+            {(mobileActiveColumn === 'done' || mobileActiveColumn === 'cancelled') && activeColumnTasks.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (!confirm(t('deleteAllTasks', { count: activeColumnTasks.length }))) return;
+                  try {
+                    await useTaskStore.getState().deleteTasksByStatus(mobileActiveColumn);
+                  } catch (error) {
+                    console.error('Failed to empty column:', error);
+                  }
+                }}
+                className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium rounded-lg shadow-lg transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                {tCommon('delete')} All
+              </button>
+            )}
           </div>
         </div>
 
