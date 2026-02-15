@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
@@ -8,6 +9,33 @@ import { GripVertical, MessageSquare, Trash2, Search } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import type { ChatHistoryMatch } from '@/hooks/use-chat-history-search';
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
+function formatAbsoluteTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString();
+}
+
+function RelativeTime({ timestamp }: { timestamp: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  return <>{formatRelativeTime(timestamp)}</>;
+}
 
 interface TaskCardProps {
   task: Task;
@@ -184,6 +212,14 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
                 <MessageSquare className="size-3" />
                 <span>{attemptCount}</span>
               </div>
+            </div>
+          )}
+
+          {/* Timestamp - shows relative time, switches to exact time on card hover */}
+          {task.updatedAt && (
+            <div className="mt-1.5 text-[10px] text-muted-foreground/70">
+              <span className="group-hover:hidden"><RelativeTime timestamp={task.updatedAt} /></span>
+              <span className="hidden group-hover:inline">{formatAbsoluteTime(task.updatedAt)}</span>
             </div>
           )}
         </div>
