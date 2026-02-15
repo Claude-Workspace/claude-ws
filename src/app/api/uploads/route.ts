@@ -10,7 +10,7 @@ import {
   MAX_TOTAL_SIZE,
 } from '@/lib/file-utils';
 
-// POST /api/uploads - Upload files to temp storage
+// POST /api/uploads - Upload files to tmp storage
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure temp directory exists
+    // Ensure tmp directory exists
     await mkdir(TEMP_DIR, { recursive: true });
 
     const results = [];
@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Generate temp ID and filename
+      // Generate tmp ID and filename
       const tempId = nanoid();
       const safeName = sanitizeFilename(file.name);
       const ext = getExtension(safeName);
       const filename = `${tempId}-${Date.now()}${ext ? `.${ext}` : ''}`;
 
-      // Write to temp directory
+      // Write to tmp directory
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = join(TEMP_DIR, filename);
       await writeFile(filePath, buffer);
