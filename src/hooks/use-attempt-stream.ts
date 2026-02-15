@@ -37,6 +37,7 @@ interface UseAttemptStreamResult {
   isConnected: boolean;
   startAttempt: (taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[], model?: string) => void;
   cancelAttempt: () => void;
+  interruptAndSend: (taskId: string, prompt: string, displayPrompt?: string, fileIds?: string[], model?: string) => Promise<void>;
   currentAttemptId: string | null;
   currentPrompt: string | null;
   isRunning: boolean;
@@ -497,5 +498,46 @@ export function useAttemptStream(
     if (currentTaskIdRef.current) removeRunningTask(currentTaskIdRef.current);
   }, [currentAttemptId]);
 
-  return { messages, isConnected, startAttempt, cancelAttempt, currentAttemptId, currentPrompt, isRunning, activeQuestion, answerQuestion, cancelQuestion };
+  // Interrupt current streaming and send a new message
+  // Cancels the active attempt, waits for completion, then starts a new attempt
+  // The new attempt auto-resumes the conversation session via sessionManager
+  const interruptAndSend = useCallback(async (
+    taskId: string, prompt: string, displayPrompt?: string,
+    fileIds?: string[], model?: string
+  ) => {
+    const socket = socketRef.current;
+    if (!socket || !isConnected) return;
+
+    const attemptToCancel = currentAttemptIdRef.current;
+
+    // If currently running, cancel first and wait for completion
+    if (attemptToCancel) {
+      // Attach handler BEFORE emitting cancel to avoid race condition
+      await new Promise<void>((resolve) => {
+        const handler = (data: { attemptId: string }) => {
+          if (data.attemptId === attemptToCancel) {
+            clearTimeout(timeout);
+            socket.off('attempt:finished', handler);
+            resolve();
+          }
+        };
+        const timeout = setTimeout(() => {
+          socket.off('attempt:finished', handler); // Clean up handler on timeout
+          resolve();
+        }, 3000);
+        socket.on('attempt:finished', handler);
+        socket.emit('attempt:cancel', { attemptId: attemptToCancel });
+      });
+    }
+
+    // Reset state before starting new attempt
+    setIsRunning(false);
+    setActiveQuestion(null);
+    if (currentTaskIdRef.current) removeRunningTask(currentTaskIdRef.current);
+
+    // Start new attempt (will auto-resume session via sessionManager)
+    startAttempt(taskId, prompt, displayPrompt, fileIds, model);
+  }, [isConnected, startAttempt]);
+
+  return { messages, isConnected, startAttempt, cancelAttempt, interruptAndSend, currentAttemptId, currentPrompt, isRunning, activeQuestion, answerQuestion, cancelQuestion };
 }

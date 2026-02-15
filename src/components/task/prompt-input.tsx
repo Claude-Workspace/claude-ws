@@ -26,7 +26,9 @@ export interface PromptInputRef {
 interface PromptInputProps {
   onSubmit: (prompt: string, displayPrompt?: string, fileIds?: string[]) => void;
   onCancel?: () => void;
+  onInterruptAndSend?: (prompt: string, displayPrompt?: string, fileIds?: string[]) => void;
   disabled?: boolean;
+  isStreaming?: boolean;  // Whether Claude is currently streaming a response
   placeholder?: string;
   className?: string;
   taskId?: string;
@@ -44,7 +46,9 @@ interface PromptInputProps {
 export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   onSubmit,
   onCancel,
+  onInterruptAndSend,
   disabled = false,
+  isStreaming = false,
   placeholder,
   className,
   taskId,
@@ -281,7 +285,9 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     // Allow submit if there's text OR context mentions
-    if ((!prompt.trim() && mentions.length === 0) || disabled) return;
+    // When streaming, allow submit for interrupt-and-send flow
+    if (!prompt.trim() && mentions.length === 0) return;
+    if (disabled && !isStreaming) return;
 
     // Check if files are still uploading
     if (taskId && hasUploadingFiles(taskId)) {
@@ -328,7 +334,12 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
     // Get uploaded file IDs
     const fileIds = taskId ? getUploadedFileIds(taskId) : [];
 
-    onSubmit(finalPrompt, displayPrompt, fileIds.length > 0 ? fileIds : undefined);
+    // If streaming, use interrupt-and-send flow to cancel current attempt and send new message
+    if (isStreaming && onInterruptAndSend) {
+      onInterruptAndSend(finalPrompt, displayPrompt, fileIds.length > 0 ? fileIds : undefined);
+    } else {
+      onSubmit(finalPrompt, displayPrompt, fileIds.length > 0 ? fileIds : undefined);
+    }
 
     // Clear state - but keep mentions for persistent file references
     updatePrompt('');
@@ -467,7 +478,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   // Expose submit and focus functions to parent via ref
   useImperativeHandle(ref, () => ({
     submit: () => {
-      if (!prompt.trim() || disabled) return;
+      if (!prompt.trim() && mentions.length === 0) return;
+      if (disabled && !isStreaming) return;
       handleSubmit({ preventDefault: () => { } } as FormEvent);
     },
     focus: () => {
@@ -549,8 +561,8 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                     textareaRef.current?.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
                   }, 100);
                 }}
-                placeholder={placeholder || t('describeWhatYouWant')}
-                disabled={disabled}
+                placeholder={isStreaming ? t('interruptAndSend') : (placeholder || t('describeWhatYouWant'))}
+                disabled={disabled && !isStreaming}
                 rows={minRows}
                 className="resize-none w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm whitespace-pre-wrap break-words"
                 style={{
@@ -573,7 +585,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
                   variant="ghost"
                   size="icon"
                   onClick={openFilePicker}
-                  disabled={disabled}
+                  disabled={disabled || isStreaming}
                   title={t('attachFilesTitle')}
                   className="size-8"
                 >
@@ -591,9 +603,30 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
               {/* Model selector + Send/Stop button - right */}
               <div className="flex items-center gap-1">
-                <ChatModelSelector disabled={disabled} taskId={taskId} taskLastModel={taskLastModel} />
+                <ChatModelSelector disabled={disabled && !isStreaming} taskId={taskId} taskLastModel={taskLastModel} />
                 {!hideSendButton && (
-                  disabled && onCancel ? (
+                  isStreaming ? (
+                    <div className="flex items-center gap-1">
+                      {onCancel && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={onCancel}
+                          title={t('stop')}
+                        >
+                          <Square className="size-4" />
+                        </Button>
+                      )}
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!prompt.trim() && mentions.length === 0}
+                      >
+                        <Send className="size-4" />
+                      </Button>
+                    </div>
+                  ) : disabled && onCancel ? (
                     <Button
                       type="button"
                       size="sm"

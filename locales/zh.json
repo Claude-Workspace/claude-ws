@@ -283,6 +283,7 @@
     "running": "运行中...",
     "attachFilesTitle": "附加文件",
     "describeWhatYouWant": "描述您希望 Claude 做什么...",
+    "interruptAndSend": "发送消息以中断 Claude...",
     "pasteImageOrText": "粘贴图片或文本",
     "dropFilesHere": "将文件拖放到此处",
     "commandsHint": "命令",

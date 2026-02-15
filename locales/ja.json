@@ -283,6 +283,7 @@
     "running": "実行中...",
     "attachFilesTitle": "ファイルを添付",
     "describeWhatYouWant": "Claude にやりたいことを説明...",
+    "interruptAndSend": "メッセージを送信して Claude を中断...",
     "pasteImageOrText": "画像またはテキストを貼り付け",
     "dropFilesHere": "ここにファイルをドロップ",
     "commandsHint": "コマンド",

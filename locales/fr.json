@@ -283,6 +283,7 @@
     "running": "En cours...",
     "attachFilesTitle": "Joindre des fichiers",
     "describeWhatYouWant": "Décrivez ce que vous voulez que Claude fasse...",
+    "interruptAndSend": "Envoyer un message pour interrompre Claude...",
     "pasteImageOrText": "Coller une image ou du texte",
     "dropFilesHere": "Déposez les fichiers ici",
     "commandsHint": "commandes",

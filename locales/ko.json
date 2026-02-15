@@ -283,6 +283,7 @@
     "running": "실행 중...",
     "attachFilesTitle": "파일 첨부",
     "describeWhatYouWant": "Claude에게 원하는 것을 설명하세요...",
+    "interruptAndSend": "메시지를 보내 Claude를 중단...",
     "pasteImageOrText": "이미지 또는 텍스트 붙여넣기",
     "dropFilesHere": "파일을 여기에 놓으세요",
     "commandsHint": "명령어",

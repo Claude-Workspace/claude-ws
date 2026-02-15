@@ -106,6 +106,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     messages,
     startAttempt,
     cancelAttempt,
+    interruptAndSend,
     isRunning,
     isConnected,
     currentAttemptId,
@@ -282,6 +283,23 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     startAttempt(selectedTask.id, prompt, displayPrompt, fileIds, getTaskModel(selectedTask.id, selectedTask.lastModel));
   };
 
+  // Interrupt current streaming and send a new message
+  const handleInterruptAndSend = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
+    if (selectedTask?.status !== 'in_progress') {
+      moveTaskToInProgress(selectedTask.id);
+    }
+    if (!selectedTask.chatInit && !hasSentFirstMessage) {
+      setTaskChatInit(selectedTask.id, true);
+      setHasSentFirstMessage(true);
+    }
+
+    lastCompletedTaskRef.current = null;
+
+    const pendingFiles = getPendingFiles(selectedTask.id);
+    setCurrentAttemptFiles(pendingFiles);
+    interruptAndSend(selectedTask.id, prompt, displayPrompt, fileIds, getTaskModel(selectedTask.id, selectedTask.lastModel));
+  };
+
   const renderConversation = () => (
     <div className="flex-1 overflow-hidden min-w-0 relative z-0">
       <ConversationView
@@ -341,7 +359,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
               ref={promptInputRef}
               onSubmit={handlePromptSubmit}
               onCancel={cancelAttempt}
-              disabled={isRunning}
+              onInterruptAndSend={handleInterruptAndSend}
+              isStreaming={isRunning}
               taskId={selectedTask.id}
               taskLastModel={selectedTask.lastModel}
               projectPath={currentProjectPath}

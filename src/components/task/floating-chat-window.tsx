@@ -82,6 +82,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     messages,
     startAttempt,
     cancelAttempt,
+    interruptAndSend,
     isRunning,
     isConnected,
     currentAttemptId,
@@ -166,6 +167,23 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     startAttempt(task.id, prompt, displayPrompt, fileIds, getTaskModel(task.id, task.lastModel));
   };
 
+  // Interrupt current streaming and send a new message
+  const handleInterruptAndSend = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
+    if (task.status !== 'in_progress') {
+      moveTaskToInProgress(task.id);
+    }
+    if (!task.chatInit && !hasSentFirstMessage) {
+      setTaskChatInit(task.id, true);
+      setHasSentFirstMessage(true);
+    }
+
+    lastCompletedTaskRef.current = null;
+
+    const pendingFiles = getPendingFiles(task.id);
+    setCurrentAttemptFiles(pendingFiles);
+    interruptAndSend(task.id, prompt, displayPrompt, fileIds, getTaskModel(task.id, task.lastModel));
+  };
+
   const handleStartEditTitle = () => {
     setEditTitleValue(task.title);
     setIsEditingTitle(true);
@@ -248,7 +266,8 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
               ref={promptInputRef}
               onSubmit={handlePromptSubmit}
               onCancel={cancelAttempt}
-              disabled={isRunning}
+              onInterruptAndSend={handleInterruptAndSend}
+              isStreaming={isRunning}
               taskId={task.id}
               taskLastModel={task.lastModel}
               projectPath={currentProjectPath}
