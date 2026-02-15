@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, FolderOpen, X, Bot, Shield, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useProjectStore } from '@/stores/project-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { dispatchAgentProviderConfig } from '@/components/auth/agent-provider-dialog';
@@ -14,6 +15,26 @@ export function SettingsPage() {
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const [editingName, setEditingName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [autoCompactEnabled, setAutoCompactEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings?keys=auto_compact_enabled')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.auto_compact_enabled === 'true') {
+          setAutoCompactEnabled(true);
+        }
+      });
+  }, []);
+
+  const handleAutoCompactToggle = async (checked: boolean) => {
+    setAutoCompactEnabled(checked);
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'auto_compact_enabled', value: String(checked) }),
+    });
+  };
 
   const [agentProviderConfigured, setAgentProviderConfigured] = useState(false);
   const [apiAccessKeyConfigured, setApiAccessKeyConfigured] = useState(false);
@@ -134,6 +155,28 @@ export function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Context Management Section */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Context Management</h2>
+          <div className="space-y-3 p-4 border rounded-lg bg-card">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="auto-compact"
+                checked={autoCompactEnabled}
+                onCheckedChange={(checked) => handleAutoCompactToggle(checked === true)}
+              />
+              <div className="space-y-1">
+                <label htmlFor="auto-compact" className="font-medium leading-none cursor-pointer">
+                  Auto-compact conversations
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically compact conversation context when it exceeds 75% of the context window
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Agent Provider Section */}
         <div className="space-y-4">
