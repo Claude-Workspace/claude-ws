@@ -33,20 +33,37 @@ const nextConfig: NextConfig = {
     ],
   },
   // Add caching headers for static assets - helps tunnel performance
-  headers: async () => [
-    {
-      source: '/_next/static/:path*',
-      headers: [
-        { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-      ],
-    },
-    {
-      source: '/fonts/:path*',
-      headers: [
-        { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-      ],
-    },
-  ],
+  // Only enable aggressive caching in production
+  headers: async () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      return [
+        {
+          source: '/_next/static/:path*',
+          headers: [
+            { key: 'Cache-Control', value: 'public, max-age=2592000, immutable' },
+          ],
+        },
+        {
+          source: '/fonts/:path*',
+          headers: [
+            { key: 'Cache-Control', value: 'public, max-age=2592000, immutable' },
+          ],
+        },
+      ];
+    }
+
+    // Development: disable cache
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+        ],
+      },
+    ];
+  },
   webpack: (config) => {
     // Force single instance of @codemirror packages to avoid instanceof issues
     config.resolve.alias = {
