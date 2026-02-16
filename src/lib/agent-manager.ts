@@ -24,6 +24,7 @@ import { usageTracker } from './usage-tracker';
 import { workflowTracker } from './workflow-tracker';
 import { collectGitStats, gitStatsCache } from './git-stats-collector';
 import { getSystemPrompt } from './system-prompt';
+import { modelIdToDisplayName } from './models';
 import { createLogger } from './logger';
 
 const log = createLogger('AgentManager');
@@ -515,7 +516,22 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         maxTurns: queryOptions.maxTurns,
       }, 'SDK Query starting');
 
-      const response = query({ prompt, options: queryOptions });
+      // Append model identity to the CLI's default system prompt.
+      // SDK query() with no systemPrompt defaults to "" which overrides the CLI's built-in
+      // system prompt entirely. Using preset 'claude_code' keeps the default (env info, tool
+      // instructions, CLAUDE.md, etc.) and appends our model identity.
+      const modelDisplayName = modelIdToDisplayName(effectiveModel);
+      const modelIdentity = modelDisplayName !== effectiveModel
+        ? `You are powered by the model named ${modelDisplayName}. The exact model ID is ${effectiveModel}.`
+        : `You are powered by the model ${effectiveModel}.`;
+
+      const response = query({
+        prompt,
+        options: {
+          ...queryOptions,
+          systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: modelIdentity },
+        },
+      });
       log.info({ attemptId }, 'Query stream started, iterating messages...');
 
       // Store query reference for graceful close() on cancel
