@@ -217,6 +217,61 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
             </Tooltip>
           </TooltipProvider>
 
+          {/* Questions panel toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={questionsPanelOpen ? 'secondary' : 'ghost'}
+                  size="icon"
+                  onClick={() => {
+                    fetchQuestions(selectedProjectIds);
+                    toggleQuestionsPanel();
+                  }}
+                  className="shrink-0 relative"
+                >
+                  <MessageCircleQuestion className="h-4 w-4" />
+                  {questionCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-medium bg-amber-500 text-white rounded-full">
+                      {questionCount}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Pending questions{questionCount > 0 ? ` (${questionCount})` : ''}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Workflow panel toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={workflowPanelOpen ? 'secondary' : 'ghost'}
+                  size="icon"
+                  onClick={toggleWorkflowPanel}
+                  className="shrink-0 relative"
+                >
+                  <Network className="h-4 w-4" />
+                  {activeAgentCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-medium bg-blue-500 text-white rounded-full">
+                      {activeAgentCount}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Agent workflow{activeAgentCount > 0 ? ` (${activeAgentCount})` : ''}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Right sidebar toggle - opens panel with New Task and Settings */}
           <TooltipProvider>
             <Tooltip>
