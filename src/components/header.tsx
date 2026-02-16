@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Terminal, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, MessageCircleQuestion, Terminal, X } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { useTerminalStore } from '@/stores/terminal-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { ProjectSelector, ProjectSelectorContent } from '@/components/header/project-selector';
+import { useQuestionsStore } from '@/stores/questions-store';
 import { useTranslations } from 'next-intl';
 
 interface HeaderProps {
@@ -43,7 +44,14 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const { isOpen: terminalOpen, togglePanel: toggleTerminal } = useTerminalStore();
   const { activeProjectId, selectedProjectIds } = useProjectStore();
+  const { pendingQuestions, fetchQuestions, isOpen: questionsPanelOpen, togglePanel: toggleQuestionsPanel } = useQuestionsStore();
+  const questionCount = pendingQuestions.size;
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Fetch pending questions on mount
+  useEffect(() => {
+    fetchQuestions(selectedProjectIds);
+  }, [selectedProjectIds.join(',')]);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const setSearchQuery = onSearchChange || setInternalSearchQuery;
@@ -160,6 +168,35 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
               </span>
             </div>
           </div>
+
+          {/* Questions panel toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={questionsPanelOpen ? 'secondary' : 'ghost'}
+                  size="icon"
+                  onClick={() => {
+                    fetchQuestions(selectedProjectIds);
+                    toggleQuestionsPanel();
+                  }}
+                  className="shrink-0 relative"
+                >
+                  <MessageCircleQuestion className="h-4 w-4" />
+                  {questionCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-medium bg-amber-500 text-white rounded-full">
+                      {questionCount}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Pending questions{questionCount > 0 ? ` (${questionCount})` : ''}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Terminal toggle */}
           <TooltipProvider>
