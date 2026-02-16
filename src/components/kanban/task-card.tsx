@@ -8,6 +8,7 @@ import { cn, getProjectColor } from '@/lib/utils';
 import { GripVertical, MessageSquare, Trash2, Search } from 'lucide-react';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useQuestionsStore } from '@/stores/questions-store';
 import type { ChatHistoryMatch } from '@/hooks/use-chat-history-search';
 
 function formatRelativeTime(timestamp: number): string {
@@ -48,7 +49,9 @@ interface TaskCardProps {
 export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false, chatHistoryMatch }: TaskCardProps) {
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
+  const { getByTaskId } = useQuestionsStore();
   const isSelected = selectedTaskId === task.id;
+  const hasPendingQuestion = !!getByTaskId(task.id);
 
   // Helper function to highlight matched text
   const highlightText = (text: string) => {
@@ -147,6 +150,14 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
         >
           <GripVertical className="size-4" />
         </button>
+
+        {/* Pending question indicator dot */}
+        {hasPendingQuestion && (
+          <span
+            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-amber-500 z-10"
+            title="Pending question"
+          />
+        )}
 
         {/* Delete button - always visible for Done/Cancelled tasks */}
         {showDeleteButton && (

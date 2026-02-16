@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ClaudeOutput, WsAttemptFinished } from '@/types';
 import { useRunningTasksStore } from '@/stores/running-tasks-store';
+import { useQuestionsStore } from '@/stores/questions-store';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AttemptStreamHook');
@@ -43,6 +44,7 @@ interface UseAttemptStreamResult {
   activeQuestion: ActiveQuestion | null;
   answerQuestion: (questions: Question[], answers: Record<string, string>) => void;
   cancelQuestion: () => void;
+  refetchQuestion: () => Promise<void>;
 }
 
 export function useAttemptStream(
@@ -329,12 +331,29 @@ export function useAttemptStream(
 
     socketInstance.on('question:ask', (data: any) => {
       log.debug({ data }, 'Received question:ask event');
-      // Filter by current attemptId to prevent cross-task question leaking
-      if (currentAttemptIdRef.current && data.attemptId !== currentAttemptIdRef.current) {
+      // Only accept questions for the current attempt — reject if ref is null or mismatched
+      if (!currentAttemptIdRef.current || data.attemptId !== currentAttemptIdRef.current) {
         log.debug({ receivedAttemptId: data.attemptId, currentAttemptId: currentAttemptIdRef.current }, 'Ignoring question from different attempt');
         return;
       }
       setActiveQuestion({ attemptId: data.attemptId, toolUseId: data.toolUseId, questions: data.questions });
+    });
+
+    // Listen for global question events (for questions panel)
+    socketInstance.on('question:new', (data: any) => {
+      useQuestionsStore.getState().addQuestion({
+        attemptId: data.attemptId,
+        taskId: data.taskId,
+        taskTitle: data.taskTitle,
+        projectId: data.projectId,
+        toolUseId: data.toolUseId,
+        questions: data.questions,
+        timestamp: data.timestamp,
+      });
+    });
+
+    socketInstance.on('question:resolved', (data: { attemptId: string }) => {
+      useQuestionsStore.getState().removeQuestion(data.attemptId);
     });
 
     // Listen for stderr output (error messages from agent)
@@ -379,6 +398,10 @@ export function useAttemptStream(
 
   // Clear messages and reset state when taskId changes
   useEffect(() => {
+    // Unsubscribe from old attempt room to stop receiving its events
+    if (currentAttemptIdRef.current && socketRef.current) {
+      socketRef.current.emit('attempt:unsubscribe', { attemptId: currentAttemptIdRef.current });
+    }
     // Clear previous task's messages
     setMessages([]);
     setCurrentAttemptId(null);
@@ -403,6 +426,12 @@ export function useAttemptStream(
       log.error({ err }, 'Failed to fetch pending question');
     }
   }, []);
+
+  // Re-fetch pending question for current attempt (used by UI to recover stuck questions)
+  const refetchQuestion = useCallback(async () => {
+    if (!currentAttemptIdRef.current) return;
+    await fetchPendingQuestion(currentAttemptIdRef.current);
+  }, [fetchPendingQuestion]);
 
   // Check for running attempt on mount/taskId change
   useEffect(() => {
@@ -531,5 +560,5 @@ export function useAttemptStream(
     if (currentTaskIdRef.current) removeRunningTask(currentTaskIdRef.current);
   }, [currentAttemptId]);
 
-  return { messages, isConnected, startAttempt, cancelAttempt, currentAttemptId, currentPrompt, isRunning, activeQuestion, answerQuestion, cancelQuestion };
+  return { messages, isConnected, startAttempt, cancelAttempt, currentAttemptId, currentPrompt, isRunning, activeQuestion, answerQuestion, cancelQuestion, refetchQuestion };
 }
