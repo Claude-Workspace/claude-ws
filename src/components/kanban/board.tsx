@@ -11,10 +11,14 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  CollisionDetection,
+  pointerWithin,
+  rectIntersection,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ArrowDown } from 'lucide-react';
 import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { Column } from './column';
 import { TaskCard } from './task-card';
@@ -24,10 +28,111 @@ import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { useChatHistorySearch } from '@/hooks/use-chat-history-search';
 import { cn } from '@/lib/utils';
 
+/**
+ * Custom collision detector for mobile status tabs.
+ * Triggers when ANY point along the left edge (top-left to bottom-left) of the dragging element
+ * reaches the droppable area. This provides a larger hit area and more intuitive drag experience
+ * on mobile where users want to see the drop target activate as soon as the leading edge touches it.
+ */
+const leftEdgeCollisionDetector: CollisionDetection = (args) => {
+  const { pointerCoordinates, droppableContainers, active } = args;
+
+  if (!pointerCoordinates || !active) {
+    return [];
+  }
+
+  // Get the dragging rectangle (the active node's current transformed position)
+  const activeRect = active.rect.current.translated;
+  if (!activeRect) {
+    return [];
+  }
+
+  // Get left edge coordinates and height of the dragging element
+  const leftX = activeRect.left;
+  const topY = activeRect.top;
+  const bottomY = activeRect.bottom;
+
+  const collisions: Array<{ id: string | number }> = [];
+
+  for (const container of droppableContainers) {
+    const containerRect = container.rect.current;
+    if (!containerRect) continue;
+
+    // Check if ANY point along the left edge is within the container
+    // This means the left edge X must be within container's horizontal bounds
+    // AND the vertical ranges must overlap (any Y from topY to bottomY is within container)
+    const horizontalWithin = leftX >= containerRect.left && leftX <= containerRect.right;
+    const verticalOverlaps = topY <= containerRect.bottom && bottomY >= containerRect.top;
+
+    if (horizontalWithin && verticalOverlaps) {
+      collisions.push({
+        id: container.id,
+      });
+    }
+  }
+
+  return collisions;
+};
+
 interface BoardProps {
   attempts?: Array<{ taskId: string; id: string }>;
   onCreateTask?: () => void;
   searchQuery?: string;
+}
+
+// Mobile status tab component that's droppable
+interface MobileStatusTabProps {
+  status: TaskStatus;
+  title: string;
+  count: number;
+  isActive: boolean;
+  isOver: boolean;
+  onClick: () => void;
+}
+
+function MobileStatusTab({ status, title, count, isActive, isOver, onClick }: MobileStatusTabProps) {
+  const { setNodeRef } = useDroppable({
+    id: `status-tab-${status}`,
+    data: {
+      type: 'status-tab',
+      status,
+    },
+  });
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onClick}
+      className={cn(
+        'relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 overflow-hidden',
+        isActive
+          ? 'border-primary text-foreground'
+          : 'border-transparent text-muted-foreground hover:text-foreground',
+        isOver && 'bg-accent/50'
+      )}
+    >
+      <span className={cn(
+        'transition-opacity duration-200',
+        isOver ? 'opacity-30' : ''
+      )}>
+        {title}
+      </span>
+      <span className={cn(
+        'text-[10px] px-1.5 py-0.5 rounded-full transition-opacity duration-200',
+        isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+        isOver && 'opacity-30'
+      )}>
+        {count}
+      </span>
+
+      {/* Drop indicator */}
+      {isOver && (
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full">
+          <ArrowDown className="h-4 w-4 text-primary" />
+        </div>
+      )}
+    </button>
+  );
 }
 
 export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardProps) {
@@ -39,6 +144,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const lastReorderRef = useRef<string>('');
   const [pendingNewTaskStart, setPendingNewTaskStart] = useState<{ taskId: string; description: string } | null>(null);
   const [mobileActiveColumn, setMobileActiveColumn] = useState<TaskStatus>('in_progress');
+  const [hoveredStatusTab, setHoveredStatusTab] = useState<TaskStatus | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
   const isMobileViewport = useIsMobileViewport();
@@ -129,12 +235,27 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      setHoveredStatusTab(null);
+      return;
+    }
 
     const activeId = active.id;
     const overId = over.id;
 
-    if (activeId === overId) return;
+    if (activeId === overId) {
+      setHoveredStatusTab(null);
+      return;
+    }
+
+    // Check if hovering over a status tab (mobile)
+    if (typeof overId === 'string' && overId.startsWith('status-tab-')) {
+      const status = overId.replace('status-tab-', '') as TaskStatus;
+      setHoveredStatusTab(status);
+      return;
+    }
+
+    setHoveredStatusTab(null);
 
     const activeTask = tasks.find((t) => t.id === activeId);
     if (!activeTask) return;
@@ -152,6 +273,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
+    setHoveredStatusTab(null);
 
     if (!over) return;
 
@@ -176,47 +298,61 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
 
     // Wrap in startTransition to avoid blocking the UI during reordering
     startTransition(async () => {
-      // Check if dropping over a column
-      const overColumn = KANBAN_COLUMNS.find((col) => col.id === overId);
-      if (overColumn) {
-        if (activeTask.status !== overColumn.id) {
-          const targetTasks = tasksByStatus.get(overColumn.id) || [];
-          await reorderTasks(activeTask.id, overColumn.id, targetTasks.length);
+      // Check if dropping over a status tab (mobile)
+      if (typeof overId === 'string' && overId.startsWith('status-tab-')) {
+        const targetStatus = overId.replace('status-tab-', '') as TaskStatus;
+        if (activeTask.status !== targetStatus) {
+          const targetTasks = tasksByStatus.get(targetStatus) || [];
+          await reorderTasks(activeTask.id, targetStatus, targetTasks.length);
 
           // If this is a newly created task moving to In Progress, trigger auto-start
-          if (isNewTaskToInProgress && overColumn.id === 'in_progress' && activeTask.description) {
+          if (isNewTaskToInProgress && targetStatus === 'in_progress' && activeTask.description) {
             setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
           }
         }
       } else {
-        // Dropping over another task
-        const overTask = tasks.find((t) => t.id === overId);
-        if (overTask) {
-          const targetColumn = overTask.status;
-          const columnTasks = tasksByStatus.get(targetColumn) || [];
+        // Check if dropping over a column (desktop)
+        const overColumn = KANBAN_COLUMNS.find((col) => col.id === overId);
+        if (overColumn) {
+          if (activeTask.status !== overColumn.id) {
+            const targetTasks = tasksByStatus.get(overColumn.id) || [];
+            await reorderTasks(activeTask.id, overColumn.id, targetTasks.length);
 
-          // Find current position in the active task's current column
-          const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+            // If this is a newly created task moving to In Progress, trigger auto-start
+            if (isNewTaskToInProgress && overColumn.id === 'in_progress' && activeTask.description) {
+              setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
+            }
+          }
+        } else {
+          // Dropping over another task
+          const overTask = tasks.find((t) => t.id === overId);
+          if (overTask) {
+            const targetColumn = overTask.status;
+            const columnTasks = tasksByStatus.get(targetColumn) || [];
 
-          // Find position in target column
-          const newIndex = columnTasks.findIndex((t) => t.id === overId);
+            // Find current position in the active task's current column
+            const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
 
-          // If moving to different column or reordering within same column
-          if (activeTask.status !== targetColumn || oldIndex !== newIndex) {
-            // Handle the move in the target column
-            if (activeTask.status !== targetColumn) {
-              // Moving to different column - place at the position of overTask
-              await reorderTasks(activeTask.id, targetColumn, newIndex);
+            // Find position in target column
+            const newIndex = columnTasks.findIndex((t) => t.id === overId);
 
-              // If this is a newly created task moving to In Progress, trigger auto-start
-              if (isNewTaskToInProgress && targetColumn === 'in_progress' && activeTask.description) {
-                setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
+            // If moving to different column or reordering within same column
+            if (activeTask.status !== targetColumn || oldIndex !== newIndex) {
+              // Handle the move in the target column
+              if (activeTask.status !== targetColumn) {
+                // Moving to different column - place at the position of overTask
+                await reorderTasks(activeTask.id, targetColumn, newIndex);
+
+                // If this is a newly created task moving to In Progress, trigger auto-start
+                if (isNewTaskToInProgress && targetColumn === 'in_progress' && activeTask.description) {
+                  setPendingNewTaskStart({ taskId: activeTask.id, description: activeTask.description });
+                }
+              } else if (oldIndex !== -1 && newIndex !== -1) {
+                // Reordering within same column
+                const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+                const newPosition = reordered.findIndex((t) => t.id === activeId);
+                await reorderTasks(activeTask.id, activeTask.status, newPosition);
               }
-            } else if (oldIndex !== -1 && newIndex !== -1) {
-              // Reordering within same column
-              const reordered = arrayMove(columnTasks, oldIndex, newIndex);
-              const newPosition = reordered.findIndex((t) => t.id === activeId);
-              await reorderTasks(activeTask.id, activeTask.status, newPosition);
             }
           }
         }
@@ -231,6 +367,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
 
   const handleDragCancel = () => {
     setActiveTask(null);
+    setHoveredStatusTab(null);
   };
 
   // Mobile swipe handlers
@@ -264,6 +401,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     return (
       <DndContext
         sensors={sensors}
+        collisionDetection={leftEdgeCollisionDetector}
         autoScroll={{
           acceleration: 10,
           interval: 5,
@@ -281,26 +419,18 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
               {KANBAN_COLUMNS.map((column) => {
                 const count = (tasksByStatus.get(column.id) || []).length;
                 const isActive = column.id === mobileActiveColumn;
+                const isOver = hoveredStatusTab === column.id;
 
                 return (
-                  <button
+                  <MobileStatusTab
                     key={column.id}
+                    status={column.id}
+                    title={t(column.titleKey)}
+                    count={count}
+                    isActive={isActive}
+                    isOver={isOver}
                     onClick={() => setMobileActiveColumn(column.id)}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2',
-                      isActive
-                        ? 'border-primary text-foreground'
-                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {t(column.titleKey)}
-                    <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full',
-                      isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                    )}>
-                      {count}
-                    </span>
-                  </button>
+                  />
                 );
               })}
             </div>
