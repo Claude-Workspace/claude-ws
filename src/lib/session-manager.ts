@@ -26,17 +26,10 @@ export interface SessionOptions {
 export class SessionManager {
   /**
    * Save session ID for an attempt
-   * Only saves if session file exists and has valid content (prevents corrupt references)
+   * Always saves to DB — file validation happens at resume time via getSessionOptionsWithAutoFix
+   * (The SDK reports session IDs before the .jsonl file is fully written, so checking here causes a race condition)
    */
   async saveSession(attemptId: string, sessionId: string): Promise<void> {
-    // Validate session file before saving to DB
-    // This prevents saving references to empty/corrupted session files
-    const validation = this.validateSessionFile(sessionId);
-    if (!validation.valid) {
-      log.warn(`Skipping session save for ${sessionId}: ${validation.reason}`);
-      return;
-    }
-
     await db
       .update(schema.attempts)
       .set({ sessionId })
@@ -188,19 +181,32 @@ export class SessionManager {
         return { valid: false, reason: 'file_empty' };
       }
 
-      // Check if file has at least one valid JSONL entry
+      // Check for actual conversation content (not just infrastructure entries)
+      // Stub sessions with only queue-operation/file-history-snapshot entries can't be resumed
       const content = fs.readFileSync(filePath, 'utf-8');
-      const firstLine = content.split('\n').find(line => line.trim());
-      if (!firstLine) {
+      const lines = content.split('\n').filter(line => line.trim());
+      if (lines.length === 0) {
         return { valid: false, reason: 'no_valid_entries' };
       }
 
-      try {
-        JSON.parse(firstLine);
-        return { valid: true };
-      } catch {
-        return { valid: false, reason: 'invalid_json' };
+      let hasConversationContent = false;
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'result') {
+            hasConversationContent = true;
+            break;
+          }
+        } catch {
+          return { valid: false, reason: 'invalid_json' };
+        }
       }
+
+      if (!hasConversationContent) {
+        return { valid: false, reason: 'no_conversation_content' };
+      }
+
+      return { valid: true };
     } catch (err) {
       return { valid: false, reason: 'read_error' };
     }

@@ -270,7 +270,7 @@ async function createAttempt(
   await db.insert(schema.attempts).values(newAttempt);
 
   // Get session options for conversation continuation
-  const sessionOptions = await sessionManager.getSessionOptions(task.id);
+  const sessionOptions = await sessionManager.getSessionOptionsWithAutoFix(task.id);
 
   // Update task status to in_progress if it was todo
   if (task.status === 'todo') {

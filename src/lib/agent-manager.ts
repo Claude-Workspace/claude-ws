@@ -750,25 +750,41 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
       this.agents.delete(attemptId);
       this.emit('exit', { attemptId, code: 0 });
     } catch (error) {
-      // Emit error as stderr with more details
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorName = error instanceof Error ? error.name : 'UnknownError';
+      const wasResuming = !!sessionOptions?.resume;
+      const wasAborted = controller.signal.aborted;
+
       log.error({
         err: error,
         message: errorMessage,
         errorName,
         attemptId,
         projectPath,
-        hasResume: !!sessionOptions?.resume,
+        hasResume: wasResuming,
         resumeSessionAt: sessionOptions?.resumeSessionAt,
       }, 'SDK Error - Query failed');
       if (error instanceof Error && error.stack) {
         log.error({ stack: error.stack.split('\n').slice(0, 8).join('\n') }, 'SDK Error Stack (first 8 lines)');
       }
+
+      // Retry without resume if the failure was during a resume attempt
+      // This handles stale/incompatible sessions that pass file validation but crash the CLI
+      // Silent retry — no stderr emission so the client doesn't see a visible error
+      if (wasResuming && !wasAborted) {
+        log.warn({ attemptId, sessionId: sessionOptions?.resume }, 'Resume failed, retrying without resume (fresh session)');
+
+        // Re-register instance (was deleted on error path otherwise)
+        this.agents.set(attemptId, instance);
+
+        // Retry without session options
+        return this.runQuery(instance, projectPath, prompt, undefined, checkpointOptions, maxTurns, model);
+      }
+
       this.emit('stderr', { attemptId, content: `${errorName}: ${errorMessage}` });
 
       // Determine exit code based on error type
-      const code = controller.signal.aborted ? null : 1;
+      const code = wasAborted ? null : 1;
 
       // Clean up any pending questions for this attempt
       if (this.pendingQuestions.has(attemptId)) {
