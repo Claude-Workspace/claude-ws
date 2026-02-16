@@ -7,6 +7,8 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 const nextConfig: NextConfig = {
   // Enable gzip compression for responses
   compress: true,
+  // Transpile xterm packages for proper CSS/ESM handling
+  transpilePackages: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-web-links'],
   outputFileTracingRoot: path.join(__dirname),
   outputFileTracingIncludes: {
     '/': ['./src/**/*'],
@@ -64,7 +66,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     // Force single instance of @codemirror packages to avoid instanceof issues
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -72,6 +74,13 @@ const nextConfig: NextConfig = {
       '@codemirror/view': path.resolve(__dirname, 'node_modules/@codemirror/view'),
       '@codemirror/language': path.resolve(__dirname, 'node_modules/@codemirror/language'),
     };
+
+    // Externalize node-pty from server-side bundling (native addon)
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push('node-pty');
+    }
+
     return config;
   },
 };

@@ -34,6 +34,7 @@ import { sessionManager } from './src/lib/session-manager';
 import { checkpointManager } from './src/lib/checkpoint-manager';
 import { inlineEditManager } from './src/lib/inline-edit-manager';
 import { shellManager } from './src/lib/shell-manager';
+import { terminalManager } from './src/lib/terminal-manager';
 import { db, schema } from './src/lib/db';
 import { createLogger } from './src/lib/logger';
 
@@ -620,6 +621,71 @@ app.prepare().then(async () => {
       }
     });
 
+    // ========================================
+    // Interactive Terminal Socket Handlers
+    // ========================================
+
+    socket.on('terminal:create', async (
+      data: { projectId?: string; cols?: number; rows?: number },
+      ack?: (result: { success: boolean; terminalId?: string; error?: string }) => void
+    ) => {
+      log.info('[Server] Creating terminal session');
+      try {
+        // Resolve CWD: try project path if projectId given, fallback to user CWD
+        let cwd = userCwd;
+        if (data.projectId) {
+          const project = await db.query.projects.findFirst({
+            where: eq(schema.projects.id, data.projectId),
+          });
+          if (project) cwd = project.path;
+        }
+
+        const terminalId = terminalManager.create({
+          projectId: data.projectId || 'global',
+          cwd,
+          cols: data.cols,
+          rows: data.rows,
+        });
+
+        socket.join(`terminal:${terminalId}`);
+        log.info({ terminalId, cwd }, '[Server] Terminal session created');
+        if (ack) ack({ success: true, terminalId });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Failed to create terminal';
+        log.error({ error: msg }, '[Server] Terminal create error');
+        if (ack) ack({ success: false, error: msg });
+      }
+    });
+
+    socket.on('terminal:input', (data: { terminalId: string; data: string }) => {
+      terminalManager.write(data.terminalId, data.data);
+    });
+
+    socket.on('terminal:resize', (data: { terminalId: string; cols: number; rows: number }) => {
+      terminalManager.resize(data.terminalId, data.cols, data.rows);
+    });
+
+    socket.on('terminal:close', (
+      data: { terminalId: string },
+      ack?: (result: { success: boolean }) => void
+    ) => {
+      log.info({ terminalId: data.terminalId }, '[Server] Closing terminal session');
+      const success = terminalManager.destroy(data.terminalId);
+      if (ack) ack({ success });
+    });
+
+    socket.on('terminal:subscribe', (data: { terminalId: string }) => {
+      socket.join(`terminal:${data.terminalId}`);
+    });
+
+    socket.on('terminal:check', (
+      data: { terminalId: string },
+      ack?: (result: { alive: boolean }) => void
+    ) => {
+      const alive = terminalManager.has(data.terminalId);
+      if (ack) ack({ alive });
+    });
+
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
     });
@@ -682,6 +748,19 @@ app.prepare().then(async () => {
     } catch (error) {
       log.error({ shellId, error }, '[Server] Failed to update shell in database');
     }
+  });
+
+  // ========================================
+  // Terminal Manager Event Handlers
+  // ========================================
+
+  terminalManager.on('output', ({ terminalId, data }) => {
+    io.to(`terminal:${terminalId}`).emit('terminal:output', { terminalId, data });
+  });
+
+  terminalManager.on('exit', ({ terminalId, exitCode, signal }) => {
+    log.info({ terminalId, exitCode, signal }, '[Server] Terminal exited');
+    io.to(`terminal:${terminalId}`).emit('terminal:exit', { terminalId, exitCode, signal });
   });
 
   // Forward AgentManager events to WebSocket clients
@@ -1179,6 +1258,10 @@ app.prepare().then(async () => {
     // Cancel all Claude agents first
     agentManager.cancelAll();
     log.info('> Cancelled all Claude agents');
+
+    // Destroy all interactive terminal sessions
+    terminalManager.destroyAll();
+    log.info('> Destroyed all terminal sessions');
 
     // Close all socket connections
     io.close(() => {

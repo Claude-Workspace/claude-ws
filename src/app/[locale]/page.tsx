@@ -13,6 +13,7 @@ import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar
 import { RightSidebar } from '@/components/right-sidebar';
 import { PluginList } from '@/components/agent-factory/plugin-list';
 import { AccessAnywhereWizard } from '@/components/access-anywhere';
+import { TerminalPanel } from '@/components/terminal/terminal-panel';
 import { useProjectStore } from '@/stores/project-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useFloatingWindowsStore } from '@/stores/floating-windows-store';
@@ -22,6 +23,7 @@ import { useSidebarStore } from '@/stores/sidebar-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
+import { useTerminalStore } from '@/stores/terminal-store';
 
 function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -158,6 +160,11 @@ function KanbanApp() {
         e.preventDefault();
         toggleSidebar();
       }
+      // Cmd/Ctrl + `: Toggle terminal panel
+      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+        e.preventDefault();
+        useTerminalStore.getState().togglePanel();
+      }
       // Escape: Close tabs/panels in priority order
       // Priority: file tab > diff tab > task detail > sidebar
       // Note: Cmd+W cannot be overridden in browsers, so we use Escape instead
@@ -212,7 +219,7 @@ function KanbanApp() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <SidebarPanel />
 
@@ -244,6 +251,9 @@ function KanbanApp() {
         {/* Task detail panel - right sidebar (desktop only) */}
         {selectedTask && !isMobile && <TaskDetailPanel />}
       </div>
+
+      {/* Interactive Terminal Panel (bottom) */}
+      <TerminalPanel />
 
       {/* Dialogs */}
       <CreateTaskDialog

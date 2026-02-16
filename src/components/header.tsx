@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree } from 'lucide-react';
+import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Terminal } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import { useTaskStore } from '@/stores/task-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { useRightSidebarStore } from '@/stores/right-sidebar-store';
 import { useShellStore } from '@/stores/shell-store';
+import { useTerminalStore } from '@/stores/terminal-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { ProjectSelector, ProjectSelectorContent } from '@/components/header/project-selector';
@@ -40,6 +41,7 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
   const { isOpen: rightSidebarOpen, toggleRightSidebar } = useRightSidebarStore();
   const { shells } = useShellStore();
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
+  const { isOpen: terminalOpen, togglePanel: toggleTerminal } = useTerminalStore();
   const { activeProjectId, selectedProjectIds } = useProjectStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
@@ -148,6 +150,25 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
               </span>
             </div>
           </div>
+
+          {/* Terminal toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={terminalOpen ? 'secondary' : 'ghost'}
+                  size="icon"
+                  onClick={toggleTerminal}
+                  className="shrink-0"
+                >
+                  <Terminal className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Terminal (⌘`)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Right sidebar toggle - opens panel with New Task and Settings */}
           <TooltipProvider>

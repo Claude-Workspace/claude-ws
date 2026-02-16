@@ -274,13 +274,13 @@ export function ConversationView({
 
 
   // Load historical conversation
-  const loadHistory = async () => {
-    // Prevent duplicate fetches for the same task ID
-    if (effectiveLastFetchedRef.current === taskId && effectiveIsFetchingRef.current) {
+  const loadHistory = async (forceRefresh = false) => {
+    // Prevent duplicate fetches for the same task ID (unless force refresh)
+    if (!forceRefresh && effectiveLastFetchedRef.current === taskId) {
       return;
     }
 
-    if (effectiveIsFetchingRef.current) {
+    if (!forceRefresh && effectiveIsFetchingRef.current) {
       return;
     }
 
@@ -288,7 +288,7 @@ export function ConversationView({
     effectiveIsFetchingRef.current = true;
 
     try {
-      setIsLoading(true);
+      if (!forceRefresh) setIsLoading(true);
       const response = await fetch(`/api/tasks/${taskId}/conversation`);
       if (response.ok) {
         const data = await response.json();
@@ -297,7 +297,7 @@ export function ConversationView({
     } catch (error) {
       console.error('[ConversationView] Failed to load conversation history:', error);
     } finally {
-      setIsLoading(false);
+      if (!forceRefresh) setIsLoading(false);
       effectiveIsFetchingRef.current = false;
     }
   };
