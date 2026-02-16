@@ -11,6 +11,7 @@ import { AuthErrorMessage } from '@/components/auth/auth-error-message';
 import { isProviderAuthError } from '@/components/auth/agent-provider-dialog';
 import { cn } from '@/lib/utils';
 import type { ClaudeOutput, ClaudeContentBlock, AttemptFile, PendingFile } from '@/types';
+import { useTranslations } from 'next-intl';
 
 interface ActiveQuestion {
   attemptId: string;
@@ -30,6 +31,7 @@ interface ConversationTurn {
   attemptId: string;
   timestamp: number;
   files?: AttemptFile[];
+  attemptStatus?: string;
 }
 
 interface ConversationViewProps {
@@ -170,6 +172,7 @@ export function ConversationView({
   const [historicalTurns, setHistoricalTurns] = useState<ConversationTurn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const statusVerb = useRandomStatusVerb();
+  const t = useTranslations('chat');
   // Use parent refs if provided, otherwise use local refs (fallback for backward compatibility)
   const localLastFetchedTaskIdRef = useRef<string | null>(null);
   const localIsFetchingRef = useRef(false);
@@ -189,15 +192,15 @@ export function ConversationView({
   );
 
 
-  // Auto-scroll: check if near bottom (within 50px)
+  // Auto-scroll: check if near bottom (within 1px)
   const isNearBottom = () => {
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
-      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 50;
+      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 1;
     }
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
-    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50;
+    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
   };
 
   // Auto-scroll: scroll to bottom
@@ -301,7 +304,23 @@ export function ConversationView({
 
   useEffect(() => {
     loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
+
+  // Reload history when an attempt finishes (to show cancelled/completed status)
+  // We track the previous running state to detect when it transitions from running to not running
+  const prevIsRunningRef = useRef(isRunning);
+  useEffect(() => {
+    const wasRunning = prevIsRunningRef.current;
+    prevIsRunningRef.current = isRunning;
+
+    // If we just transitioned from running to not running, reload history
+    // This ensures cancelled attempts appear with their status
+    if (wasRunning && !isRunning) {
+      loadHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning]);
 
   // Auto-scroll to bottom after history is loaded (when opening a task)
   useEffect(() => {
@@ -423,59 +442,83 @@ export function ConversationView({
   };
 
   // User prompt - simple muted box with file thumbnails
-  const renderUserTurn = (turn: ConversationTurn) => (
-    <div key={`user-${turn.attemptId}`} className="flex justify-end w-full max-w-full">
-      <div className="bg-primary/10 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 max-w-[85%] overflow-hidden">
-        <div>{turn.prompt}</div>
-      {turn.files && turn.files.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {turn.files.map((file) => (
-            isImage(file.mimeType) ? (
-              <a
-                key={file.id}
-                href={`/api/uploads/${file.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <img
-                  src={`/api/uploads/${file.id}`}
-                  alt={file.originalName}
-                  className="h-16 w-auto rounded border border-border hover:border-primary transition-colors"
+  const renderUserTurn = (turn: ConversationTurn) => {
+    const isCancelled = turn.attemptStatus === 'cancelled';
+
+    // Debug logging
+    if (isCancelled) {
+      console.log('[ConversationView] Rendering cancelled user turn:', turn.attemptId, turn.attemptStatus);
+    }
+
+    return (
+      <div key={`user-${turn.attemptId}`} className="flex flex-col items-end w-full max-w-full gap-1">
+        <div className="bg-primary/10 rounded-lg px-4 py-3 text-[15px] leading-relaxed break-words space-y-3 max-w-[85%] overflow-hidden">
+          <div>{turn.prompt}</div>
+        {turn.files && turn.files.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {turn.files.map((file) => (
+              isImage(file.mimeType) ? (
+                <a
+                  key={file.id}
+                  href={`/api/uploads/${file.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <img
+                    src={`/api/uploads/${file.id}`}
+                    alt={file.originalName}
+                    className="h-16 w-auto rounded border border-border hover:border-primary transition-colors"
+                    title={file.originalName}
+                  />
+                </a>
+              ) : (
+                <a
+                  key={file.id}
+                  href={`/api/uploads/${file.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 bg-background rounded border border-border hover:border-primary transition-colors text-xs"
                   title={file.originalName}
-                />
-              </a>
-            ) : (
-              <a
-                key={file.id}
-                href={`/api/uploads/${file.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-2 py-1 bg-background rounded border border-border hover:border-primary transition-colors text-xs"
-                title={file.originalName}
-              >
-                <FileText className="size-3" />
-                <span className="max-w-[100px] truncate">{file.originalName}</span>
-              </a>
-            )
-          ))}
+                >
+                  <FileText className="size-3" />
+                  <span className="max-w-[100px] truncate">{file.originalName}</span>
+                </a>
+              )
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">{formatTimestamp(turn.timestamp)}</span>
+          {isCancelled && (
+            <span className="text-xs text-muted-foreground italic ml-2">{t('cancelled')}</span>
+          )}
         </div>
-      )}
-      <div className="flex justify-end">
-        <span className="text-xs text-muted-foreground">{formatTimestamp(turn.timestamp)}</span>
       </div>
     </div>
-    </div>
-  );
+    );
+  };
 
   // Assistant response - clean text flow
   // Pre-compute maps once per turn to avoid O(n²) complexity
   const renderAssistantTurn = (turn: ConversationTurn) => {
     const toolResultsMap = buildToolResultsMap(turn.messages);
     const lastToolUseId = findLastToolUseId(turn.messages);
+    const isCancelled = turn.attemptStatus === 'cancelled';
+
+    // Debug logging
+    if (isCancelled) {
+      console.log('[ConversationView] Rendering cancelled assistant turn:', turn.attemptId, turn.attemptStatus, 'messages:', turn.messages.length);
+    }
+
     return (
       <div key={`assistant-${turn.attemptId}`} className="space-y-4 w-full max-w-full overflow-hidden">
         {turn.messages.map((msg, idx) => renderMessage(msg, idx, false, toolResultsMap, lastToolUseId))}
+        <div className="flex justify-end">
+          {isCancelled && (
+            <span className="text-xs text-muted-foreground italic">{t('cancelled')}</span>
+          )}
+        </div>
       </div>
     );
   };

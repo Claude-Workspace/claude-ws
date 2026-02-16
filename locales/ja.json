@@ -56,7 +56,7 @@
     "deleteColumn": "列を削除",
     "addColumn": "列を追加",
     "noTasks": "タスクなし",
-    "deleteAllTasks": "すべての {count} 個のタスクを削除しますか？",
+    "deleteAllTasks": "「{status}」のすべての {count} 個のタスクを削除しますか？",
     "newTaskShortcut": "新しいタスク (Ctrl/⌘ + Space)",
     "addNew": "新規",
     "createNewTask": "新しいタスクを作成",
@@ -288,7 +288,8 @@
     "dropFilesHere": "ここにファイルをドロップ",
     "commandsHint": "コマンド",
     "filesHint": "ファイル",
-    "pasteImageHint": "画像を貼り付け"
+    "pasteImageHint": "画像を貼り付け",
+    "cancelled": "キャンセルされました"
   },
   "accessAnywhere": {
     "title": "どこからでもアクセス",

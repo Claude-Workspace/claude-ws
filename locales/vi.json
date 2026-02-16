@@ -56,7 +56,7 @@
     "deleteColumn": "Xóa cột",
     "addColumn": "Thêm cột",
     "noTasks": "Không có nhiệm vụ",
-    "deleteAllTasks": "Xóa tất cả {count} nhiệm vụ?",
+    "deleteAllTasks": "Xóa tất cả {count} nhiệm vụ trong \"{status}\"?",
     "newTaskShortcut": "Nhiệm vụ mới (Ctrl/⌘ + Space)",
     "addNew": "Thêm",
     "createNewTask": "Tạo nhiệm vụ mới",
@@ -288,7 +288,8 @@
     "dropFilesHere": "Thả tập tin vào đây",
     "commandsHint": "lệnh",
     "filesHint": "tập tin",
-    "pasteImageHint": "dán hình ảnh"
+    "pasteImageHint": "dán hình ảnh",
+    "cancelled": "Đã hủy"
   },
   "agentProvider": {
     "configureTitle": "Cấu hình Nhà cung cấp Agent",

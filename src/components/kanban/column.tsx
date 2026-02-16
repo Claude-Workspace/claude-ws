@@ -43,7 +43,7 @@ export function Column({ status, title, tasks, attemptCounts = new Map(), onCrea
 
   const handleEmptyColumn = async () => {
     if (tasks.length === 0) return;
-    if (!confirm(t('deleteAllTasks', { count: tasks.length }))) return;
+    if (!confirm(t('deleteAllTasks', { count: tasks.length, status: title }))) return;
     try {
       await deleteTasksByStatus(status);
     } catch (error) {

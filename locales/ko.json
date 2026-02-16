@@ -56,7 +56,7 @@
     "deleteColumn": "열 삭제",
     "addColumn": "열 추가",
     "noTasks": "작업 없음",
-    "deleteAllTasks": "모든 {count} 개의 작업을 삭제하시겠습니까?",
+    "deleteAllTasks": "\"{status}\"의 모든 {count} 개의 작업을 삭제하시겠습니까?",
     "newTaskShortcut": "새 작업 (Ctrl/⌘ + Space)",
     "addNew": "추가",
     "createNewTask": "새 작업 만들기",
@@ -288,7 +288,8 @@
     "dropFilesHere": "파일을 여기에 놓으세요",
     "commandsHint": "명령어",
     "filesHint": "파일",
-    "pasteImageHint": "이미지 붙여넣기"
+    "pasteImageHint": "이미지 붙여넣기",
+    "cancelled": "취소됨"
   },
   "accessAnywhere": {
     "title": "어디서나 접근",

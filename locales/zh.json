@@ -56,7 +56,7 @@
     "deleteColumn": "删除列",
     "addColumn": "添加列",
     "noTasks": "无任务",
-    "deleteAllTasks": "删除所有 {count} 个任务？",
+    "deleteAllTasks": "删除\"{status}\"中的所有 {count} 个任务？",
     "newTaskShortcut": "新任务 (Ctrl/⌘ + 空格)",
     "addNew": "新建",
     "createNewTask": "创建新任务",
@@ -288,7 +288,8 @@
     "dropFilesHere": "将文件拖放到此处",
     "commandsHint": "命令",
     "filesHint": "文件",
-    "pasteImageHint": "粘贴图片"
+    "pasteImageHint": "粘贴图片",
+    "cancelled": "已取消"
   },
   "accessAnywhere": {
     "title": "随处访问",

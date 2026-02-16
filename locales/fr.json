@@ -56,7 +56,7 @@
     "deleteColumn": "Supprimer la colonne",
     "addColumn": "Ajouter une colonne",
     "noTasks": "Aucune tâche",
-    "deleteAllTasks": "Supprimer les {count} tâche(s) ?",
+    "deleteAllTasks": "Supprimer les {count} tâche(s) dans \"{status}\" ?",
     "newTaskShortcut": "Nouvelle tâche (Ctrl/⌘ + Espace)",
     "addNew": "Nouveau",
     "createNewTask": "Créer une nouvelle tâche",
@@ -288,7 +288,8 @@
     "dropFilesHere": "Déposez les fichiers ici",
     "commandsHint": "commandes",
     "filesHint": "fichiers",
-    "pasteImageHint": "coller image"
+    "pasteImageHint": "coller image",
+    "cancelled": "Annulé"
   },
   "accessAnywhere": {
     "title": "Accès Partout",

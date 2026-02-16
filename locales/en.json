@@ -56,7 +56,7 @@
     "deleteColumn": "Delete Column",
     "addColumn": "Add Column",
     "noTasks": "No tasks",
-    "deleteAllTasks": "Delete all {count} task(s)?",
+    "deleteAllTasks": "Delete all {count} task(s) in \"{status}\"?",
     "newTaskShortcut": "New Task (Ctrl/⌘ + Space)",
     "addNew": "New",
     "createNewTask": "Create New Task",
@@ -288,7 +288,8 @@
     "dropFilesHere": "Drop files here",
     "commandsHint": "commands",
     "filesHint": "files",
-    "pasteImageHint": "paste image"
+    "pasteImageHint": "paste image",
+    "cancelled": "Cancelled"
   },
   "agentProvider": {
     "configureTitle": "Configure Agent Provider",

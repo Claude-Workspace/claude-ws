@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { Column } from './column';
 import { TaskCard } from './task-card';
@@ -322,23 +322,37 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
               hideHeader
             />
 
-            {/* Fixed Delete All button for Done/Cancelled columns */}
-            {(mobileActiveColumn === 'done' || mobileActiveColumn === 'cancelled') && activeColumnTasks.length > 0 && (
-              <button
-                onClick={async () => {
-                  if (!confirm(t('deleteAllTasks', { count: activeColumnTasks.length }))) return;
-                  try {
-                    await useTaskStore.getState().deleteTasksByStatus(mobileActiveColumn);
-                  } catch (error) {
-                    console.error('Failed to empty column:', error);
-                  }
-                }}
-                className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium rounded-lg shadow-lg transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                {tCommon('delete')} All
-              </button>
-            )}
+            {/* Mobile floating buttons - stacked bottom-right */}
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-3">
+              {/* Delete All - small pill above the + button, only on Done/Cancelled */}
+              {(mobileActiveColumn === 'done' || mobileActiveColumn === 'cancelled') && activeColumnTasks.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (!confirm(t('deleteAllTasks', { count: activeColumnTasks.length, status: t(KANBAN_COLUMNS.find(c => c.id === mobileActiveColumn)!.titleKey) }))) return;
+                    try {
+                      await useTaskStore.getState().deleteTasksByStatus(mobileActiveColumn);
+                    } catch (error) {
+                      console.error('Failed to empty column:', error);
+                    }
+                  }}
+                  className="flex items-center justify-center w-10 h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full shadow-lg transition-colors active:scale-95"
+                  aria-label={`${tCommon('delete')} All`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Add Task FAB - always visible on mobile */}
+              {onCreateTask && (
+                <button
+                  onClick={onCreateTask}
+                  className="flex items-center justify-center w-12 h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg transition-all active:scale-95"
+                  aria-label={t('addNew')}
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

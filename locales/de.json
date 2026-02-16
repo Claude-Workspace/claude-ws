@@ -56,7 +56,7 @@
     "deleteColumn": "Spalte löschen",
     "addColumn": "Spalte hinzufügen",
     "noTasks": "Keine Aufgaben",
-    "deleteAllTasks": "Alle {count} Aufgabe(n) löschen?",
+    "deleteAllTasks": "Alle {count} Aufgabe(n) in \"{status}\" löschen?",
     "newTaskShortcut": "Neue Aufgabe (Strg/⌘ + Leertaste)",
     "addNew": "Neu",
     "createNewTask": "Neue Aufgabe erstellen",
@@ -288,7 +288,8 @@
     "dropFilesHere": "Dateien hier ablegen",
     "commandsHint": "Befehle",
     "filesHint": "Dateien",
-    "pasteImageHint": "Bild einfügen"
+    "pasteImageHint": "Bild einfügen",
+    "cancelled": "Abgebrochen"
   },
   "agentProvider": {
     "configureTitle": "Agent-Provider konfigurieren",
