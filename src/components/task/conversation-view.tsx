@@ -192,15 +192,15 @@ export function ConversationView({
   );
 
 
-  // Auto-scroll: check if near bottom (within 1px)
+  // Auto-scroll: check if near bottom (within 5px)
   const isNearBottom = () => {
     const detachedContainer = scrollAreaRef.current?.closest('[data-detached-scroll-container]');
     if (detachedContainer) {
-      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 1;
+      return detachedContainer.scrollHeight - detachedContainer.scrollTop - detachedContainer.clientHeight < 5;
     }
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
     if (!viewport) return true;
-    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
+    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 5;
   };
 
   // Auto-scroll: scroll to bottom

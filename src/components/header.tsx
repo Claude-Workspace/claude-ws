@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Terminal } from 'lucide-react';
+import { Settings, Plus, Search, PanelLeft, PanelRight, FolderTree, Terminal, X } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,9 +98,19 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-              <span className="text-xs">⌘</span>K
-            </kbd>
+            {searchQuery ? (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            ) : (
+              <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            )}
           </div>
         </div>
 
@@ -207,11 +217,20 @@ export function Header({ onCreateTask, onAddProject, searchQuery: externalSearch
             <Input
               type="search"
               placeholder={t('searchTasks')}
-              className="pl-8 h-9 w-full"
+              className="pl-8 pr-8 h-9 w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
           </div>
         </div>
       )}

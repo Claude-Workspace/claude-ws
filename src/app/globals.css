@@ -165,6 +165,17 @@
       overflow-x: hidden !important;
     }
   }
+
+  /* Hide browser-native clear button from search inputs */
+  input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="search"]::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
 
 /* Custom scrollbar styling - minimal and modern */

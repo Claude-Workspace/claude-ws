@@ -146,6 +146,10 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const [mobileActiveColumn, setMobileActiveColumn] = useState<TaskStatus>('in_progress');
   const [hoveredStatusTab, setHoveredStatusTab] = useState<TaskStatus | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [animatingColumn, setAnimatingColumn] = useState<TaskStatus | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
   const isMobileViewport = useIsMobileViewport();
 
@@ -370,33 +374,114 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     setHoveredStatusTab(null);
   };
 
-  // Mobile swipe handlers
+  // Mobile swipe handlers with visual feedback
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Check if touch started on a drag handle - if so, don't handle swipe
+    const target = e.target as HTMLElement;
+    const dragHandle = target.closest('[aria-label="Drag to reorder"]');
+    if (dragHandle) {
+      touchStartRef.current = null;
+      return;
+    }
+
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    setSwipeOffset(0);
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Skip if touch started on drag handle (touchStartRef would be null)
+    if (!touchStartRef.current || !isDragging) return;
+
+    const currentX = e.touches[0].clientX;
+    const dx = currentX - touchStartRef.current.x;
+
+    // Calculate swipe offset with resistance
+    // Limit the offset to simulate snap-back at edges
+    const maxOffset = window.innerWidth * 0.4;
+    let newOffset = dx;
+
+    // Apply resistance beyond maxOffset
+    if (Math.abs(newOffset) > maxOffset) {
+      newOffset = maxOffset * Math.sign(newOffset) + (newOffset - maxOffset * Math.sign(newOffset)) * 0.3;
+    }
+
+    setSwipeOffset(newOffset);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
+    // Skip if touch started on drag handle
+    if (!touchStartRef.current) {
+      setIsDragging(false);
+      return;
+    }
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
     touchStartRef.current = null;
-
-    // Only trigger if horizontal swipe is dominant and exceeds threshold
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    setIsDragging(false);
 
     const columnIds = KANBAN_COLUMNS.map(c => c.id);
     const currentIndex = columnIds.indexOf(mobileActiveColumn);
+    const threshold = window.innerWidth * 0.2; // 20% of screen width to trigger column change
 
+    // Only trigger if horizontal swipe is dominant and exceeds threshold
+    if (Math.abs(dx) < threshold || Math.abs(dy) > Math.abs(dx)) {
+      // Animate back to original position
+      setSwipeOffset(0);
+      return;
+    }
+
+    // Determine next column
+    let nextColumn: TaskStatus | null = null;
     if (dx < 0 && currentIndex < columnIds.length - 1) {
-      setMobileActiveColumn(columnIds[currentIndex + 1]);
+      nextColumn = columnIds[currentIndex + 1];
     } else if (dx > 0 && currentIndex > 0) {
-      setMobileActiveColumn(columnIds[currentIndex - 1]);
+      nextColumn = columnIds[currentIndex - 1];
+    }
+
+    if (nextColumn) {
+      // Set animating column to show transition
+      setAnimatingColumn(nextColumn);
+
+      // Animate fully to next column
+      const screenWidth = window.innerWidth;
+      const targetOffset = dx < 0 ? -screenWidth : screenWidth;
+      setSwipeOffset(targetOffset);
+
+      // After animation completes, switch column and reset offset
+      setTimeout(() => {
+        // Disable transition during reset to prevent flash
+        setIsResetting(true);
+        setMobileActiveColumn(nextColumn!);
+        setSwipeOffset(0);
+        setAnimatingColumn(null);
+
+        // Re-enable transition after reset
+        requestAnimationFrame(() => {
+          setIsResetting(false);
+        });
+      }, 300);
+    } else {
+      // At edge, animate back
+      setSwipeOffset(0);
     }
   };
 
   // Mobile: single column view with tab bar
   if (isMobileViewport) {
     const activeColumnTasks = tasksByStatus.get(mobileActiveColumn) || [];
+    const columnIds = KANBAN_COLUMNS.map(c => c.id);
+    const currentIndex = columnIds.indexOf(mobileActiveColumn);
+
+    // Determine which adjacent column to show based on swipe direction
+    const swipingLeft = swipeOffset < 0;
+    const swipingRight = swipeOffset > 0;
+    const nextColumnId = (swipingLeft || animatingColumn === columnIds[currentIndex + 1]) && currentIndex < columnIds.length - 1
+      ? columnIds[currentIndex + 1]
+      : null;
+    const prevColumnId = (swipingRight || animatingColumn === columnIds[currentIndex - 1]) && currentIndex > 0
+      ? columnIds[currentIndex - 1]
+      : null;
 
     return (
       <DndContext
@@ -436,21 +521,91 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
             </div>
           </div>
 
-          {/* Active column - full width, swipeable */}
-          <div className="flex-1 min-h-0 relative" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <Column
-              key={mobileActiveColumn}
-              status={mobileActiveColumn}
-              title={t(KANBAN_COLUMNS.find(c => c.id === mobileActiveColumn)!.titleKey)}
-              tasks={activeColumnTasks}
-              attemptCounts={attemptCounts}
-              onCreateTask={onCreateTask}
-              searchQuery={searchQuery}
-              isMobile={isMobile}
-              chatHistoryMatches={chatHistoryMatches}
-              fullWidth
-              hideHeader
-            />
+          {/* Active column - full width, swipeable with visual feedback */}
+          <div className="flex-1 min-h-0 relative overflow-hidden">
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className="h-full"
+            >
+              {/* Current column - moves with swipe */}
+              <div
+                className={cn(
+                  "absolute inset-0 transition-transform duration-300 ease-out",
+                  (isDragging || isResetting) && "transition-none"
+                )}
+                style={{ transform: `translateX(${swipeOffset}px)` }}
+              >
+                <Column
+                  key={mobileActiveColumn}
+                  status={mobileActiveColumn}
+                  title={t(KANBAN_COLUMNS.find(c => c.id === mobileActiveColumn)!.titleKey)}
+                  tasks={activeColumnTasks}
+                  attemptCounts={attemptCounts}
+                  onCreateTask={onCreateTask}
+                  searchQuery={searchQuery}
+                  isMobile={isMobile}
+                  chatHistoryMatches={chatHistoryMatches}
+                  fullWidth
+                  hideHeader
+                />
+              </div>
+
+              {/* Next column - slides in from right when swiping left */}
+              {nextColumnId && (
+                <div
+                  className={cn(
+                    "absolute inset-0 transition-transform duration-300 ease-out",
+                    (isDragging || isResetting) && "transition-none"
+                  )}
+                  style={{
+                    transform: `translateX(${swipeOffset + window.innerWidth}px)`,
+                  }}
+                >
+                  <Column
+                    key={nextColumnId}
+                    status={nextColumnId}
+                    title={t(KANBAN_COLUMNS.find(c => c.id === nextColumnId)!.titleKey)}
+                    tasks={tasksByStatus.get(nextColumnId) || []}
+                    attemptCounts={attemptCounts}
+                    onCreateTask={onCreateTask}
+                    searchQuery={searchQuery}
+                    isMobile={isMobile}
+                    chatHistoryMatches={chatHistoryMatches}
+                    fullWidth
+                    hideHeader
+                  />
+                </div>
+              )}
+
+              {/* Previous column - slides in from left when swiping right */}
+              {prevColumnId && (
+                <div
+                  className={cn(
+                    "absolute inset-0 transition-transform duration-300 ease-out",
+                    (isDragging || isResetting) && "transition-none"
+                  )}
+                  style={{
+                    transform: `translateX(${swipeOffset - window.innerWidth}px)`,
+                  }}
+                >
+                  <Column
+                    key={prevColumnId}
+                    status={prevColumnId}
+                    title={t(KANBAN_COLUMNS.find(c => c.id === prevColumnId)!.titleKey)}
+                    tasks={tasksByStatus.get(prevColumnId) || []}
+                    attemptCounts={attemptCounts}
+                    onCreateTask={onCreateTask}
+                    searchQuery={searchQuery}
+                    isMobile={isMobile}
+                    chatHistoryMatches={chatHistoryMatches}
+                    fullWidth
+                    hideHeader
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Mobile floating buttons - stacked bottom-right */}
             <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-3">
