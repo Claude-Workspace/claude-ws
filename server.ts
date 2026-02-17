@@ -113,6 +113,9 @@ app.prepare().then(async () => {
     pingTimeout: 10000,
   });
 
+  // Disconnect cleanup timers - keyed by attemptId
+  const disconnectTimers = new Map<string, NodeJS.Timeout>();
+
   // Socket.io connection handler
   io.on('connection', (socket) => {
     log.info(`Client connected: ${socket.id}`);
@@ -408,6 +411,14 @@ app.prepare().then(async () => {
     socket.on('attempt:subscribe', (data: { attemptId: string }) => {
       log.info(`[Server] Socket ${socket.id} subscribing to attempt:${data.attemptId}`);
       socket.join(`attempt:${data.attemptId}`);
+
+      // Clear disconnect timer if client reconnected
+      const timer = disconnectTimers.get(data.attemptId);
+      if (timer) {
+        clearTimeout(timer);
+        disconnectTimers.delete(data.attemptId);
+        log.info({ attemptId: data.attemptId }, '[Server] Cleared disconnect timer on reconnect');
+      }
     });
 
     // Unsubscribe from attempt logs
@@ -526,6 +537,48 @@ app.prepare().then(async () => {
         }
       }
     );
+
+    // Handle manual compact request
+    socket.on('attempt:compact', async (data: { taskId: string }) => {
+      const { taskId: compactTaskId } = data;
+      log.info({ taskId: compactTaskId }, '[Server] Manual compact requested');
+
+      try {
+        const task = await db.query.tasks.findFirst({
+          where: eq(schema.tasks.id, compactTaskId),
+        });
+        if (!task) { socket.emit('error', { message: 'Task not found' }); return; }
+
+        const project = await db.query.projects.findFirst({
+          where: eq(schema.projects.id, task.projectId),
+        });
+        if (!project) { socket.emit('error', { message: 'Project not found' }); return; }
+
+        const conversationSummary = await sessionManager.getConversationSummary(compactTaskId);
+
+        const compactAttemptId = nanoid();
+        await db.insert(schema.attempts).values({
+          id: compactAttemptId,
+          taskId: compactTaskId,
+          prompt: 'Manual compact: summarize conversation context',
+          displayPrompt: 'Compacting conversation...',
+          status: 'running',
+        });
+
+        socket.join(`attempt:${compactAttemptId}`);
+        socket.emit('attempt:started', { attemptId: compactAttemptId, taskId: compactTaskId });
+        io.to(`attempt:${compactAttemptId}`).emit('context:compacting', { attemptId: compactAttemptId, taskId: compactTaskId });
+
+        agentManager.compact({
+          attemptId: compactAttemptId,
+          projectPath: project.path,
+          conversationSummary,
+        });
+      } catch (error) {
+        log.error({ error }, '[Server] Manual compact failed');
+        socket.emit('error', { message: 'Compact failed: ' + (error instanceof Error ? error.message : 'Unknown error') });
+      }
+    });
 
     // ========================================
     // Inline Edit Socket Handlers
@@ -688,6 +741,49 @@ app.prepare().then(async () => {
 
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
+
+      // Find all attempt rooms this socket was in
+      // Socket.io automatically removes the socket from rooms on disconnect
+      // but we can check which rooms had this socket before disconnect
+      const socketRooms = Array.from(socket.rooms || []);
+      const attemptRooms = socketRooms
+        .filter(room => room.startsWith('attempt:'))
+        .map(room => room.replace('attempt:', ''));
+
+      for (const attemptId of attemptRooms) {
+        // Start grace timer for this attempt
+        if (disconnectTimers.has(attemptId)) continue; // Already has a timer
+
+        const timer = setTimeout(async () => {
+          disconnectTimers.delete(attemptId);
+
+          // Check if attempt room still has 0 clients
+          const room = io.sockets.adapter.rooms.get(`attempt:${attemptId}`);
+          if (room && room.size > 0) {
+            log.info({ attemptId, clients: room.size }, '[Server] Attempt room still has clients, skipping cleanup');
+            return;
+          }
+
+          // Check if attempt is still running
+          if (!agentManager.isRunning(attemptId)) return;
+
+          log.info({ attemptId }, '[Server] No clients for 30s, cancelling orphaned attempt');
+
+          // Cancel the agent
+          agentManager.cancel(attemptId);
+
+          // Mark subagents as orphaned in DB
+          try {
+            await db.update(schema.subagents)
+              .set({ status: 'orphaned', completedAt: Date.now() })
+              .where(eq(schema.subagents.attemptId, attemptId));
+          } catch (err) {
+            log.error({ err, attemptId }, '[Server] Failed to mark subagents as orphaned on disconnect');
+          }
+        }, 30000);
+
+        disconnectTimers.set(attemptId, timer);
+      }
     });
   });
 
@@ -857,19 +953,51 @@ app.prepare().then(async () => {
   });
 
   // Handle AskUserQuestion detection from AgentManager
-  agentManager.on('question', ({ attemptId, toolUseId, questions }) => {
+  agentManager.on('question', async ({ attemptId, toolUseId, questions }) => {
     log.info({
       attemptId,
       toolUseId,
       questionCount: questions?.length,
       questions: questions?.map((q: any) => ({ header: q.header, question: q.question?.substring(0, 50) }))
     }, '[Server] AskUserQuestion detected');
+
+    // Emit to attempt room (existing behavior)
     io.to(`attempt:${attemptId}`).emit('question:ask', {
       attemptId,
       toolUseId,
       questions,
     });
+
+    // Emit global question:new event for the questions panel
+    // Look up taskId from the attempt
+    try {
+      const attempt = await db.query.attempts.findFirst({
+        where: eq(schema.attempts.id, attemptId),
+      });
+      if (attempt) {
+        const task = await db.query.tasks.findFirst({
+          where: eq(schema.tasks.id, attempt.taskId),
+        });
+        io.emit('question:new', {
+          attemptId,
+          taskId: attempt.taskId,
+          taskTitle: task?.title || '',
+          projectId: task?.projectId || '',
+          toolUseId,
+          questions,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (err) {
+      log.error({ err }, '[Server] Failed to emit global question:new');
+    }
+
     log.info(`[Server] Emitted question:ask to attempt:${attemptId}`);
+  });
+
+  // Handle question resolved from AgentManager (answered or cancelled, including via REST API)
+  agentManager.on('questionResolved', ({ attemptId }) => {
+    io.emit('question:resolved', { attemptId });
   });
 
   // Handle background shell detection from AgentManager (Bash with run_in_background=true)
@@ -1038,6 +1166,31 @@ app.prepare().then(async () => {
     }
   });
 
+  // Handle "prompt too long" error - trigger auto-compact if enabled
+  agentManager.on('promptTooLong', async ({ attemptId }) => {
+    log.warn({ attemptId }, '[Server] Prompt too long detected');
+
+    try {
+      const autoCompactSetting = await db
+        .select()
+        .from(schema.appSettings)
+        .where(eq(schema.appSettings.key, 'auto_compact_enabled'))
+        .limit(1);
+
+      const autoCompactEnabled = autoCompactSetting.length > 0 && autoCompactSetting[0].value === 'true';
+
+      io.to(`attempt:${attemptId}`).emit('context:prompt-too-long', {
+        attemptId,
+        autoCompactEnabled,
+        message: autoCompactEnabled
+          ? 'Context limit exceeded. Auto-compacting...'
+          : 'Context limit exceeded. Use /compact to reduce context size, or start a new conversation.',
+      });
+    } catch (error) {
+      log.error({ error }, '[Server] Failed to handle prompt-too-long');
+    }
+  });
+
   // Register exit event handler
   agentManager.on('exit', async ({ attemptId, code }) => {
     // Get attempt to retrieve taskId and current status
@@ -1164,6 +1317,73 @@ app.prepare().then(async () => {
     if (attempt?.taskId) {
       io.emit('task:finished', { taskId: attempt.taskId, status });
     }
+
+    // Auto-compact check: if context exceeded threshold and auto-compact is enabled
+    if (status === 'completed' && usageStats?.contextHealth?.shouldCompact && attempt?.taskId) {
+      try {
+        const autoCompactSetting = await db
+          .select()
+          .from(schema.appSettings)
+          .where(eq(schema.appSettings.key, 'auto_compact_enabled'))
+          .limit(1);
+
+        const autoCompactEnabled = autoCompactSetting.length > 0 && autoCompactSetting[0].value === 'true';
+
+        if (autoCompactEnabled) {
+          const project = await db.query.projects.findFirst({
+            where: eq(schema.projects.id, (await db.query.tasks.findFirst({ where: eq(schema.tasks.id, attempt.taskId) }))!.projectId),
+          });
+
+          if (project) {
+            const conversationSummary = await sessionManager.getConversationSummary(attempt.taskId);
+
+            const compactAttemptId = nanoid();
+            await db.insert(schema.attempts).values({
+              id: compactAttemptId,
+              taskId: attempt.taskId,
+              prompt: 'Auto-compact: summarize conversation context',
+              displayPrompt: 'Auto-compacting conversation...',
+              status: 'running',
+            });
+
+            log.info({ attemptId: compactAttemptId, taskId: attempt.taskId }, '[Server] Auto-compacting conversation');
+            io.to(`attempt:${attemptId}`).emit('context:compacting', { attemptId: compactAttemptId, taskId: attempt.taskId });
+
+            agentManager.compact({
+              attemptId: compactAttemptId,
+              projectPath: project.path,
+              conversationSummary,
+            });
+          }
+        }
+      } catch (compactError) {
+        log.error({ compactError }, '[Server] Auto-compact failed');
+      }
+    }
+
+    // Mark any remaining in-progress subagents as orphaned in DB
+    const orphanedNodes = workflowTracker.markOrphaned(attemptId);
+    if (orphanedNodes.length > 0) {
+      log.info({ attemptId, count: orphanedNodes.length }, '[Server] Marking orphaned subagents');
+      for (const node of orphanedNodes) {
+        try {
+          await db.update(schema.subagents)
+            .set({
+              status: 'orphaned',
+              completedAt: node.completedAt || Date.now(),
+              durationMs: node.durationMs || null,
+            })
+            .where(eq(schema.subagents.id, node.id));
+        } catch (err) {
+          log.error({ err, nodeId: node.id }, '[Server] Failed to mark subagent as orphaned');
+        }
+      }
+    }
+
+    // Clean up in-memory tracking data for this attempt to prevent unbounded growth
+    usageTracker.clearSession(attemptId);
+    workflowTracker.clearWorkflow(attemptId);
+    gitStatsCache.clear(attemptId);
   });
 
   // Forward tracking module events to Socket.io clients
@@ -1177,14 +1397,71 @@ app.prepare().then(async () => {
   });
 
   // Workflow tracking (subagent execution chain)
-  workflowTracker.on('workflow-update', ({ attemptId, workflow }) => {
-    const summary = workflowTracker.getWorkflowSummary(attemptId);
-    if (summary) {
-      log.info({ attemptId, chain: summary.chain }, '[Server] Emitting status:workflow');
+  workflowTracker.on('workflow-update', ({ attemptId }) => {
+    const expanded = workflowTracker.getExpandedWorkflow(attemptId);
+    if (expanded) {
+      log.info({ attemptId, chain: expanded.summary.chain }, '[Server] Emitting status:workflow');
       io.to(`attempt:${attemptId}`).emit('status:workflow', {
         attemptId,
-        workflow: summary,
+        nodes: expanded.nodes,
+        messages: expanded.messages,
+        summary: expanded.summary,
       });
+
+      // Also emit global workflow:update for cross-task awareness
+      // Look up taskId and title for the attempt
+      db.query.attempts.findFirst({
+        where: eq(schema.attempts.id, attemptId),
+      }).then(attempt => {
+        if (attempt) {
+          db.query.tasks.findFirst({
+            where: eq(schema.tasks.id, attempt.taskId),
+          }).then(task => {
+            io.emit('workflow:update', {
+              attemptId,
+              taskId: attempt.taskId,
+              taskTitle: task?.title || 'Unknown',
+              summary: expanded.summary,
+            });
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  });
+
+  // Persist subagent start to DB
+  workflowTracker.on('subagent-start', async ({ attemptId, node }) => {
+    try {
+      await db.insert(schema.subagents).values({
+        id: node.id,
+        attemptId,
+        type: node.type,
+        name: node.name || null,
+        parentId: node.parentId,
+        teamName: node.teamName || null,
+        status: 'in_progress',
+        depth: node.depth,
+        startedAt: node.startedAt || Date.now(),
+      });
+    } catch (err) {
+      log.error({ err, attemptId, nodeId: node.id }, '[Server] Failed to persist subagent start');
+    }
+  });
+
+  // Persist subagent end to DB
+  workflowTracker.on('subagent-end', async ({ attemptId, node }) => {
+    try {
+      const dbStatus = node.status as 'in_progress' | 'completed' | 'failed' | 'orphaned';
+      await db.update(schema.subagents)
+        .set({
+          status: dbStatus,
+          completedAt: node.completedAt || Date.now(),
+          durationMs: node.durationMs || null,
+          error: node.error || null,
+        })
+        .where(eq(schema.subagents.id, node.id));
+    } catch (err) {
+      log.error({ err, attemptId, nodeId: node.id }, '[Server] Failed to persist subagent end');
     }
   });
 
