@@ -142,7 +142,7 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
           const text = await navigator.clipboard.readText();
           if (text) terminal.paste(text);
         } catch {
-          toast.error('Clipboard access denied');
+          toast.error('Clipboard access denied — use the shortcut bar Paste button on mobile');
         }
       };
 
@@ -194,6 +194,7 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
         copySelection: copySelectionToClipboard,
         selectAll: selectAllText,
         pasteClipboard: pasteFromClipboard,
+        pasteText: (text: string) => terminal.paste(text),
         clearTerminal: clearTerminalScreen,
       });
 

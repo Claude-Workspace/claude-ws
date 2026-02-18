@@ -20,6 +20,7 @@ export interface TerminalInstanceActions {
   copySelection: () => void;
   selectAll: () => void;
   pasteClipboard: () => void;
+  pasteText: (text: string) => void;
   clearTerminal: () => void;
 }
 
@@ -63,6 +64,8 @@ interface TerminalActions {
   copySelection: (id: string) => void;
   selectAll: (id: string) => void;
   pasteClipboard: (id: string) => void;
+  /** Paste pre-read text via xterm.paste() — keeps IME state clean */
+  pasteText: (id: string, text: string) => void;
   clearTerminal: (id: string) => void;
 }
 
@@ -285,6 +288,7 @@ export const useTerminalStore = create<TerminalStore>()(
       copySelection: (id) => get()._terminalActions[id]?.copySelection(),
       selectAll: (id) => get()._terminalActions[id]?.selectAll(),
       pasteClipboard: (id) => get()._terminalActions[id]?.pasteClipboard(),
+      pasteText: (id, text) => get()._terminalActions[id]?.pasteText(text),
       clearTerminal: (id) => get()._terminalActions[id]?.clearTerminal(),
     }),
     {

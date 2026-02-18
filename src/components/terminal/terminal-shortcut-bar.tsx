@@ -1,9 +1,50 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TextCursorInput, X, Copy, ClipboardPaste, TextSelect } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTerminalStore } from '@/stores/terminal-store';
+
+/**
+ * Mobile paste: always show dialog, pre-fill from clipboard if possible.
+ * Clipboard API on mobile is unreliable (returns empty, hangs, or denies silently),
+ * so the dialog is the primary UX — clipboard just pre-fills it.
+ */
+function showPasteDialog(): Promise<string | null> {
+  return new Promise<string | null>((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--background,#1e1e1e);color:var(--foreground,#d4d4d4);border-radius:12px;padding:16px;width:90%;max-width:340px;display:flex;flex-direction:column;gap:10px;font-family:system-ui,sans-serif;';
+    card.innerHTML = `
+      <div style="font-size:14px;font-weight:600;">Paste</div>
+      <textarea rows="4" style="width:100%;box-sizing:border-box;border-radius:8px;border:1px solid var(--border,#333);background:var(--muted,#2d2d2d);color:inherit;padding:8px;font-size:14px;resize:none;" placeholder="Long-press here → Paste"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button data-action="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid var(--border,#333);background:transparent;color:inherit;font-size:13px;cursor:pointer;">Cancel</button>
+        <button data-action="ok" style="padding:6px 14px;border-radius:6px;border:none;background:var(--primary,#2563eb);color:#fff;font-size:13px;cursor:pointer;">Submit</button>
+      </div>`;
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    const textarea = card.querySelector('textarea') as HTMLTextAreaElement;
+    const cleanup = () => overlay.remove();
+    const submit = () => { cleanup(); resolve(textarea.value || null); };
+    const cancel = () => { cleanup(); resolve(null); };
+
+    // Try pre-fill from clipboard (best-effort, don't block on failure)
+    navigator.clipboard.readText()
+      .then((t) => { if (t && !textarea.value) textarea.value = t; })
+      .catch(() => {});
+
+    textarea.focus();
+    card.querySelector('[data-action="cancel"]')?.addEventListener('click', cancel);
+    card.querySelector('[data-action="ok"]')?.addEventListener('click', submit);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+  });
+}
+
+/** Max px movement to still count as a tap (not a swipe) */
+const TAP_THRESHOLD = 8;
 
 /** Shortcut keys for the mobile accessory bar (Termius-style) */
 const SHORTCUT_KEYS: { label: string; input?: string; modifier?: 'ctrl' | 'alt'; icon?: React.ReactNode }[] = [
@@ -30,18 +71,41 @@ export function TerminalShortcutBar() {
   const setSelectionMode = useTerminalStore((s) => s.setSelectionMode);
   const copySelection = useTerminalStore((s) => s.copySelection);
   const selectAll = useTerminalStore((s) => s.selectAll);
-  const pasteClipboard = useTerminalStore((s) => s.pasteClipboard);
+  const pasteText = useTerminalStore((s) => s.pasteText);
 
   const ctrlRef = useRef(false);
   const altRef = useRef(false);
   const [ctrlActive, setCtrlActive] = useState(false);
   const [altActive, setAltActive] = useState(false);
 
+  /** Paste: show dialog (pre-filled from clipboard if possible), then xterm.paste() */
+  const handlePaste = useCallback(async () => {
+    if (!activeTabId) return;
+    const text = await showPasteDialog();
+    if (text) pasteText(activeTabId, text);
+  }, [activeTabId, pasteText]);
+
   const clearModifiers = useCallback(() => {
     ctrlRef.current = false;
     altRef.current = false;
     setCtrlActive(false);
     setAltActive(false);
+  }, []);
+
+  // Tap-vs-swipe guard: track pointer start, only fire action on pointerUp if barely moved
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+
+  const onDown = useCallback((e: ReactPointerEvent) => {
+    e.preventDefault(); // keep terminal focus
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const isTap = useCallback((e: ReactPointerEvent) => {
+    if (!pointerStart.current) return false;
+    const dx = Math.abs(e.clientX - pointerStart.current.x);
+    const dy = Math.abs(e.clientY - pointerStart.current.y);
+    pointerStart.current = null;
+    return dx < TAP_THRESHOLD && dy < TAP_THRESHOLD;
   }, []);
 
   const handleKey = useCallback((key: typeof SHORTCUT_KEYS[number]) => {
@@ -88,17 +152,20 @@ export function TerminalShortcutBar() {
         <span className="text-xs text-muted-foreground px-2 shrink-0">Selection</span>
         <div className="w-px h-5 bg-border shrink-0" />
         <button
-          onPointerDown={(e) => { e.preventDefault(); selectAll(activeTabId); }}
+          onPointerDown={onDown}
+          onPointerUp={(e) => { if (isTap(e)) selectAll(activeTabId); }}
           className={cn(btnBase, 'bg-muted text-foreground gap-1')}
         >
           <TextSelect className="h-3.5 w-3.5" />
           All
         </button>
         <button
-          onPointerDown={(e) => {
-            e.preventDefault();
-            copySelection(activeTabId);
-            setSelectionMode(activeTabId, false);
+          onPointerDown={onDown}
+          onPointerUp={(e) => {
+            if (isTap(e)) {
+              copySelection(activeTabId);
+              setSelectionMode(activeTabId, false);
+            }
           }}
           className={cn(btnBase, 'bg-muted text-foreground gap-1')}
         >
@@ -106,7 +173,8 @@ export function TerminalShortcutBar() {
           Copy
         </button>
         <button
-          onPointerDown={(e) => { e.preventDefault(); pasteClipboard(activeTabId); }}
+          onPointerDown={onDown}
+          onPointerUp={(e) => { if (isTap(e)) handlePaste(); }}
           className={cn(btnBase, 'bg-muted text-foreground gap-1')}
         >
           <ClipboardPaste className="h-3.5 w-3.5" />
@@ -114,7 +182,8 @@ export function TerminalShortcutBar() {
         </button>
         <div className="flex-1" />
         <button
-          onPointerDown={(e) => { e.preventDefault(); setSelectionMode(activeTabId, false); }}
+          onPointerDown={onDown}
+          onPointerUp={(e) => { if (isTap(e)) setSelectionMode(activeTabId, false); }}
           className={cn(btnBase, 'bg-muted text-muted-foreground')}
         >
           <X className="h-4 w-4" />
@@ -130,7 +199,8 @@ export function TerminalShortcutBar() {
       style={{ scrollbarWidth: 'none' }}
     >
       <button
-        onPointerDown={(e) => { e.preventDefault(); setSelectionMode(activeTabId, true); }}
+        onPointerDown={onDown}
+        onPointerUp={(e) => { if (isTap(e)) setSelectionMode(activeTabId, true); }}
         className={cn(btnBase, 'bg-muted text-muted-foreground')}
         title="Selection mode"
       >
@@ -146,10 +216,8 @@ export function TerminalShortcutBar() {
         return (
           <button
             key={key.label}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              handleKey(key);
-            }}
+            onPointerDown={onDown}
+            onPointerUp={(e) => { if (isTap(e)) handleKey(key); }}
             className={cn(
               btnBase,
               isActive
