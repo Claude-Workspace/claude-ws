@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X, Terminal, ChevronDown } from 'lucide-react';
+import { Plus, X, Terminal, ChevronDown, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTerminalStore } from '@/stores/terminal-store';
@@ -11,7 +11,7 @@ interface TerminalTabBarProps {
 }
 
 export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
-  const { tabs, activeTabId, setActiveTab, createTerminal, closeTerminal, closePanel, renameTerminal } =
+  const { tabs, activeTabId, setActiveTab, createTerminal, closeTerminal, closePanel, renameTerminal, sendInput } =
     useTerminalStore();
 
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -109,6 +109,18 @@ export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
       </Button>
 
       <div className="flex-1" />
+
+      {activeTabId && tabs.find(t => t.id === activeTabId)?.isConnected && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-red-500"
+          onClick={() => sendInput(activeTabId, '\x03')}
+          title="Send Ctrl+C (SIGINT)"
+        >
+          <Square className="h-3 w-3 fill-current" />
+        </Button>
+      )}
 
       <Button
         variant="ghost"

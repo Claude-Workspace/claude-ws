@@ -9,6 +9,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { TerminalTabBar } from './terminal-tab-bar';
 import { TerminalInstance } from './terminal-instance';
+import { TerminalShortcutBar } from './terminal-shortcut-bar';
 
 export function TerminalPanel() {
   const isOpen = useTerminalStore((s) => s.isOpen);
@@ -152,27 +153,68 @@ export function TerminalPanel() {
     </div>
   );
 
+  // Track visual viewport so the panel shrinks when the mobile keyboard opens.
+  // iOS Safari: keyboard overlays the layout viewport — `position: fixed` stays
+  // anchored to the layout viewport. We need both `height` (visible area) and
+  // `offsetTop` (how far the visual viewport has scrolled within the layout viewport)
+  // to position the container exactly over the visible area above the keyboard.
+  const mobileContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+    const vv = window.visualViewport;
+    const el = mobileContainerRef.current;
+    if (!vv || !el) return;
+
+    const update = () => {
+      el.style.height = `${vv.height}px`;
+      el.style.top = `${vv.offsetTop}px`;
+    };
+    update();
+
+    // resize: keyboard open/close; scroll: iOS viewport scroll within layout viewport
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+
+    // Safari may not fire resize immediately — re-check after focus events
+    const delayedUpdate = () => setTimeout(update, 300);
+    document.addEventListener('focusin', delayedUpdate);
+    document.addEventListener('focusout', delayedUpdate);
+
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      document.removeEventListener('focusin', delayedUpdate);
+      document.removeEventListener('focusout', delayedUpdate);
+    };
+  }, [isMobile, isOpen]);
+
   // Mobile: full-screen overlay
   if (isMobile) {
     return (
       <div
+        ref={mobileContainerRef}
         className={cn(
-          'fixed inset-0 z-[60] flex flex-col bg-background',
+          'fixed left-0 right-0 z-[60] flex flex-col bg-background',
           !isOpen && 'hidden'
         )}
+        style={{ top: 0, height: '100%' }}
       >
         <TerminalTabBar projectId={projectId} />
         {tabs.length > 0 ? (
-          <div className="flex-1 min-h-0 relative">
-            {tabs.map((tab) => (
-              <TerminalInstance
-                key={tab.id}
-                terminalId={tab.id}
-                isVisible={tab.id === activeTabId}
-                isMobile
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex-1 min-h-0 relative">
+              {tabs.map((tab) => (
+                <TerminalInstance
+                  key={tab.id}
+                  terminalId={tab.id}
+                  isVisible={tab.id === activeTabId}
+                  isMobile
+                />
+              ))}
+            </div>
+            <TerminalShortcutBar />
+          </>
         ) : emptyState}
       </div>
     );

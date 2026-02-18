@@ -178,6 +178,19 @@
   }
 }
 
+/* xterm.js mobile touch scroll fix — allow smooth native vertical scrolling */
+@media screen and (max-width: 767px) {
+  .xterm .xterm-viewport {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+
+  .xterm .xterm-screen {
+    touch-action: pan-y;
+  }
+}
+
 /* Custom scrollbar styling - minimal and modern */
 .custom-scrollbar,
 .custom-scrollbar * {
