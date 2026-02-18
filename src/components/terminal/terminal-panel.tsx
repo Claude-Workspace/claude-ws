@@ -10,6 +10,7 @@ import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { TerminalTabBar } from './terminal-tab-bar';
 import { TerminalInstance } from './terminal-instance';
 import { TerminalShortcutBar } from './terminal-shortcut-bar';
+import { TerminalContextMenu } from './terminal-context-menu';
 
 export function TerminalPanel() {
   const isOpen = useTerminalStore((s) => s.isOpen);
@@ -244,11 +245,14 @@ export function TerminalPanel() {
       {tabs.length > 0 ? (
         <div className="flex-1 min-h-0 relative">
           {tabs.map((tab) => (
-            <TerminalInstance
-              key={tab.id}
-              terminalId={tab.id}
-              isVisible={tab.id === activeTabId}
-            />
+            <TerminalContextMenu key={tab.id} terminalId={tab.id}>
+              <div className="absolute inset-0" style={{ display: tab.id === activeTabId ? 'block' : 'none' }}>
+                <TerminalInstance
+                  terminalId={tab.id}
+                  isVisible={tab.id === activeTabId}
+                />
+              </div>
+            </TerminalContextMenu>
           ))}
         </div>
       ) : emptyState}

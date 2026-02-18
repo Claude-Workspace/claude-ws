@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TextCursorInput, X, Copy, ClipboardPaste, TextSelect } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTerminalStore } from '@/stores/terminal-store';
 
@@ -26,6 +26,11 @@ const SHORTCUT_KEYS: { label: string; input?: string; modifier?: 'ctrl' | 'alt';
 export function TerminalShortcutBar() {
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const sendInput = useTerminalStore((s) => s.sendInput);
+  const selectionMode = useTerminalStore((s) => activeTabId ? s.selectionMode[activeTabId] : false);
+  const setSelectionMode = useTerminalStore((s) => s.setSelectionMode);
+  const copySelection = useTerminalStore((s) => s.copySelection);
+  const selectAll = useTerminalStore((s) => s.selectAll);
+  const pasteClipboard = useTerminalStore((s) => s.pasteClipboard);
 
   const ctrlRef = useRef(false);
   const altRef = useRef(false);
@@ -67,11 +72,71 @@ export function TerminalShortcutBar() {
 
   if (!activeTabId) return null;
 
+  const btnBase = cn(
+    'min-w-[36px] h-[34px] px-2.5 text-sm font-mono rounded-md shrink-0 select-none',
+    'flex items-center justify-center',
+    'active:scale-90 transition-transform duration-75',
+  );
+
+  // Selection mode bar
+  if (selectionMode) {
+    return (
+      <div
+        className="flex items-center gap-1 px-1.5 py-1.5 border-t bg-muted/50 shrink-0"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        <span className="text-xs text-muted-foreground px-2 shrink-0">Selection</span>
+        <div className="w-px h-5 bg-border shrink-0" />
+        <button
+          onPointerDown={(e) => { e.preventDefault(); selectAll(activeTabId); }}
+          className={cn(btnBase, 'bg-muted text-foreground gap-1')}
+        >
+          <TextSelect className="h-3.5 w-3.5" />
+          All
+        </button>
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault();
+            copySelection(activeTabId);
+            setSelectionMode(activeTabId, false);
+          }}
+          className={cn(btnBase, 'bg-muted text-foreground gap-1')}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Copy
+        </button>
+        <button
+          onPointerDown={(e) => { e.preventDefault(); pasteClipboard(activeTabId); }}
+          className={cn(btnBase, 'bg-muted text-foreground gap-1')}
+        >
+          <ClipboardPaste className="h-3.5 w-3.5" />
+          Paste
+        </button>
+        <div className="flex-1" />
+        <button
+          onPointerDown={(e) => { e.preventDefault(); setSelectionMode(activeTabId, false); }}
+          className={cn(btnBase, 'bg-muted text-muted-foreground')}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  // Normal shortcut bar with select toggle prepended
   return (
     <div
       className="flex items-center gap-1 px-1.5 py-1.5 border-t bg-muted/50 shrink-0 overflow-x-auto"
       style={{ scrollbarWidth: 'none' }}
     >
+      <button
+        onPointerDown={(e) => { e.preventDefault(); setSelectionMode(activeTabId, true); }}
+        className={cn(btnBase, 'bg-muted text-muted-foreground')}
+        title="Selection mode"
+      >
+        <TextCursorInput className="h-4 w-4" />
+      </button>
+      <div className="w-px h-5 bg-border shrink-0" />
       {SHORTCUT_KEYS.map((key) => {
         const isModifier = !!key.modifier;
         const isActive =
@@ -86,9 +151,7 @@ export function TerminalShortcutBar() {
               handleKey(key);
             }}
             className={cn(
-              'min-w-[36px] h-[34px] px-2.5 text-sm font-mono rounded-md shrink-0 select-none',
-              'flex items-center justify-center',
-              'active:scale-90 transition-transform duration-75',
+              btnBase,
               isActive
                 ? 'bg-primary text-primary-foreground'
                 : isModifier

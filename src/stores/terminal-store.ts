@@ -16,6 +16,13 @@ import type { Socket } from 'socket.io-client';
 
 const log = createLogger('TerminalStore');
 
+export interface TerminalInstanceActions {
+  copySelection: () => void;
+  selectAll: () => void;
+  pasteClipboard: () => void;
+  clearTerminal: () => void;
+}
+
 export interface TerminalTab {
   id: string;
   projectId: string;
@@ -31,6 +38,8 @@ interface TerminalState {
   tabs: TerminalTab[];
   _listenersAttached: boolean;
   _isCreating: boolean;
+  selectionMode: Record<string, boolean>;
+  _terminalActions: Record<string, TerminalInstanceActions>;
 }
 
 interface TerminalActions {
@@ -48,6 +57,13 @@ interface TerminalActions {
   /** Re-subscribe to existing PTY sessions after reconnect / page refresh */
   reconnectTabs: () => Promise<void>;
   _attachListeners: () => void;
+  setSelectionMode: (id: string, active: boolean) => void;
+  registerTerminalActions: (id: string, actions: TerminalInstanceActions) => void;
+  unregisterTerminalActions: (id: string) => void;
+  copySelection: (id: string) => void;
+  selectAll: (id: string) => void;
+  pasteClipboard: (id: string) => void;
+  clearTerminal: (id: string) => void;
 }
 
 type TerminalStore = TerminalState & TerminalActions;
@@ -86,6 +102,8 @@ export const useTerminalStore = create<TerminalStore>()(
       tabs: [],
       _listenersAttached: false,
       _isCreating: false,
+      selectionMode: {},
+      _terminalActions: {},
 
       togglePanel: () => set((s) => ({ isOpen: !s.isOpen })),
       openPanel: () => set({ isOpen: true }),
@@ -206,7 +224,7 @@ export const useTerminalStore = create<TerminalStore>()(
       closeTerminal: (terminalId) => {
         const socket = getSocket();
         socket.emit('terminal:close', { terminalId });
-        const { tabs, activeTabId } = get();
+        const { tabs, activeTabId, selectionMode, _terminalActions } = get();
         const newTabs = tabs.filter((t) => t.id !== terminalId);
         const newActiveId =
           activeTabId === terminalId
@@ -214,7 +232,11 @@ export const useTerminalStore = create<TerminalStore>()(
               ? newTabs[newTabs.length - 1].id
               : null
             : activeTabId;
-        set({ tabs: newTabs, activeTabId: newActiveId });
+        const newSelectionMode = { ...selectionMode };
+        delete newSelectionMode[terminalId];
+        const newActions = { ..._terminalActions };
+        delete newActions[terminalId];
+        set({ tabs: newTabs, activeTabId: newActiveId, selectionMode: newSelectionMode, _terminalActions: newActions });
       },
 
       setActiveTab: (terminalId) => set({ activeTabId: terminalId }),
@@ -243,6 +265,27 @@ export const useTerminalStore = create<TerminalStore>()(
         tabs.forEach((t) => socket.emit('terminal:close', { terminalId: t.id }));
         set({ tabs: [], activeTabId: null });
       },
+
+      setSelectionMode: (id, active) => {
+        set((s) => ({ selectionMode: { ...s.selectionMode, [id]: active } }));
+      },
+
+      registerTerminalActions: (id, actions) => {
+        set((s) => ({ _terminalActions: { ...s._terminalActions, [id]: actions } }));
+      },
+
+      unregisterTerminalActions: (id) => {
+        set((s) => {
+          const next = { ...s._terminalActions };
+          delete next[id];
+          return { _terminalActions: next };
+        });
+      },
+
+      copySelection: (id) => get()._terminalActions[id]?.copySelection(),
+      selectAll: (id) => get()._terminalActions[id]?.selectAll(),
+      pasteClipboard: (id) => get()._terminalActions[id]?.pasteClipboard(),
+      clearTerminal: (id) => get()._terminalActions[id]?.clearTerminal(),
     }),
     {
       name: 'terminal-store',

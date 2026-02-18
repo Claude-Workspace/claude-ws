@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useTerminalStore } from '@/stores/terminal-store';
 import { getSocket } from '@/lib/socket-service';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 
 interface TerminalInstanceProps {
   terminalId: string;
@@ -65,6 +66,7 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
   const fitAddonRef = useRef<any>(null);
   const isInitializedRef = useRef(false);
   const cleanupRef = useRef<(() => void) | undefined>(undefined);
+  const selectionModeRef = useRef(false);
 
   const { sendInput, sendResize, panelHeight } = useTerminalStore();
   const { resolvedTheme } = useTheme();
@@ -103,46 +105,310 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
       terminal.loadAddon(webLinksAddon);
       terminal.open(container);
 
-      // On mobile: improve touch scrolling in the terminal viewport.
-      if (isMobile) {
-        const viewport = container.querySelector('.xterm-viewport') as HTMLElement | null;
-        const screen = container.querySelector('.xterm-screen') as HTMLElement | null;
-        if (viewport) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (viewport.style as any).webkitOverflowScrolling = 'touch';
-          viewport.style.overscrollBehaviorY = 'contain';
+      // --- Clipboard helpers (with fallback for mobile) ---
+      const writeClipboard = async (text: string): Promise<boolean> => {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          // Fallback: textarea + execCommand (works without user-gesture in more contexts)
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          try {
+            document.execCommand('copy');
+            return true;
+          } catch {
+            return false;
+          } finally {
+            ta.remove();
+          }
         }
+      };
+
+      const copySelectionToClipboard = async () => {
+        const sel = terminal.getSelection();
+        if (!sel) return;
+        const ok = await writeClipboard(sel);
+        if (ok) toast.success('Copied to clipboard');
+        else toast.error('Failed to copy');
+      };
+
+      const pasteFromClipboard = async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) terminal.paste(text);
+        } catch {
+          toast.error('Clipboard access denied');
+        }
+      };
+
+      const selectAllText = () => {
+        terminal.selectAll();
+      };
+
+      const clearTerminalScreen = () => {
+        terminal.clear();
+      };
+
+      // --- Keyboard handler ---
+      terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        if (e.type !== 'keydown') return true;
+
+        const isMac = navigator.platform.toUpperCase().includes('MAC');
+        const ctrl = isMac ? e.metaKey : e.ctrlKey;
+
+        // Ctrl+C / Cmd+C: if text selected → copy, else let through for SIGINT
+        if (ctrl && !e.shiftKey && e.key === 'c') {
+          if (terminal.hasSelection()) {
+            copySelectionToClipboard();
+            terminal.clearSelection();
+            return false;
+          }
+          // No selection — let xterm send ^C (SIGINT)
+          return true;
+        }
+
+        // Ctrl+Shift+C: explicit copy
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+          copySelectionToClipboard();
+          terminal.clearSelection();
+          return false;
+        }
+
+        // Ctrl+Shift+V: paste
+        if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+          pasteFromClipboard();
+          return false;
+        }
+
+        return true;
+      });
+
+      // --- Register actions for store dispatch ---
+      const store = useTerminalStore.getState();
+      store.registerTerminalActions(terminalId, {
+        copySelection: copySelectionToClipboard,
+        selectAll: selectAllText,
+        pasteClipboard: pasteFromClipboard,
+        clearTerminal: clearTerminalScreen,
+      });
+
+      // On mobile: touch scroll (WheelEvent dispatch) + selection mode
+      // (tap → blinking cursor, hold+drag → select, vertical swipe → scroll).
+      let mobileCleanup: (() => void) | undefined;
+      if (isMobile) {
+        // Prevent touch scroll from bleeding through the fixed overlay
+        // to the page behind it. Our scroll is handled via WheelEvent dispatch.
+        const preventTouchScroll = (e: TouchEvent) => { e.preventDefault(); };
+        container.addEventListener('touchmove', preventTouchScroll, { passive: false });
+
+        const screen = container.querySelector('.xterm-screen') as HTMLElement | null;
         if (screen) {
           let startY = 0;
           let startX = 0;
           let isVertical: boolean | null = null;
+          // Momentum
+          let velocityY = 0;
+          let lastMoveTime = 0;
+          let momentumRaf = 0;
+          // Selection: two-tap anchor system
+          // Tap 1 → set anchor (start point), Drag → select from anchor to finger
+          let anchor: { col: number; bufferRow: number } | null = null;
+          let isDragging = false;
+          // Blinking cursor indicator
+          let cursorEl: HTMLElement | null = null;
+          let cursorBlink: ReturnType<typeof setInterval> | null = null;
+          let cursorTimeout: ReturnType<typeof setTimeout> | null = null;
 
+          // --- Helpers: cell coordinate conversion ---
+          const getCellSize = () => ({
+            w: screen.clientWidth / (terminal.cols || 1),
+            h: screen.clientHeight / (terminal.rows || 1),
+          });
+
+          const screenToCell = (clientX: number, clientY: number) => {
+            const rect = screen.getBoundingClientRect();
+            const cell = getCellSize();
+            return {
+              col: Math.max(0, Math.min(terminal.cols - 1, Math.floor((clientX - rect.left) / cell.w))),
+              row: Math.max(0, Math.min(terminal.rows - 1, Math.floor((clientY - rect.top) / cell.h))),
+            };
+          };
+
+          const cellToScreen = (col: number, viewportRow: number) => {
+            const rect = screen.getBoundingClientRect();
+            const cell = getCellSize();
+            return {
+              x: rect.left + col * cell.w,
+              y: rect.top + viewportRow * cell.h + cell.h / 2,
+            };
+          };
+
+          // --- Helpers: momentum scroll ---
+          const stopMomentum = () => {
+            if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          };
+
+          const emitWheel = (dy: number) => {
+            screen.dispatchEvent(new WheelEvent('wheel', {
+              deltaY: dy, deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+              bubbles: true, cancelable: true,
+            }));
+          };
+
+          const startMomentum = () => {
+            if (Math.abs(velocityY) < 0.3) return;
+            let v = -velocityY * 16;
+            const friction = 0.95;
+            const tick = () => {
+              if (Math.abs(v) < 0.5) { momentumRaf = 0; return; }
+              emitWheel(v);
+              v *= friction;
+              momentumRaf = requestAnimationFrame(tick);
+            };
+            momentumRaf = requestAnimationFrame(tick);
+          };
+
+          // --- Helpers: cursor indicator (snaps to character grid) ---
+          const removeCursor = () => {
+            if (cursorTimeout) { clearTimeout(cursorTimeout); cursorTimeout = null; }
+            if (cursorBlink) { clearInterval(cursorBlink); cursorBlink = null; }
+            if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+          };
+
+          const showCursorAtCell = (col: number, viewportRow: number) => {
+            removeCursor();
+            const cell = getCellSize();
+            const el = document.createElement('div');
+            const color = isDark ? darkTheme.cursor : lightTheme.cursor;
+            el.style.cssText = `position:absolute;width:2px;height:${Math.round(cell.h)}px;background:${color};pointer-events:none;z-index:10;border-radius:1px;`;
+            el.style.left = `${Math.round(col * cell.w)}px`;
+            el.style.top = `${Math.round(viewportRow * cell.h)}px`;
+            screen.appendChild(el);
+            cursorEl = el;
+            let vis = true;
+            cursorBlink = setInterval(() => { vis = !vis; el.style.opacity = vis ? '1' : '0'; }, 530);
+            cursorTimeout = setTimeout(removeCursor, 5000);
+          };
+
+          // --- Programmatic selection (no synthetic events needed) ---
+          const updateSelection = (clientX: number, clientY: number) => {
+            if (!anchor) return;
+            const { col: endCol, row: endViewportRow } = screenToCell(clientX, clientY);
+            const endBufRow = endViewportRow + terminal.buffer.active.viewportY;
+            const { col: startCol, bufferRow: startBufRow } = anchor;
+
+            // Determine direction and use terminal.select(col, row, length)
+            const forward = endBufRow > startBufRow || (endBufRow === startBufRow && endCol >= startCol);
+            if (forward) {
+              const len = (endBufRow - startBufRow) * terminal.cols + (endCol - startCol) + 1;
+              terminal.select(startCol, startBufRow, len);
+            } else {
+              const len = (startBufRow - endBufRow) * terminal.cols + (startCol - endCol) + 1;
+              terminal.select(endCol, endBufRow, len);
+            }
+          };
+
+          // --- Scroll helper (shared by both modes) ---
+          const applyScroll = (dy: number, t: Touch) => {
+            const now = Date.now();
+            const dt = Math.max(now - lastMoveTime, 1);
+            velocityY = 0.6 * velocityY + 0.4 * (dy / dt);
+            emitWheel(-dy);
+            startY = t.clientY;
+            startX = t.clientX;
+            lastMoveTime = now;
+          };
+
+          // --- Touch handlers ---
           const onTouchStart = (e: TouchEvent) => {
-            if (e.touches.length === 1) {
-              startY = e.touches[0].clientY;
-              startX = e.touches[0].clientX;
-              isVertical = null;
+            if (e.touches.length !== 1) return;
+            stopMomentum();
+            const touch = e.touches[0];
+            startY = touch.clientY;
+            startX = touch.clientX;
+            isVertical = null;
+            isDragging = false;
+            velocityY = 0;
+            lastMoveTime = Date.now();
+
+            if (selectionModeRef.current && anchor) {
+              removeCursor();
             }
           };
 
           const onTouchMove = (e: TouchEvent) => {
-            if (e.touches.length !== 1 || !viewport) return;
-            const dy = e.touches[0].clientY - startY;
-            const dx = e.touches[0].clientX - startX;
+            if (e.touches.length !== 1) return;
+            const t = e.touches[0];
+            const dy = t.clientY - startY;
+            const dx = t.clientX - startX;
 
+            if (selectionModeRef.current) {
+              if (isDragging) {
+                updateSelection(t.clientX, t.clientY);
+                return;
+              }
+
+              if (isVertical === null && (Math.abs(dy) > 6 || Math.abs(dx) > 6)) {
+                if (anchor) {
+                  // Anchor set → any drag is selection
+                  isVertical = false;
+                  isDragging = true;
+                  updateSelection(t.clientX, t.clientY);
+                  return;
+                }
+                // No anchor → scroll
+                isVertical = true;
+              }
+
+              if (isVertical) applyScroll(dy, t);
+              return;
+            }
+
+            // Normal mode: direction detection + scroll
             if (isVertical === null && (Math.abs(dy) > 4 || Math.abs(dx) > 4)) {
               isVertical = Math.abs(dy) >= Math.abs(dx);
             }
+            if (isVertical) applyScroll(dy, t);
+          };
 
-            if (isVertical) {
-              viewport.scrollTop -= (e.touches[0].clientY - startY);
-              startY = e.touches[0].clientY;
-              startX = e.touches[0].clientX;
+          const onTouchEnd = (e: TouchEvent) => {
+            if (isVertical) startMomentum();
+
+            if (selectionModeRef.current) {
+              const t = e.changedTouches[0];
+              if (!t) return;
+
+              if (isDragging) {
+                isDragging = false;
+                return;
+              }
+
+              if (!isVertical) {
+                // Tap → set/reposition anchor at cell grid
+                const { col, row } = screenToCell(t.clientX, t.clientY);
+                anchor = { col, bufferRow: row + terminal.buffer.active.viewportY };
+                showCursorAtCell(col, row);
+              }
             }
           };
 
           screen.addEventListener('touchstart', onTouchStart, { passive: true });
           screen.addEventListener('touchmove', onTouchMove, { passive: true });
+          screen.addEventListener('touchend', onTouchEnd, { passive: true });
+
+          mobileCleanup = () => {
+            container.removeEventListener('touchmove', preventTouchScroll);
+            stopMomentum(); removeCursor(); anchor = null;
+          };
+        } else {
+          mobileCleanup = () => {
+            container.removeEventListener('touchmove', preventTouchScroll);
+          };
         }
       }
 
@@ -191,10 +457,12 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
       }, 100);
 
       cleanupRef.current = () => {
+        mobileCleanup?.();
         resizeObserver.disconnect();
         inputDisposable.dispose();
         socket?.off('terminal:output', handleOutput);
         socket?.off('terminal:exit', handleExit);
+        useTerminalStore.getState().unregisterTerminalActions(terminalId);
         terminal.dispose();
         isInitializedRef.current = false;
         terminalRef.current = null;
@@ -235,6 +503,17 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
       terminalRef.current.options.theme = isDark ? darkTheme : lightTheme;
     }
   }, [resolvedTheme]);
+
+  // Selection mode (mobile): sync store → ref, blur to hide keyboard
+  const selectionMode = useTerminalStore((s) => s.selectionMode[terminalId]);
+  useEffect(() => {
+    selectionModeRef.current = !!selectionMode;
+    if (selectionMode && terminalRef.current) {
+      terminalRef.current.blur();
+    } else if (!selectionMode && isVisible && terminalRef.current) {
+      terminalRef.current.focus();
+    }
+  }, [selectionMode, isVisible]);
 
   return (
     <div
