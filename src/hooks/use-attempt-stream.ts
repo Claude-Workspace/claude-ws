@@ -417,13 +417,15 @@ export function useAttemptStream(
     const socket = socketRef.current;
     if (!socket || !isConnected) return;
     currentTaskIdRef.current = taskId;
-    setMessages([]);
+    // Don't clear messages here — defer to attempt:started callback
+    // This prevents turn 1 response from disappearing before history reloads
     setCurrentPrompt(displayPrompt || prompt);
     setIsRunning(true);
     addRunningTask(taskId);
     socket.once('attempt:started', (data: any) => {
       currentAttemptIdRef.current = data.attemptId; // CRITICAL: Sync ref BEFORE state for immediate filtering
       setCurrentAttemptId(data.attemptId);
+      setMessages([]); // Clear streaming messages AFTER new attempt is confirmed
       socket.emit('attempt:subscribe', { attemptId: data.attemptId });
     });
     socket.emit('attempt:start', { taskId, prompt, displayPrompt, fileIds, model });

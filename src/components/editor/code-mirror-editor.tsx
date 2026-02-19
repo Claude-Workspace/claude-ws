@@ -7,6 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { useTheme } from 'next-themes';
 import { languages } from './languages';
 import { markerLineHighlightExtension } from './extensions/marker-line-highlight';
+import { cursorSelectionDark, cursorSelectionLight } from './extensions/cursor-selection-theme';
 
 interface EditorPosition {
   lineNumber?: number;
@@ -112,8 +113,8 @@ export function CodeMirrorEditor({
         '.cm-lineNumbers': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
         '.cm-lineNumbers .cm-gutterElement': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
       }),
-      // Apply oneDark theme for dark themes
-      ...(isDarkTheme ? [oneDark] : []),
+      // Apply oneDark theme for dark themes, then cursor/selection overrides
+      ...(isDarkTheme ? [oneDark, cursorSelectionDark] : [cursorSelectionLight]),
       // Highlight marker lines (>>>>> and <<<<<)
       ...markerLineHighlightExtension,
       ...(langExtension ? [langExtension()] : []),

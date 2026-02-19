@@ -322,6 +322,20 @@ export function ConversationView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
+  // Reload history when a new attempt starts (currentAttemptId changes)
+  // This ensures previous turns are loaded from DB before the new attempt streams
+  const prevAttemptIdRef = useRef(currentAttemptId);
+  useEffect(() => {
+    const prevId = prevAttemptIdRef.current;
+    prevAttemptIdRef.current = currentAttemptId;
+
+    // If attemptId changed and we have a new one, reload history to pick up previous turns
+    if (currentAttemptId && prevId && currentAttemptId !== prevId) {
+      loadHistory(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAttemptId]);
+
   // Auto-scroll to bottom after history is loaded (when opening a task)
   useEffect(() => {
     if (!isLoading) {
@@ -554,7 +568,9 @@ export function ConversationView({
 
   // Filter out currently running attempt from history to avoid duplication
   // When streaming, current messages should be shown from currentMessages, not history
-  const filteredHistoricalTurns = currentAttemptId && isRunning
+  // Only filter when currentMessages has actual content — otherwise the streaming buffer
+  // is empty (e.g. just cleared for a new attempt) and history should remain visible
+  const filteredHistoricalTurns = currentAttemptId && isRunning && currentMessages.length > 0
     ? historicalTurns.filter(t => t.attemptId !== currentAttemptId)
     : historicalTurns;
 

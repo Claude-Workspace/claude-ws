@@ -7,6 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { useTheme } from 'next-themes';
 import { languages } from './languages';
 import { gotoDefinitionExtension, type ExtractedSymbol, type DefinitionInfo } from './extensions/goto-definition';
+import { cursorSelectionDark, cursorSelectionLight } from './extensions/cursor-selection-theme';
 import { DefinitionPopup } from './definition-popup';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
@@ -221,8 +222,8 @@ export function CodeEditorWithDefinitions({
         '.cm-lineNumbers': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
         '.cm-lineNumbers .cm-gutterElement': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
       }),
-      // Apply oneDark theme for dark themes
-      ...(isDarkTheme ? [oneDark] : []),
+      // Apply oneDark theme for dark themes, then cursor/selection overrides
+      ...(isDarkTheme ? [oneDark, cursorSelectionDark] : [cursorSelectionLight]),
       ...(langExtension ? [langExtension()] : []),
     ];
 

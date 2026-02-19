@@ -15,6 +15,7 @@ import { useTheme } from 'next-themes';
 import { languages } from './languages';
 import { gotoDefinitionExtension, type ExtractedSymbol, type DefinitionInfo } from './extensions/goto-definition';
 import { markerLineHighlightExtension } from './extensions/marker-line-highlight';
+import { cursorSelectionDark, cursorSelectionLight } from './extensions/cursor-selection-theme';
 import {
   inlineEditExtension,
   dispatchInlineDiff,
@@ -397,7 +398,7 @@ export function CodeEditorWithInlineEdit({
         '.cm-lineNumbers': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
         '.cm-lineNumbers .cm-gutterElement': { backgroundColor: 'rgb(255 255 255 / 3%) !important' },
       }),
-      ...(isDarkTheme ? [oneDark] : []),
+      ...(isDarkTheme ? [oneDark, cursorSelectionDark] : [cursorSelectionLight]),
       // Highlight marker lines (>>>>> and <<<<<)
       ...markerLineHighlightExtension,
       ...(langExtension ? [langExtension()] : []),

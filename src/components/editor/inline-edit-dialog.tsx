@@ -132,7 +132,7 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
   const shouldShow = isOpen || isPreview;
   if (!shouldShow || !adjustedPosition) return null;
 
-  // Preview mode - show Accept/Reject toolbar (same width as input mode)
+  // Preview mode - show Accept/Reject toolbar
   if (isPreview) {
     return createPortal(
       <div
@@ -143,34 +143,30 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
           top: adjustedPosition.y,
         }}
       >
-        <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg shadow-xl p-2 flex items-center gap-2">
+        <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg shadow-2xl shadow-black/40 p-2 flex items-center gap-1.5 backdrop-blur-sm">
           {/* Instruction text */}
-          <span className="flex-1 text-sm text-zinc-300 truncate" title={sessionInstruction}>
+          <span className="flex-1 text-xs text-zinc-400 truncate pl-1" title={sessionInstruction}>
             {sessionInstruction}
           </span>
 
           {/* Accept */}
           <button
             onClick={onAccept}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium px-2 py-1"
+            className="flex items-center gap-1.5 text-xs bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 hover:text-emerald-300 font-medium px-2.5 py-1 rounded-md transition-colors"
           >
-            Accept <span className="text-zinc-500">⌘↵</span>
+            <Check className="size-3" />
+            Accept
+            <kbd className="text-[10px] text-emerald-600 bg-emerald-950/50 px-1 py-0.5 rounded">⌘↵</kbd>
           </button>
 
           {/* Reject */}
           <button
             onClick={onReject}
-            className="text-xs text-zinc-400 hover:text-zinc-300 font-medium px-2 py-1"
+            className="flex items-center gap-1.5 text-xs bg-zinc-700/30 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-300 font-medium px-2.5 py-1 rounded-md transition-colors"
           >
-            Reject <span className="text-zinc-500">Esc</span>
-          </button>
-
-          {/* Close */}
-          <button
-            onClick={handleClose}
-            className="text-zinc-500 hover:text-zinc-300 p-1"
-          >
-            <X className="size-3.5" />
+            <RotateCcw className="size-3" />
+            Reject
+            <kbd className="text-[10px] text-zinc-600 bg-zinc-800/50 px-1 py-0.5 rounded">Esc</kbd>
           </button>
         </div>
       </div>,

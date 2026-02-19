@@ -302,16 +302,20 @@ export function inlineEditExtension(config: InlineEditConfig): Extension {
 
   // CSS theme for diff styling
   const theme = EditorView.theme({
-    '.cm-inline-edit-removed': {
-      backgroundColor: '#5c2d2d',
-      borderLeft: '3px solid #f85149',
+    // Removed line mark — red strikethrough highlight on the actual text
+    '.cm-inline-edit-removed-mark': {
+      backgroundColor: 'rgba(248, 81, 73, 0.2)',
+      textDecoration: 'line-through',
+      textDecorationColor: 'rgba(248, 81, 73, 0.6)',
     },
+    // Added lines block container
     '.cm-inline-edit-added-block': {
       marginLeft: '0',
       borderLeft: '3px solid #3fb950',
+      backgroundColor: 'rgba(63, 185, 80, 0.08)',
     },
     '.cm-inline-edit-added-line': {
-      backgroundColor: 'rgba(63, 185, 80, 0.35)',
+      backgroundColor: 'rgba(63, 185, 80, 0.15)',
       padding: '0',
       fontFamily: 'inherit',
       fontSize: 'inherit',
@@ -342,6 +346,7 @@ export function inlineEditExtension(config: InlineEditConfig): Extension {
     },
     '.cm-inline-edit-content': {
       flex: '1',
+      color: '#e6edf3',
     },
   });
 
