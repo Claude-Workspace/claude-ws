@@ -9,7 +9,7 @@
  */
 
 import { EventEmitter } from 'events';
-import * as pty from 'node-pty';
+import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 import { nanoid } from 'nanoid';
 import { detectShell } from './terminal-shell-detect';
 import { createLogger } from './logger';
