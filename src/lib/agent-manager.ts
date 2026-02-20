@@ -573,7 +573,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
           // Track subagent workflow (from assistant messages with Task tool)
           // Also track Bash tool_uses to correlate with BGPID results
           if (message.type === 'assistant' && 'message' in message) {
-            const assistantMsg = message as { message: { content: Array<{ type: string; id?: string; name?: string; input?: unknown }> }; parent_tool_use_id: string | null };
+            const assistantMsg = message as unknown as { message: { content: Array<{ type: string; id?: string; name?: string; input?: unknown }> }; parent_tool_use_id: string | null };
             for (const block of assistantMsg.message.content) {
               if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
                 const taskInput = (block as { input?: { subagent_type?: string } }).input;
