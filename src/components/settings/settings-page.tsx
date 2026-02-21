@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, FolderOpen, X, Bot, Shield, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,8 @@ import { dispatchAgentProviderConfig } from '@/components/auth/agent-provider-di
 import { ApiAccessKeySetupForm } from '@/components/access-anywhere/api-access-key-setup-modal';
 
 export function SettingsPage() {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const { currentProject, updateProject } = useProjectStore();
   const { setOpen: setSettingsOpen } = useSettingsUIStore();
   const [editingName, setEditingName] = useState('');
@@ -71,7 +74,7 @@ export function SettingsPage() {
           </Button>
           <div className="flex items-center gap-3">
             <FolderOpen className="w-6 h-6" />
-            <h1 className="text-2xl font-bold">Settings</h1>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
           </div>
         </div>
         <Button
@@ -89,7 +92,7 @@ export function SettingsPage() {
         {/* Current Project Section */}
         {currentProject && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Current Project</h2>
+            <h2 className="text-lg font-semibold">{t('currentProject')}</h2>
             <div className="space-y-3 p-4 border rounded-lg bg-card">
               <div className="flex items-center gap-3">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
@@ -102,14 +105,14 @@ export function SettingsPage() {
                       autoFocus
                     />
                     <Button size="sm" onClick={handleSaveName}>
-                      Save
+                      {tCommon('save')}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setIsEditing(false)}
                     >
-                      Cancel
+                      {tCommon('cancel')}
                     </Button>
                   </div>
                 ) : (
@@ -123,7 +126,7 @@ export function SettingsPage() {
                         setIsEditing(true);
                       }}
                     >
-                      Edit
+                      {tCommon('edit')}
                     </Button>
                   </div>
                 )}
@@ -137,19 +140,19 @@ export function SettingsPage() {
 
         {/* Agent Provider Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Agent Provider</h2>
+          <h2 className="text-lg font-semibold">{tCommon('agentProvider')}</h2>
           <div className="p-4 border rounded-lg bg-card">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Bot className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">Claude API Configuration</p>
+                  <p className="font-medium">{t('claudeApiConfig')}</p>
                   <p className="text-sm text-muted-foreground">
                     {loadingStatus
-                      ? 'Checking...'
+                      ? tCommon('checking')
                       : agentProviderConfigured
-                        ? 'A provider is configured'
-                        : 'No provider configured'
+                        ? t('providerConfigured')
+                        : t('noProviderConfigured')
                     }
                   </p>
                 </div>
@@ -158,7 +161,7 @@ export function SettingsPage() {
                 {!loadingStatus && agentProviderConfigured && (
                   <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                     <Check className="h-3 w-3" />
-                    Configured
+                    {tCommon('configured')}
                   </span>
                 )}
                 <Button
@@ -166,7 +169,7 @@ export function SettingsPage() {
                   size="sm"
                   onClick={() => dispatchAgentProviderConfig()}
                 >
-                  Configure
+                  {t('configure')}
                 </Button>
               </div>
             </div>
@@ -175,19 +178,19 @@ export function SettingsPage() {
 
         {/* API Access Key Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">API Access Key</h2>
+          <h2 className="text-lg font-semibold">{t('apiAccessKey')}</h2>
           <div className="p-4 border rounded-lg bg-card space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Shield className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">Remote Access Authentication</p>
+                  <p className="font-medium">{t('remoteAccessAuth')}</p>
                   <p className="text-sm text-muted-foreground">
                     {loadingStatus
-                      ? 'Checking...'
+                      ? tCommon('checking')
                       : apiAccessKeyConfigured
-                        ? 'An API access key is configured'
-                        : 'No API access key configured'
+                        ? t('apiKeyConfigured')
+                        : t('noApiKeyConfigured')
                     }
                   </p>
                 </div>
@@ -195,7 +198,7 @@ export function SettingsPage() {
               {!loadingStatus && apiAccessKeyConfigured && (
                 <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                   <Check className="h-3 w-3" />
-                  Configured
+                  {tCommon('configured')}
                 </span>
               )}
             </div>

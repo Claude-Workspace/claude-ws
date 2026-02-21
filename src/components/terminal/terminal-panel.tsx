@@ -11,8 +11,11 @@ import { TerminalTabBar } from './terminal-tab-bar';
 import { TerminalInstance } from './terminal-instance';
 import { TerminalShortcutBar } from './terminal-shortcut-bar';
 import { TerminalContextMenu } from './terminal-context-menu';
+import { useTranslations } from 'next-intl';
 
 export function TerminalPanel() {
+  const tShells = useTranslations('shells');
+  const tCommon = useTranslations('common');
   const isOpen = useTerminalStore((s) => s.isOpen);
   const panelHeight = useTerminalStore((s) => s.panelHeight);
   const setPanelHeight = useTerminalStore((s) => s.setPanelHeight);
@@ -140,14 +143,14 @@ export function TerminalPanel() {
       {isCreating ? (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Creating terminal...</span>
+          <span>{tShells('creatingTerminal')}</span>
         </div>
       ) : createFailed ? (
         <div className="flex flex-col items-center gap-3 text-sm">
-          <p className="text-muted-foreground">Failed to create terminal</p>
+          <p className="text-muted-foreground">{tShells('failedToCreateTerminal')}</p>
           <Button variant="outline" size="sm" onClick={handleRetryCreate}>
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Retry
+            {tCommon('retry')}
           </Button>
         </div>
       ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 interface QuestionOption {
@@ -22,6 +23,9 @@ interface QuestionPromptProps {
 }
 
 export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPromptProps) {
+  const t = useTranslations('task');
+  const tChat = useTranslations('chat');
+  const tCommon = useTranslations('common');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedMulti, setSelectedMulti] = useState<Set<number>>(new Set());
@@ -51,7 +55,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
   // Add "Type something" as last option (like "Other" in Claude)
   // If user already typed a custom answer, show it instead of "Type something."
   const existingCustom = getCustomAnswer(currentQuestionIndex);
-  const typeOptionLabel = existingCustom ? `${existingCustom} (edit)` : 'Type something.';
+  const typeOptionLabel = existingCustom ? `${existingCustom} (edit)` : t('typeSomething');
   const allOptions = [...currentQuestion.options, { label: typeOptionLabel, description: '' }];
   const isLastOption = selectedIndex === allOptions.length - 1;
 
@@ -315,7 +319,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
           <span className="text-[10px]">
             {allAnswered ? '✓' : '□'}
           </span>
-          Submit
+          {tCommon('submit')}
         </button>
 
         {/* Forward arrow (hidden for single question) */}
@@ -352,13 +356,13 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
         <>
           {/* Review header */}
           <div className="px-4 mb-3">
-            <p className="text-sm font-bold">Review your answers</p>
+            <p className="text-sm font-bold">{t('reviewAnswers')}</p>
           </div>
 
           {/* Warning if not all answered */}
           {!allAnswered && (
             <div className="px-4 mb-3">
-              <p className="text-sm text-yellow-500">⚠ You have not answered all questions</p>
+              <p className="text-sm text-yellow-500">⚠ {t('notAllAnswered')}</p>
             </div>
           )}
 
@@ -392,7 +396,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
 
           {/* Submit prompt */}
           <div className="px-4 mb-3">
-            <p className="text-sm text-muted-foreground">Ready to submit your answers?</p>
+            <p className="text-sm text-muted-foreground">{t('readyToSubmit')}</p>
           </div>
 
           {/* Submit / Cancel options */}
@@ -410,7 +414,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                 {selectedIndex === 0 ? '›' : ' '}
               </span>
               <span className="shrink-0 text-sm text-muted-foreground">1.</span>
-              <span className="text-sm font-medium">Submit answers{answeredCount > 0 ? ` (${answeredCount}/${questions.length})` : ''}</span>
+              <span className="text-sm font-medium">{t('submitAnswers')}{answeredCount > 0 ? ` (${answeredCount}/${questions.length})` : ''}</span>
             </button>
             <button
               onClick={() => onCancel()}
@@ -424,7 +428,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                 {selectedIndex === 1 ? '›' : ' '}
               </span>
               <span className="shrink-0 text-sm text-muted-foreground">2.</span>
-              <span className="text-sm font-medium">Cancel</span>
+              <span className="text-sm font-medium">{tCommon('cancel')}</span>
             </button>
           </div>
         </>
@@ -537,7 +541,7 @@ export function QuestionPrompt({ questions, onAnswer, onCancel }: QuestionPrompt
                 type="text"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Type your answer..."
+                placeholder={tChat('typeYourAnswer')}
                 className="w-full px-3 py-2 text-sm border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                 autoFocus
               />

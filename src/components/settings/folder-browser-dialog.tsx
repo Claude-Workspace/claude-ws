@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,9 @@ export function FolderBrowserDialog({
   onSelect,
   initialPath,
 }: FolderBrowserDialogProps) {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
+  const tSidebar = useTranslations('sidebar');
   const [currentPath, setCurrentPath] = useState(initialPath || '');
   const [directories, setDirectories] = useState<DirectoryEntry[]>([]);
   const [parentPath, setParentPath] = useState<string | null>(null);
@@ -152,7 +156,7 @@ export function FolderBrowserDialog({
   const handleCreate = async () => {
     const trimmedName = createName.trim();
     if (!trimmedName) {
-      toast.error('Name cannot be empty');
+      toast.error(tSidebar('nameCannotBeEmpty'));
       return;
     }
 
@@ -174,12 +178,12 @@ export function FolderBrowserDialog({
         throw new Error(data.error || 'Create failed');
       }
 
-      toast.success('Folder created');
+      toast.success(t('folderCreated'));
       setCreateDialogOpen(false);
       // Refresh directory listing
       fetchDirectory(currentPath);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Create failed');
+      toast.error(err instanceof Error ? err.message : t('createFailed'));
     } finally {
       setIsCreating(false);
     }
@@ -212,7 +216,7 @@ export function FolderBrowserDialog({
 
     const trimmedName = renameName.trim();
     if (!trimmedName) {
-      toast.error('Name cannot be empty');
+      toast.error(tSidebar('nameCannotBeEmpty'));
       return;
     }
 
@@ -238,12 +242,12 @@ export function FolderBrowserDialog({
         throw new Error(data.error || 'Rename failed');
       }
 
-      toast.success('Folder renamed');
+      toast.success(t('folderRenamed'));
       setRenameDialogOpen(false);
       // Refresh directory listing
       fetchDirectory(currentPath);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Rename failed');
+      toast.error(err instanceof Error ? err.message : t('renameFailed'));
     } finally {
       setIsRenaming(false);
     }
@@ -263,9 +267,9 @@ export function FolderBrowserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Select Folder</DialogTitle>
+          <DialogTitle>{t('selectFolder')}</DialogTitle>
           <DialogDescription>
-            Navigate to and select your project folder
+            {t('navigateAndSelect')}
           </DialogDescription>
         </DialogHeader>
 
@@ -291,7 +295,7 @@ export function FolderBrowserDialog({
             disabled={!parentPath || loading}
           >
             <ChevronUp className="h-4 w-4 mr-1" />
-            Up
+            {t('up')}
           </Button>
           <Button
             variant="outline"
@@ -300,7 +304,7 @@ export function FolderBrowserDialog({
             disabled={loading}
           >
             <Home className="h-4 w-4 mr-1" />
-            Home
+            {t('home')}
           </Button>
           <div className="flex-1" />
           <Button
@@ -310,7 +314,7 @@ export function FolderBrowserDialog({
             disabled={loading || !currentPath}
           >
             <FolderPlus className="h-4 w-4 mr-1" />
-            New Folder
+            {t('createNewFolder')}
           </Button>
         </div>
 
@@ -330,7 +334,7 @@ export function FolderBrowserDialog({
               </div>
             ) : directories.length === 0 ? (
               <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                No subdirectories
+                {t('noSubdirectories')}
               </div>
             ) : (
               <div className="p-2 space-y-1">
@@ -354,7 +358,7 @@ export function FolderBrowserDialog({
                         e.stopPropagation();
                         openRenameDialog(dir);
                       }}
-                      title="Rename folder"
+                      title={t('renameFolderTitle')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -368,10 +372,10 @@ export function FolderBrowserDialog({
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button onClick={handleSelect} disabled={!currentPath}>
-            Select This Folder
+            {t('selectThisFolder')}
           </Button>
         </div>
       </DialogContent>
@@ -380,14 +384,14 @@ export function FolderBrowserDialog({
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
+            <DialogTitle>{t('createNewFolder')}</DialogTitle>
             <DialogDescription>
-              Enter a name for the new folder in <strong>{currentPath.split('/').pop() || currentPath}</strong>
+              {t('enterFolderNameIn')} <strong>{currentPath.split('/').pop() || currentPath}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="create-folder-name">Folder Name</Label>
+              <Label htmlFor="create-folder-name">{t('folderName')}</Label>
               <Input
                 id="create-folder-name"
                 ref={createInputRef}
@@ -405,10 +409,10 @@ export function FolderBrowserDialog({
               onClick={() => setCreateDialogOpen(false)}
               disabled={isCreating}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create'}
+              {isCreating ? tCommon('creating') : tCommon('create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -418,14 +422,14 @@ export function FolderBrowserDialog({
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Folder</DialogTitle>
+            <DialogTitle>{t('renameFolder')}</DialogTitle>
             <DialogDescription>
-              Enter a new name for <strong>{renameTarget?.name}</strong>
+              {t('enterNewNameFor')} <strong>{renameTarget?.name}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="rename-folder-name">New Name</Label>
+              <Label htmlFor="rename-folder-name">{t('newName')}</Label>
               <Input
                 id="rename-folder-name"
                 ref={renameInputRef}
@@ -443,10 +447,10 @@ export function FolderBrowserDialog({
               onClick={() => setRenameDialogOpen(false)}
               disabled={isRenaming}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button onClick={handleRename} disabled={isRenaming}>
-              {isRenaming ? 'Renaming...' : 'Rename'}
+              {isRenaming ? tCommon('renaming') : tCommon('rename')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -458,7 +458,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
                 variant="ghost"
                 size="icon-sm"
                 onClick={handleDetach}
-                title="Detach to floating window"
+                title={t('detachToFloating')}
               >
                 <Minimize2 className="size-4" />
               </Button>

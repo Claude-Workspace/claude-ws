@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,8 @@ interface UploadDialogProps {
 }
 
 export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDialogProps) {
+  const t = useTranslations('agentFactory');
+  const tCommon = useTranslations('common');
   const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
     const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (!isValidExtension) {
-      setError('Invalid file type. Please upload a .zip, .tar, .gz, .gzip, or .tgz file.');
+      setError(t('invalidFileType'));
       return;
     }
 
@@ -209,7 +212,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
     const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (!isValidExtension) {
-      setError('Invalid file type. Please upload a .zip, .tar, .gz, .gzip, or .tgz file.');
+      setError(t('invalidFileType'));
       return;
     }
 
@@ -296,12 +299,12 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileArchive className="w-5 h-5" />
-            {step === 'preview' ? 'Confirm Import' : 'Import Plugins from Archive'}
+            {step === 'preview' ? t('confirmImport') : t('importFromArchive')}
           </DialogTitle>
           <DialogDescription>
             {step === 'preview'
               ? `Review ${previewItems.length} plugin(s) found in ${uploadedFileName}`
-              : 'Upload a .zip, .tar, .gz, .gzip, or .tgz file containing plugins to import.'
+              : t('supportedFormats')
             }
           </DialogDescription>
         </DialogHeader>
@@ -330,15 +333,15 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
                 {uploading ? (
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-                    <p className="text-muted-foreground">Analyzing archive...</p>
+                    <p className="text-muted-foreground">{t('analyzingArchive')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
                     <Upload className="w-12 h-12 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">Click to upload or drag and drop</p>
+                      <p className="font-medium">{t('clickToUploadOrDrag')}</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        .zip, .tar, .gz, .gzip, or .tgz files
+                        {t('supportedFormats')}
                       </p>
                     </div>
                   </div>
@@ -355,7 +358,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
 
               {/* Info */}
               <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                <p className="font-medium mb-2">Automatic Organization:</p>
+                <p className="font-medium mb-2">{t('automaticOrganization')}</p>
                 <p className="text-xs mb-2">
                   Files will be automatically organized into the correct folders:
                 </p>
@@ -376,7 +379,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
               {/* Preview List */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 px-3 py-2 text-sm font-medium border-b">
-                  Items to import ({previewItems.length})
+                  {t('itemsToImport')} ({previewItems.length})
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
                   {previewItems.map((item, index) => (
@@ -406,7 +409,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
               <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-lg text-sm">
                 <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  Archive analyzed successfully. Click <strong>Import</strong> to add these plugins to your Agent Factory.
+                  {t('archiveAnalyzed')}
                 </span>
               </div>
             </>
@@ -415,7 +418,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
           {step === 'importing' && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">Importing plugins...</p>
+              <p className="text-muted-foreground">{t('importingPlugins')}</p>
             </div>
           )}
         </div>
@@ -425,7 +428,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
             <>
               <Button variant="outline" onClick={handleCancel} disabled={uploading}>
                 <X className="w-4 h-4 mr-1" />
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button
                 variant="outline"
@@ -434,7 +437,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
                 title="Import to ~/.claude (globally available)"
               >
                 <Globe className="w-4 h-4 mr-1" />
-                Import Globally
+                {t('importGlobally')}
               </Button>
               <Button onClick={() => handleConfirmImport(false)} disabled={uploading}>
                 <Check className="w-4 h-4 mr-1" />
@@ -443,7 +446,7 @@ export function UploadDialog({ open, onOpenChange, onUploadSuccess }: UploadDial
             </>
           ) : (
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
-              Cancel
+              {tCommon('cancel')}
             </Button>
           )}
         </div>

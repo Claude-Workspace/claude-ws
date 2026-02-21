@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Terminal, Square, Circle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useShellStore, type ShellInfo } from '@/stores/shell-store';
@@ -15,6 +16,7 @@ interface ShellItemProps {
 }
 
 function ShellItem({ shell, isSelected, onSelect, onStop }: ShellItemProps) {
+  const t = useTranslations('task');
   const displayCommand =
     shell.command.length > 40 ? shell.command.slice(0, 40) + '...' : shell.command;
 
@@ -53,7 +55,7 @@ function ShellItem({ shell, isSelected, onSelect, onStop }: ShellItemProps) {
             e.stopPropagation();
             onStop();
           }}
-          title="Stop shell (K)"
+          title={t('stopShell')}
         >
           <Square className="h-3 w-3" />
         </Button>
@@ -72,6 +74,7 @@ interface ShellToggleBarProps {
 }
 
 export function ShellToggleBar({ projectId, isExpanded, onToggle }: ShellToggleBarProps) {
+  const t = useTranslations('task');
   const { shells, subscribeToProject } = useShellStore();
 
   useEffect(() => {
@@ -103,7 +106,7 @@ export function ShellToggleBar({ projectId, isExpanded, onToggle }: ShellToggleB
       )}
       <Terminal className="h-3 w-3" />
       <span>
-        <span className="text-green-500 font-medium">{runningCount}</span> running background task{runningCount !== 1 ? 's' : ''}
+        {t('runningBackgroundTasks', { count: runningCount })}
       </span>
     </button>
   );
@@ -119,6 +122,7 @@ interface ShellExpandedPanelProps {
 }
 
 export function ShellExpandedPanel({ projectId, onClose, className }: ShellExpandedPanelProps) {
+  const t = useTranslations('task');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [viewingShellId, setViewingShellId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -237,10 +241,10 @@ export function ShellExpandedPanel({ projectId, onClose, className }: ShellExpan
       </div>
       {/* Keyboard hints */}
       <div className="text-[10px] text-muted-foreground/60 pt-2 flex gap-3 justify-center">
-        <span>↑↓ navigate</span>
-        <span>⏎ view logs</span>
-        <span>K kill</span>
-        <span>Esc close</span>
+        <span>↑↓ {t('navigateHint')}</span>
+        <span>⏎ {t('viewLogsHint')}</span>
+        <span>K {t('killHint')}</span>
+        <span>Esc {t('closeHint')}</span>
       </div>
     </div>
   );

@@ -42,6 +42,8 @@ interface FloatingChatWindowProps {
 
 export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus }: FloatingChatWindowProps) {
   const t = useTranslations('chat');
+  const tCommon = useTranslations('common');
+  const tTask = useTranslations('task');
   const tk = useTranslations('kanban');
   const isMobile = useIsMobileViewport();
   const { updateTaskStatus, setTaskChatInit, moveTaskToInProgress, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, renameTask } = useTaskStore();
@@ -249,7 +251,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
               <div className="py-8 px-4 text-center">
                 <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
                   <div className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  <span>Loading question...</span>
+                  <span>{tTask('loadingQuestion')}</span>
                 </div>
               </div>
             )}
@@ -326,7 +328,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
               onMouseDown={(e) => e.stopPropagation()}
               className="p-0.5 hover:bg-accent rounded transition-colors shrink-0 cursor-pointer"
               data-no-drag
-              title="Edit title"
+              title={tCommon('editTitle')}
             >
               <Pencil className="size-3 text-muted-foreground" />
             </button>
@@ -384,7 +386,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
             variant="ghost"
             size="icon-sm"
             onClick={onMaximize}
-            title="Maximize to panel"
+            title={t('maximizeToPanel')}
           >
             <Maximize2 className="size-4" />
           </Button>

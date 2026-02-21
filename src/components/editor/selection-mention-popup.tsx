@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AtSign } from 'lucide-react';
 import { EditorView } from '@codemirror/view';
 import { cn } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 interface SelectionMentionPopupProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -16,6 +17,7 @@ export function SelectionMentionPopup({
   editorViewRef,
   onAddToContext,
 }: SelectionMentionPopupProps) {
+  const t = useTranslations('editor');
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [selection, setSelection] = useState<{ startLine: number; endLine: number } | null>(null);
@@ -142,7 +144,7 @@ export function SelectionMentionPopup({
         transform: 'translateX(-100%)', // Align to right
       }}
       onClick={handleClick}
-      title={`Add ${lineRange} to chat context`}
+      title={t('addLinesToChat', { startLine: selection.startLine, endLine: selection.endLine })}
     >
       <AtSign className="size-3" />
       <span className="text-xs font-medium">{lineRange}</span>

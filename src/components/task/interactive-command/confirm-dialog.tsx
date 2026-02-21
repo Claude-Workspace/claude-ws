@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -18,12 +19,16 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   confirmVariant = 'default',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const tCommon = useTranslations('common');
+  const resolvedConfirmLabel = confirmLabel ?? tCommon('confirm');
+  const resolvedCancelLabel = cancelLabel ?? tCommon('cancel');
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,14 +63,14 @@ export function ConfirmDialog({
 
       <div className="flex items-center justify-end gap-2 mt-6">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          {cancelLabel}
+          {resolvedCancelLabel}
         </Button>
         <Button
           variant={confirmVariant}
           size="sm"
           onClick={onConfirm}
         >
-          {confirmLabel}
+          {resolvedConfirmLabel}
           <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-background/20 rounded">Enter</kbd>
         </Button>
       </div>

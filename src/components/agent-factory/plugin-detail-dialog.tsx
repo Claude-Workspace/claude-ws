@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,8 @@ export function PluginDetailDialog({
   open,
   onOpenChange,
 }: PluginDetailDialogProps) {
+  const t = useTranslations('agentFactory');
+  const tCommon = useTranslations('common');
   const isImported = isImportedPlugin(plugin);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'dependencies'>('details');
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -170,7 +173,7 @@ export function PluginDetailDialog({
       let fileData;
       if (isImported) {
         const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/files`);
-        if (!res.ok) throw new Error('Failed to load files');
+        if (!res.ok) throw new Error(t('failedToLoadFiles'));
         fileData = await res.json();
       } else {
         // For discovered plugins, use a different endpoint that reads from sourcePath
@@ -179,12 +182,12 @@ export function PluginDetailDialog({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sourcePath: plugin.sourcePath, type: plugin.type }),
         });
-        if (!res.ok) throw new Error('Failed to load files');
+        if (!res.ok) throw new Error(t('failedToLoadFiles'));
         fileData = await res.json();
       }
       setFiles(fileData.files || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load files');
+      setError(err instanceof Error ? err.message : t('failedToLoadFiles'));
     } finally {
       setLoadingFiles(false);
     }
@@ -198,7 +201,7 @@ export function PluginDetailDialog({
       if (isImported) {
         const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
         const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/files/${encodedPath}`);
-        if (!res.ok) throw new Error('Failed to load file');
+        if (!res.ok) throw new Error(t('failedToLoadFile'));
         data = await res.json();
       } else {
         // For discovered plugins
@@ -210,13 +213,13 @@ export function PluginDetailDialog({
             filePath,
           }),
         });
-        if (!res.ok) throw new Error('Failed to load file');
+        if (!res.ok) throw new Error(t('failedToLoadFile'));
         data = await res.json();
       }
       setFileContent(data);
       setMobileFileModalOpen(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load file');
+      setError(err instanceof Error ? err.message : t('failedToLoadFile'));
     } finally {
       setLoadingContent(false);
     }
@@ -229,7 +232,7 @@ export function PluginDetailDialog({
       let data;
       if (isImported) {
         const res = await fetch(`/api/agent-factory/plugins/${plugin.id}/dependencies`);
-        if (!res.ok) throw new Error('Failed to load dependencies');
+        if (!res.ok) throw new Error(t('failedToLoadDependencies'));
         data = await res.json();
       } else {
         // For discovered plugins
@@ -238,12 +241,12 @@ export function PluginDetailDialog({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sourcePath: plugin.sourcePath, type: plugin.type }),
         });
-        if (!res.ok) throw new Error('Failed to load dependencies');
+        if (!res.ok) throw new Error(t('failedToLoadDependencies'));
         data = await res.json();
       }
       setDependencies(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dependencies');
+      setError(err instanceof Error ? err.message : t('failedToLoadDependencies'));
     } finally {
       setLoadingDeps(false);
     }
@@ -260,7 +263,7 @@ export function PluginDetailDialog({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ useClaude: true }),
         });
-        if (!res.ok) throw new Error('Failed to re-resolve dependencies');
+        if (!res.ok) throw new Error(t('failedToReResolveDependencies'));
         const data = await res.json();
         setDependencies(data);
       } else {
@@ -274,12 +277,12 @@ export function PluginDetailDialog({
             useClaude: true,
           }),
         });
-        if (!res.ok) throw new Error('Failed to analyze dependencies');
+        if (!res.ok) throw new Error(t('failedToAnalyzeDependencies'));
         const data = await res.json();
         setDependencies(data);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to re-resolve dependencies');
+      setError(err instanceof Error ? err.message : t('failedToReResolveDependencies'));
     } finally {
       setReResolvingDeps(false);
     }
@@ -466,19 +469,19 @@ export function PluginDetailDialog({
               <Package className="w-6 h-6" />
               {plugin.name}
               {!isImported && (
-                <Badge variant="outline" className="text-xs">Discovered</Badge>
+                <Badge variant="outline" className="text-xs">{t('discovered')}</Badge>
               )}
             </DialogTitle>
             <DialogDescription>
-              {isImported ? 'Plugin details and files' : 'Discovered plugin details and files'}
+              {isImported ? t('pluginDetails') : t('discoveredPluginDetails')}
             </DialogDescription>
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'files' | 'dependencies')} className="flex-1 flex flex-col overflow-hidden">
             <TabsList>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
+              <TabsTrigger value="details">{t('details')}</TabsTrigger>
+              <TabsTrigger value="files">{t('files')}</TabsTrigger>
+              <TabsTrigger value="dependencies">{t('dependencies')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="flex-1 overflow-y-auto mt-4">
@@ -496,7 +499,7 @@ export function PluginDetailDialog({
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Description</span>
+                      <span className="text-sm font-medium">{t('pluginDescription')}</span>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">
                       {plugin.description}
@@ -508,7 +511,7 @@ export function PluginDetailDialog({
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Folder className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Source Path</span>
+                    <span className="text-sm font-medium">{t('sourcePath')}</span>
                   </div>
                   <code className="text-xs bg-muted px-2 py-1 rounded block pl-6 break-all">
                     {plugin.sourcePath}
@@ -518,7 +521,7 @@ export function PluginDetailDialog({
                 {/* Storage Type - only for imported */}
                 {isImported && (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Storage:</span>
+                    <span className="text-sm text-muted-foreground">{t('storage')}</span>
                     <Badge variant="secondary">{plugin.storageType}</Badge>
                   </div>
                 )}
@@ -528,7 +531,7 @@ export function PluginDetailDialog({
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Metadata</span>
+                      <span className="text-sm font-medium">{t('metadata')}</span>
                     </div>
                     <pre className="text-xs bg-muted p-3 rounded overflow-x-auto pl-6">
                       {metadataStr}
@@ -555,7 +558,7 @@ export function PluginDetailDialog({
               {/* File Tree */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="p-2 border-b bg-muted/50 text-sm font-medium">
-                  Files
+                  {t('files')}
                 </div>
                 <div className="p-2 max-h-[400px] overflow-y-auto">
                   {loadingFiles ? (
@@ -565,7 +568,7 @@ export function PluginDetailDialog({
                   ) : error ? (
                     <div className="text-sm text-destructive py-4">{error}</div>
                   ) : files.length === 0 ? (
-                    <div className="text-sm text-muted-foreground py-4">No files found</div>
+                    <div className="text-sm text-muted-foreground py-4">{t('noFilesFound')}</div>
                   ) : (
                     renderFileTree(files)
                   )}
@@ -580,7 +583,7 @@ export function PluginDetailDialog({
                   <div className="text-sm text-muted-foreground">
                     {dependencies && dependencies.resolvedAt
                       ? `Last resolved: ${new Date(dependencies.resolvedAt).toLocaleString()}`
-                      : 'Dependencies'}
+                      : t('dependencies')}
                   </div>
                   <Button
                     size="sm"
@@ -592,12 +595,12 @@ export function PluginDetailDialog({
                     {reResolvingDeps ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Re-resolving...
+                        {t('reResolving')}
                       </>
                     ) : (
                       <>
                         <RefreshCw className="w-3 h-3" />
-                        Re-resolve
+                        {t('reResolve')}
                       </>
                     )}
                   </Button>
@@ -610,18 +613,18 @@ export function PluginDetailDialog({
                 ) : error ? (
                   <div className="text-sm text-destructive py-4">{error}</div>
                 ) : !dependencies ? (
-                  <div className="text-sm text-muted-foreground py-4">No dependencies found</div>
+                  <div className="text-sm text-muted-foreground py-4">{t('noDependenciesFound')}</div>
                 ) : (
                   <>
                     {/* Library Dependencies */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <PackageSearch className="w-4 h-4 text-muted-foreground" />
-                        <h3 className="text-sm font-medium">Library Dependencies</h3>
+                        <h3 className="text-sm font-medium">{t('libraryDependencies')}</h3>
                         <Badge variant="secondary">{dependencies.libraries.length}</Badge>
                       </div>
                       {dependencies.libraries.length === 0 ? (
-                        <p className="text-sm text-muted-foreground pl-6">No external libraries found</p>
+                        <p className="text-sm text-muted-foreground pl-6">{t('noExternalLibraries')}</p>
                       ) : (
                         <div className="pl-6 space-y-4">
                           {/* Library badges */}
@@ -642,7 +645,7 @@ export function PluginDetailDialog({
                               <div className="mt-4">
                                 <div className="flex items-center gap-2 mb-2">
                                   <Terminal className="w-4 h-4 text-muted-foreground" />
-                                  <h4 className="text-sm font-medium">Install Scripts</h4>
+                                  <h4 className="text-sm font-medium">{t('installScripts')}</h4>
                                 </div>
 
                                 <div className="border rounded-lg overflow-hidden">
@@ -790,13 +793,13 @@ export function PluginDetailDialog({
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Package className="w-4 h-4 text-muted-foreground" />
-                        <h3 className="text-sm font-medium">Plugin Dependencies</h3>
+                        <h3 className="text-sm font-medium">{t('pluginDependencies')}</h3>
                         <Badge variant="secondary">
                           {dependencies.dependencyTree ? countPlugins(dependencies.dependencyTree) : dependencies.plugins.length}
                         </Badge>
                       </div>
                       {(!dependencies.dependencyTree || dependencies.dependencyTree.length === 0) && dependencies.plugins.length === 0 ? (
-                        <p className="text-sm text-muted-foreground pl-6">No plugin dependencies found</p>
+                        <p className="text-sm text-muted-foreground pl-6">{t('noPluginDependencies')}</p>
                       ) : (
                         <div className="pl-6">
                           {dependencies.dependencyTree ? (
@@ -824,7 +827,7 @@ export function PluginDetailDialog({
                         {dependencies.hasCycles && (
                           <div className="text-orange-500">
                             <AlertTriangle className="w-3 h-3 inline mr-1" />
-                            Circular dependencies detected
+                            {t('circularDependencies')}
                           </div>
                         )}
                         {dependencies.resolvedAt && (
@@ -839,7 +842,7 @@ export function PluginDetailDialog({
           </Tabs>
 
           <div className="flex justify-end pt-4 border-t">
-            <Button onClick={() => onOpenChange(false)}>Close</Button>
+            <Button onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -868,7 +871,7 @@ export function PluginDetailDialog({
                   onClick={handleStartEdit}
                 >
                   <Edit3 className="w-3 h-3" />
-                  Edit
+                  {tCommon('edit')}
                 </Button>
               )}
               <Button
@@ -925,7 +928,7 @@ export function PluginDetailDialog({
                       disabled={saving}
                     >
                       <XIcon className="w-3 h-3 mr-1" />
-                      Cancel
+                      {tCommon('cancel')}
                     </Button>
                     <Button
                       size="sm"
@@ -935,12 +938,12 @@ export function PluginDetailDialog({
                       {saving ? (
                         <>
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Saving...
+                          {tCommon('saving')}
                         </>
                       ) : (
                         <>
                           <Save className="w-3 h-3 mr-1" />
-                          Save
+                          {tCommon('save')}
                         </>
                       )}
                     </Button>

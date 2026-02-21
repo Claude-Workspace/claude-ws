@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { FileUploadDialog } from './file-upload-dialog';
 import type { FileEntry } from '@/types';
+import { useTranslations } from 'next-intl';
 
 interface FileCreateButtonsProps {
   /** Parent directory entry where files/folders will be created */
@@ -32,6 +33,9 @@ interface FileCreateButtonsProps {
  * Displays at the bottom of file tree for quick creation at project root
  */
 export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButtonsProps) {
+  const tSidebar = useTranslations('sidebar');
+  const tSettings = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
@@ -65,7 +69,7 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
   const handleCreate = async () => {
     const trimmedName = createName.trim();
     if (!trimmedName) {
-      toast.error('Name cannot be empty');
+      toast.error(tSidebar('nameCannotBeEmpty'));
       return;
     }
 
@@ -84,7 +88,7 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Create failed');
+        throw new Error(data.error || tSettings('createFailed'));
       }
 
       const data = await res.json();
@@ -103,7 +107,7 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
         openTab(data.path);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Create failed');
+      toast.error(err instanceof Error ? err.message : tSettings('createFailed'));
     } finally {
       setIsCreating(false);
     }

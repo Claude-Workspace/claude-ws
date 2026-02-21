@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,7 @@ const TreeNode = memo(function TreeNode({
   onImport,
   onClick
 }: TreeNodeProps) {
+  const t = useTranslations('agentFactory');
   const key = getNodeKey(node, index);
   const isExpanded = expandedFolders.has(key);
 
@@ -121,11 +123,11 @@ const TreeNode = memo(function TreeNode({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'new':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">New</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('newStatus')}</span>;
       case 'update':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Update</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">{t('update')}</span>;
       case 'current':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">Current</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">{t('current')}</span>;
       default:
         return null;
     }
@@ -253,10 +255,10 @@ const TreeNode = memo(function TreeNode({
               ) : statusMap.get(`${node.type}-${node.name}`)?.status === 'update' ? (
                 <>
                   <RotateCcw className="w-3 h-3 mr-1" />
-                  Update
+                  {t('update')}
                 </>
               ) : (
-                'Import'
+                t('import')
               )}
             </Button>
           </>
@@ -287,6 +289,8 @@ const TreeNode = memo(function TreeNode({
 });
 
 export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
+  const t = useTranslations('agentFactory');
+  const tCommon = useTranslations('common');
   const { plugins, discovering, discoverPlugins, importPlugin, fetchPlugins } = useAgentFactoryStore();
   const [discovered, setDiscovered] = useState<DiscoveredNode[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -550,10 +554,10 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Package className="w-6 h-6" />
-              Discover Plugins
+              {t('discoverPlugins')}
             </DialogTitle>
             <DialogDescription>
-              Scan your filesystem for existing Claude plugins and import them into Agent Factory.
+              {t('scanDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -561,17 +565,17 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             {!scanned ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="mb-4">Click the Scan button to search for plugins</p>
+                <p className="mb-4">{t('clickScanToSearch')}</p>
                 <Button onClick={handleScan} disabled={scanning}>
                   {scanning ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Scanning...
+                      {tCommon('scanning')}
                     </>
                   ) : (
                     <>
                       <Search className="w-4 h-4 mr-2" />
-                      Scan
+                      {t('scan')}
                     </>
                   )}
                 </Button>
@@ -579,11 +583,11 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             ) : scanning ? (
               <div className="text-center py-8 text-muted-foreground">
                 <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-                Scanning for plugins...
+                {t('scanningForPlugins')}
               </div>
             ) : discovered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="mb-4">No plugins found /skills, /commands, or /agents</p>
+                <p className="mb-4">{t('noPluginsFoundScan')}</p>
                 <Button variant="outline" onClick={handleScan} disabled={scanning}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Rescan
@@ -592,19 +596,19 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             ) : (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-2 py-1 text-sm text-muted-foreground sticky top-0 bg-background">
-                  <span>{statusMap.size} plugins found</span>
+                  <span>{statusMap.size} {t('pluginsFound')}</span>
                   <div className="flex gap-2">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                      {newCount} new
+                      {newCount} {t('newStatus')}
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                      {updateCount} updates
+                      {updateCount} {t('updates')}
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                      {currentCount} current
+                      {currentCount} {t('current')}
                     </span>
                   </div>
                 </div>
@@ -634,7 +638,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
             </span>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Close
+                {tCommon('close')}
               </Button>
               {scanned && discovered.length > 0 && (
                 <>
@@ -644,7 +648,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
                     disabled={scanning}
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Rescan
+                    {t('rescan')}
                   </Button>
                   {needsAction > 0 && (
                     <Button
@@ -654,11 +658,11 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
                       {importing ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Importing...
+                          {tCommon('importing')}
                         </>
                       ) : (
                         <>
-                          Import All ({needsAction})
+                          {t('importAll')} ({needsAction})
                         </>
                       )}
                     </Button>
@@ -671,10 +675,10 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
                       {importing ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Importing...
+                          {tCommon('importing')}
                         </>
                       ) : (
-                        `Import ${selectedIds.size} Selected`
+                        t('importSelected', { count: selectedIds.size })
                       )}
                     </Button>
                   )}

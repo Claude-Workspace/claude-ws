@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, GitBranch, Check } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function BranchCheckoutModal({
   currentBranch,
   onCheckout,
 }: BranchCheckoutModalProps) {
+  const t = useTranslations('git');
   const [search, setSearch] = useState('');
   const [branches, setBranches] = useState<{ local: Branch[]; remote: Branch[] }>({
     local: [],
@@ -59,7 +61,7 @@ export function BranchCheckoutModal({
       const res = await fetch(`/api/git/branches?path=${encodeURIComponent(projectPath)}`);
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to fetch branches');
+        throw new Error(data.error || t('failedToFetchBranches'));
       }
       const data = await res.json();
       setBranches({
@@ -67,7 +69,7 @@ export function BranchCheckoutModal({
         remote: data.remoteBranches || [],
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch branches');
+      setError(err instanceof Error ? err.message : t('failedToFetchBranches'));
     } finally {
       setLoading(false);
     }
@@ -116,7 +118,7 @@ export function BranchCheckoutModal({
 
         <Command className="rounded-t-none border-t">
           <CommandInput
-            placeholder="Search branches..."
+            placeholder={t('searchBranches')}
             value={search}
             onValueChange={setSearch}
           />
@@ -138,7 +140,7 @@ export function BranchCheckoutModal({
             ) : (
               <>
                 {filteredLocalBranches.length === 0 && filteredRemoteBranches.length === 0 ? (
-                  <CommandEmpty>No branches found</CommandEmpty>
+                  <CommandEmpty>{t('noBranches')}</CommandEmpty>
                 ) : (
                   <>
                     {filteredLocalBranches.length > 0 && (

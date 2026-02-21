@@ -33,6 +33,7 @@ import { useContextMentionStore } from '@/stores/context-mention-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface EditorPosition {
   lineNumber?: number;
@@ -75,6 +76,7 @@ export function CodeEditorWithInlineEdit({
   onSelectionChange,
 }: CodeEditorWithInlineEditProps) {
   const { theme } = useTheme();
+  const t = useTranslations('editor');
   const containerRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const [height, setHeight] = useState<number>(400);
@@ -340,7 +342,7 @@ export function CodeEditorWithInlineEdit({
   const handleAddToContext = useCallback(
     (selection: ContextSelection) => {
       if (!selectedTaskId) {
-        toast.error('Select a task first to add context');
+        toast.error(t('selectTaskFirst'));
         return;
       }
 
@@ -365,7 +367,7 @@ export function CodeEditorWithInlineEdit({
     (startLine: number, endLine: number) => {
       if (!filePath) return;
       if (!selectedTaskId) {
-        toast.error('Select a task first to add context');
+        toast.error(t('selectTaskFirst'));
         return;
       }
 
