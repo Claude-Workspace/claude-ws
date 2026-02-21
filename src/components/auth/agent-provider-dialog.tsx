@@ -71,6 +71,7 @@ interface AgentProviderSetupFormProps {
 
 export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormProps) {
   const t = useTranslations('agentProvider');
+  const tCommon = useTranslations('common');
   const [selectedOption, setSelectedOption] = useState<ProviderOption | null>(null);
   const [config, setConfig] = useState<ProviderConfig>({
     ANTHROPIC_AUTH_TOKEN: '',
@@ -165,7 +166,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
 
   const handleOAuthLogin = () => {
     window.open('https://claude.ai/login', '_blank');
-    setError('After logging in on claude.ai, run "claude login" in your terminal to authenticate.');
+    setError(t('afterLoginHint'));
   };
 
   const handleConsoleSetup = () => {
@@ -313,21 +314,21 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Login with Claude Account</span>
+                  <span className="font-medium">{t('loginWithClaude')}</span>
                   {providers.oauth.configured && (
                     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                       <Check className="h-3 w-3" />
-                      Configured
+                      {tCommon('configured')}
                     </span>
                   )}
                   {providers.oauth.isDefault && (
                     <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                      Default
+                      {tCommon('default')}
                     </span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  For Claude Pro, Max, Team, or Enterprise subscribers
+                  {t('forClaudeSubscribers')}
                 </div>
               </div>
             </div>
@@ -349,21 +350,21 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Anthropic Console Account</span>
+                  <span className="font-medium">{t('anthropicConsole')}</span>
                   {providers.console.configured && (
                     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                       <Check className="h-3 w-3" />
-                      Configured
+                      {tCommon('configured')}
                     </span>
                   )}
                   {providers.console.isDefault && (
                     <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                      Default
+                      {tCommon('default')}
                     </span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Pay-as-you-go API usage billing
+                  {t('payAsYouGo')}
                 </div>
               </div>
             </div>
@@ -385,21 +386,21 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Claude Code Settings</span>
+                  <span className="font-medium">{t('claudeCodeSettings')}</span>
                   {providers.settings.configured && (
                     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                       <Check className="h-3 w-3" />
-                      Configured
+                      {tCommon('configured')}
                     </span>
                   )}
                   {providers.settings.isDefault && (
                     <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                      Default
+                      {tCommon('default')}
                     </span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Use settings.json configuration
+                  {t('useSettingsJson')}
                 </div>
               </div>
             </div>
@@ -421,21 +422,21 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Custom API Key</span>
+                  <span className="font-medium">{t('customApiKey')}</span>
                   {providers.custom.configured && (
                     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                       <Check className="h-3 w-3" />
-                      Configured
+                      {tCommon('configured')}
                     </span>
                   )}
                   {providers.custom.isDefault && (
                     <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                      Default
+                      {tCommon('default')}
                     </span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Use your own Anthropic API key
+                  {t('useOwnApiKey')}
                 </div>
               </div>
             </div>
@@ -503,14 +504,14 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
         // OAuth instructions view
         <div className="space-y-4 py-4">
           <div className="p-4 rounded-lg bg-muted/50">
-            <h4 className="font-medium mb-2">How to login with OAuth:</h4>
+            <h4 className="font-medium mb-2">{t('howToLoginOAuth')}</h4>
             <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-              <li>Make sure you have a Claude Pro, Max, Team, or Enterprise subscription</li>
-              <li>Open a terminal on your server</li>
-              <li>Run: <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">claude /login</code></li>
-              <li>Choose <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">1. Claude account with subscription · Pro, Max, Team, or Enterprise</code></li>
-              <li>Follow the browser authentication flow</li>
-              <li>Restart the application after login</li>
+              <li>{t('ensureSubscription')}</li>
+              <li>{t('openTerminal')}</li>
+              <li>{t('runClaudeLogin')} <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">claude /login</code></li>
+              <li>{t('chooseOAuthOption')}</li>
+              <li>{t('followAuthFlow')}</li>
+              <li>{t('restartAfterLogin')}</li>
             </ol>
           </div>
           {error && (
@@ -522,10 +523,10 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
 
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleBack} className="flex-1">
-              Back
+              {tCommon('back')}
             </Button>
             <Button onClick={handleReload} className="flex-1">
-              I&apos;ve Logged In - Reload
+              {t('loggedInReload')}
             </Button>
           </div>
         </div>
@@ -533,22 +534,22 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
         // Console setup view
         <div className="space-y-4 py-4">
           <div className="p-4 rounded-lg bg-muted/50">
-            <h4 className="font-medium mb-2">How to use Anthropic Console account:</h4>
+            <h4 className="font-medium mb-2">{t('howToUseConsole')}</h4>
             <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-              <li>Make sure you have a Claude Pro, Max, Team, or Enterprise subscription</li>
-              <li>Open a terminal on your server</li>
-              <li>Run: <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">claude /login</code></li>
-              <li>Choose <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">2. Anthropic Console account · API usage billing</code></li>
-              <li>Follow the browser authentication flow</li>
-              <li>Restart the application after login</li>
+              <li>{t('ensureSubscription')}</li>
+              <li>{t('openTerminal')}</li>
+              <li>{t('runClaudeLogin')} <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">claude /login</code></li>
+              <li>{t('chooseConsoleOption')}</li>
+              <li>{t('followAuthFlow')}</li>
+              <li>{t('restartAfterLogin')}</li>
             </ol>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleBack} className="flex-1">
-              Back
+              {tCommon('back')}
             </Button>
             <Button onClick={handleReload} className="flex-1">
-              I&apos;ve Logged In - Reload
+              {t('loggedInReload')}
             </Button>
           </div>
         </div>
@@ -556,18 +557,18 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
         // Settings.json info view
         <div className="space-y-4 py-4">
           <div className="p-4 rounded-lg bg-muted/50">
-            <h4 className="font-medium mb-2">Using Claude Code Settings</h4>
+            <h4 className="font-medium mb-2">{t('usingClaudeCodeSettings')}</h4>
             <div className="text-sm text-muted-foreground space-y-2">
               <p>
-                This method uses the configuration from your Claude Code settings file:
+                {t('settingsFileDescription')}
               </p>
               <ul className="list-disc list-inside pl-2 space-y-1 text-xs">
-                <li><strong>Linux/macOS:</strong> <code className="px-1 rounded bg-muted font-mono">~/.claude/settings.json</code></li>
-                <li><strong>Windows:</strong> <code className="px-1 rounded bg-muted font-mono">%USERPROFILE%\.claude\settings.json</code></li>
+                <li><strong>{t('linuxMacOs')}</strong> <code className="px-1 rounded bg-muted font-mono">~/.claude/settings.json</code></li>
+                <li><strong>{t('windows')}</strong> <code className="px-1 rounded bg-muted font-mono">%USERPROFILE%\.claude\settings.json</code></li>
               </ul>
-              <p className="mt-2">The following environment variables are read from the <code className="px-1 rounded bg-muted font-mono text-xs">env</code> section:</p>
+              <p className="mt-2">{t('envVarsDescription')}</p>
               <ul className="list-disc list-inside pl-2 space-y-1 text-xs">
-                <li><code className="px-1 rounded bg-muted font-mono">ANTHROPIC_AUTH_TOKEN</code> <span className="text-destructive">*required</span></li>
+                <li><code className="px-1 rounded bg-muted font-mono">ANTHROPIC_AUTH_TOKEN</code> <span className="text-destructive">{t('required')}</span></li>
                 <li><code className="px-1 rounded bg-muted font-mono">ANTHROPIC_MODEL</code></li>
                 <li><code className="px-1 rounded bg-muted font-mono">ANTHROPIC_BASE_URL</code></li>
                 <li><code className="px-1 rounded bg-muted font-mono">ANTHROPIC_DEFAULT_HAIKU_MODEL</code></li>
@@ -577,21 +578,21 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
               </ul>
               {providers.settings.configured ? (
                 <p className="text-green-600 dark:text-green-400 mt-2">
-                  ✓ Settings.json is configured and will be used for authentication.
+                  ✓ {t('settingsConfigured')}
                 </p>
               ) : (
                 <p className="text-amber-600 dark:text-amber-400 mt-2">
-                  Settings.json does not contain ANTHROPIC_AUTH_TOKEN. Add it to use this method.
+                  {t('settingsNotConfigured')}
                 </p>
               )}
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleBack} className="flex-1">
-              Back
+              {tCommon('back')}
             </Button>
             <Button onClick={handleReload} className="flex-1">
-              Reload to Apply
+              {t('reloadToApply')}
             </Button>
           </div>
         </div>
@@ -601,7 +602,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
           {/* API Key - Required */}
           <div className="space-y-2">
             <Label htmlFor="api-key" className="text-sm font-medium">
-              API Key {!hasExistingKey && <span className="text-destructive">*</span>}
+              {t('customApiKey')} {!hasExistingKey && <span className="text-destructive">*</span>}
             </Label>
             <div className="relative">
               <Key className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -610,7 +611,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
                 type="password"
                 value={config.ANTHROPIC_AUTH_TOKEN}
                 onChange={(e) => handleConfigChange('ANTHROPIC_AUTH_TOKEN', e.target.value)}
-                placeholder={hasExistingKey ? "Leave empty to keep existing key" : "Enter API key..."}
+                placeholder={hasExistingKey ? t('leaveEmptyToKeep') : "Enter API key..."}
                 className="pl-8"
                 disabled={loading}
                 autoFocus
@@ -618,7 +619,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
             </div>
             {hasExistingKey && (
               <p className="text-xs text-muted-foreground">
-                An API key is already configured. Leave empty to keep it, or enter a new one to replace it.
+                {t('existingKeyHint')}
               </p>
             )}
           </div>
@@ -633,13 +634,13 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
             disabled={loading}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
-            Fill Default Values
+            {t('fillDefaultValues')}
           </Button>
 
           {/* Base URL */}
           <div className="space-y-2">
             <Label htmlFor="base-url" className="text-sm font-medium">
-              Base URL
+              {t('baseUrl')}
             </Label>
             <Input
               id="base-url"
@@ -654,7 +655,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
           {/* Model */}
           <div className="space-y-2">
             <Label htmlFor="model" className="text-sm font-medium">
-              Default Model
+              {t('defaultModel')}
             </Label>
             <Input
               id="model"
@@ -670,7 +671,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label htmlFor="haiku-model" className="text-xs font-medium">
-                Haiku Model
+                {t('haikuModel')}
               </Label>
               <Input
                 id="haiku-model"
@@ -684,7 +685,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
             </div>
             <div className="space-y-1">
               <Label htmlFor="sonnet-model" className="text-xs font-medium">
-                Sonnet Model
+                {t('sonnetModel')}
               </Label>
               <Input
                 id="sonnet-model"
@@ -698,7 +699,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
             </div>
             <div className="space-y-1">
               <Label htmlFor="opus-model" className="text-xs font-medium">
-                Opus Model
+                {t('opusModel')}
               </Label>
               <Input
                 id="opus-model"
@@ -715,7 +716,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
           {/* Timeout */}
           <div className="space-y-2">
             <Label htmlFor="timeout" className="text-sm font-medium">
-              API Timeout (ms)
+              {t('apiTimeout')}
             </Label>
             <Input
               id="timeout"
@@ -728,7 +729,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Configuration will be saved to .env file in the app directory. Empty fields will use default values.
+            {t('configSavedToEnv')}
           </p>
 
           {error && (
@@ -740,7 +741,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
 
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleBack} disabled={loading}>
-              Back
+              {tCommon('back')}
             </Button>
             {hasExistingKey && !showDismissConfirm && (
               <Button
@@ -748,19 +749,19 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
                 onClick={() => setShowDismissConfirm(true)}
                 disabled={loading}
               >
-                Dismiss This Provider
+                {t('dismissProvider')}
               </Button>
             )}
             {showDismissConfirm && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-destructive">Are you sure?</span>
+                <span className="text-sm text-destructive">{t('areYouSure')}</span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowDismissConfirm(false)}
                   disabled={loading}
                 >
-                  No
+                  {tCommon('no')}
                 </Button>
                 <Button
                   variant="destructive"
@@ -768,7 +769,7 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
                   onClick={handleDismissMethod}
                   disabled={loading}
                 >
-                  Yes, Dismiss
+                  {t('yesDismiss')}
                 </Button>
               </div>
             )}
@@ -781,10 +782,10 @@ export function AgentProviderSetupForm({ onComplete }: AgentProviderSetupFormPro
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    {tCommon('saving')}
                   </>
                 ) : (
-                  'Save Configuration'
+                  t('saveConfiguration')
                 )}
               </Button>
             )}
@@ -801,13 +802,14 @@ interface AgentProviderDialogProps {
 }
 
 export function AgentProviderDialog({ open, onOpenChange }: AgentProviderDialogProps) {
+  const t = useTranslations('agentProvider');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] z-[9999] max-h-[90vh] overflow-y-auto !grid !grid-rows-[auto_1fr]">
         <DialogHeader>
-          <DialogTitle>Configure Agent Provider</DialogTitle>
+          <DialogTitle>{t('configureTitle')}</DialogTitle>
           <DialogDescription>
-            Choose how you want to authenticate with Claude API:
+            {t('configureDescription')}
           </DialogDescription>
         </DialogHeader>
 

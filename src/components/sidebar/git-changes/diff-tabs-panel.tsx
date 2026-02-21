@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { ResizeHandle } from '@/components/ui/resize-handle';
 import { DiffViewer } from './diff-viewer';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.diffPreview;
 
 export function DiffTabsPanel() {
+  const t = useTranslations('git');
   const {
     diffTabs,
     activeDiffTabId,
@@ -115,7 +117,7 @@ export function DiffTabsPanel() {
             size="sm"
             onClick={closeAllDiffTabs}
             className="text-xs text-muted-foreground h-8 px-2 mr-1"
-            title="Close all tabs"
+            title={t('closeAllTabs')}
           >
             Close all
           </Button>

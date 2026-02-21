@@ -22,6 +22,7 @@ import {
 import { useProjectStore } from '@/stores/project-store';
 import { ProjectSettingsDialog } from '@/components/project-settings/project-settings-dialog';
 import { getFolderName } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 interface ProjectSelectorProps {
   onAddProject?: () => void;
@@ -29,6 +30,7 @@ interface ProjectSelectorProps {
 
 // Content component for reuse in mobile dropdown
 export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
+  const tCommon = useTranslations('common');
   const {
     projects,
     selectedProjectIds,
@@ -76,7 +78,7 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
         onCheckedChange={() => selectAllProjects()}
         className="px-2 py-1.5"
       >
-        All Projects
+        {tCommon('allProjects')}
       </DropdownMenuCheckboxItem>
       <DropdownMenuSeparator />
 
@@ -84,7 +86,7 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
       <div className="max-h-[180px] overflow-y-auto">
         {projects.length === 0 ? (
           <div className="px-2 py-1.5 text-sm text-muted-foreground">
-            No projects yet
+            {tCommon('noProjectsYet')}
           </div>
         ) : (
           projects.map((project) => {
@@ -195,6 +197,7 @@ export function ProjectSelectorContent({ onAddProject }: ProjectSelectorProps) {
 }
 
 export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
+  const tCommon = useTranslations('common');
   const {
     projects,
     selectedProjectIds,
@@ -203,11 +206,11 @@ export function ProjectSelector({ onAddProject }: ProjectSelectorProps) {
 
   // Compute display text
   const allMode = isAllProjectsMode();
-  let displayText = 'All Projects';
+  let displayText = tCommon('allProjects');
   if (!allMode) {
     if (selectedProjectIds.length === 1) {
       const project = projects.find(p => p.id === selectedProjectIds[0]);
-      displayText = project ? getFolderName(project.name) : 'Select Project';
+      displayText = project ? getFolderName(project.name) : tCommon('selectProject');
     } else if (selectedProjectIds.length > 1) {
       displayText = `${selectedProjectIds.length} projects`;
     }

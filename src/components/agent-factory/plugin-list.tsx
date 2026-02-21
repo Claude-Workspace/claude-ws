@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Package, Plus, RefreshCw, Search, Trash2, Edit, X, Upload } from 'lucide-react';
 import { useAgentFactoryStore } from '@/stores/agent-factory-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
@@ -13,6 +14,8 @@ import { DiscoveryDialog } from './discovery-dialog';
 import { UploadDialog } from './upload-dialog';
 
 export function PluginList() {
+  const t = useTranslations('agentFactory');
+  const tCommon = useTranslations('common');
   const { plugins, loading, error, fetchPlugins, deletePlugin } = useAgentFactoryStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const [filter, setFilter] = useState<'all' | 'skill' | 'command' | 'agent' | 'agent_set'>('all');
@@ -43,7 +46,7 @@ export function PluginList() {
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this plugin?')) return;
+    if (!confirm(t('deletePluginConfirm'))) return;
     try {
       await deletePlugin(id);
     } catch (error) {
@@ -82,7 +85,7 @@ export function PluginList() {
         <div className="flex items-center justify-between sm:justify-normal gap-3">
           <div className="flex items-center gap-3">
             <Package className="w-6 h-6" />
-            <h1 className="text-2xl font-bold">Agent Factory</h1>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
           </div>
           <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setAgentFactoryOpen(false)}>
             <X className="w-5 h-5" />
@@ -91,19 +94,19 @@ export function PluginList() {
         <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={() => fetchPlugins()}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            {tCommon('refresh')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setDiscoveryOpen(true)}>
             <Package className="w-4 h-4 mr-2" />
-            Discover
+            {tCommon('discover')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
-            Upload
+            {tCommon('upload')}
           </Button>
           <Button size="sm" onClick={() => setCreateFormOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            New
+            {tCommon('new')}
           </Button>
           <Button variant="ghost" size="icon" className="hidden sm:flex" onClick={() => setAgentFactoryOpen(false)}>
             <X className="w-5 h-5" />
@@ -113,7 +116,7 @@ export function PluginList() {
 
       {/* Description */}
       <p className="text-sm text-muted-foreground mb-6">
-        This is your plugin pool. To install plugins to a specific project, go to <strong>Project Settings</strong> and select plugins to install.
+        {t('description')}
       </p>
 
       {/* Filters and Search */}
@@ -129,14 +132,14 @@ export function PluginList() {
                   : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               }`}
             >
-              {type === 'all' ? 'All' : type === 'agent_set' ? 'Agent Sets' : `${type}s`}
+              {type === 'all' ? t('all') : type === 'agent_set' ? t('agentSets') : type === 'skill' ? t('skills') : type === 'command' ? t('commands') : t('agents')}
             </button>
           ))}
         </div>
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search plugins..."
+            placeholder={t('searchPlugins')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -154,7 +157,7 @@ export function PluginList() {
       {/* Loading */}
       {loading && (
         <div className="text-center py-12 text-muted-foreground">
-          Loading plugins...
+          {t('loadingPlugins')}
         </div>
       )}
 
@@ -178,7 +181,7 @@ export function PluginList() {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                {plugin.description || 'No description'}
+                {plugin.description || t('noDescription')}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="capitalize">{plugin.storageType}</span>
@@ -215,25 +218,25 @@ export function PluginList() {
       {!loading && filteredPlugins.length === 0 && (
         <div className="text-center py-12">
           <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">No plugins found</h3>
+          <h3 className="text-lg font-semibold mb-2">{t('noPluginsFound')}</h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery || filter !== 'all'
-              ? 'Try adjusting your filters or search query'
-              : 'Get started by discovering existing plugins or creating a new one'}
+              ? t('adjustFilters')
+              : t('getStartedDiscover')}
           </p>
           {!searchQuery && filter === 'all' && (
             <div className="flex justify-center gap-2">
               <Button variant="outline" onClick={() => setDiscoveryOpen(true)}>
                 <Package className="w-4 h-4 mr-2" />
-                Discover Plugins
+                {tCommon('discover')}
               </Button>
               <Button variant="outline" onClick={() => setUploadOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" />
-                Upload
+                {tCommon('upload')}
               </Button>
               <Button onClick={() => setCreateFormOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                New
+                {tCommon('new')}
               </Button>
             </div>
           )}

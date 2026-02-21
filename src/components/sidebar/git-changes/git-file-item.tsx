@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, Minus, Undo2, EyeOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { FileIcon } from '@/components/sidebar/file-browser/file-icon';
 import type { GitFileStatus } from '@/types';
@@ -50,6 +51,7 @@ export function GitFileItem({
   onDiscard,
   onAddToGitignore,
 }: GitFileItemProps) {
+  const t = useTranslations('git');
   // Get filename and parent directory
   const parts = file.path.split('/');
   const fileName = parts.pop() || file.path;
@@ -90,7 +92,7 @@ export function GitFileItem({
                   e.stopPropagation();
                   onAddToGitignore();
                 }}
-                title="Add to .gitignore"
+                title={t('addToGitignore')}
               >
                 <EyeOff className="size-3.5" />
               </button>
@@ -102,7 +104,7 @@ export function GitFileItem({
                 e.stopPropagation();
                 onUnstage?.();
               }}
-              title="Unstage Changes"
+              title={t('unstageChanges')}
             >
               <Minus className="size-3.5" />
             </button>
@@ -116,7 +118,7 @@ export function GitFileItem({
                 e.stopPropagation();
                 onDiscard?.();
               }}
-              title="Discard Changes"
+              title={t('discardChanges')}
             >
               <Undo2 className="size-3.5" />
             </button>
@@ -128,7 +130,7 @@ export function GitFileItem({
                   e.stopPropagation();
                   onAddToGitignore();
                 }}
-                title="Add to .gitignore"
+                title={t('addToGitignore')}
               >
                 <EyeOff className="size-3.5" />
               </button>
@@ -140,7 +142,7 @@ export function GitFileItem({
                 e.stopPropagation();
                 onStage?.();
               }}
-              title="Stage Changes"
+              title={t('stageChanges')}
             >
               <Plus className="size-3.5" />
             </button>
@@ -151,7 +153,7 @@ export function GitFileItem({
       {/* Stats: +X -Y for modified, "New" for new files - absolute positioned */}
       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] shrink-0 font-medium group-hover:opacity-0 transition-opacity">
         {isNew ? (
-          <span className="text-green-500">New</span>
+          <span className="text-green-500">{t('newFile')}</span>
         ) : hasStats ? (
           <>
             <span className="text-green-500">+{file.additions || 0}</span>

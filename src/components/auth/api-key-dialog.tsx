@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Key, AlertCircle, Check } from 'lucide-react';
 import {
   Dialog,
@@ -95,6 +96,8 @@ async function verifyApiKey(apiKey: string): Promise<boolean> {
 }
 
 export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProps) {
+  const t = useTranslations('auth');
+  const tCommon = useTranslations('common');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -112,7 +115,7 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
     setError('');
 
     if (!apiKey.trim()) {
-      setError('API key is required');
+      setError(t('apiKeyIsRequired'));
       return;
     }
 
@@ -125,10 +128,10 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
         onOpenChange(false);
         onSuccess();
       } else {
-        setError('Invalid API key');
+        setError(t('invalidApiKey'));
       }
     } catch {
-      setError('Failed to verify API key');
+      setError(t('failedToVerifyApiKey'));
     } finally {
       setLoading(false);
     }
@@ -138,9 +141,9 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[450px] z-[9999]">
         <DialogHeader>
-          <DialogTitle>API Key Required</DialogTitle>
+          <DialogTitle>{t('apiKeyRequired')}</DialogTitle>
           <DialogDescription>
-            This server requires an API key for access. Enter your key to continue.
+            {t('serverRequiresApiKey')}
           </DialogDescription>
         </DialogHeader>
 
@@ -148,7 +151,7 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
           {/* API Key Input */}
           <div className="space-y-2">
             <label htmlFor="api-key" className="text-sm font-medium">
-              API Key
+              {t('apiKey')}
             </label>
             <div className="relative">
               <Key className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -157,14 +160,14 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your API key"
+                placeholder={t('enterYourApiKey')}
                 className="pl-8"
                 disabled={loading}
                 autoFocus
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Your API key will be stored locally in your browser
+              {t('apiKeyStoredLocally')}
             </p>
           </div>
 
@@ -180,7 +183,7 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
           {!error && apiKey && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Check className="h-4 w-4 text-muted-foreground" />
-              Press Enter or click Submit to verify
+              {t('pressEnterOrSubmit')}
             </div>
           )}
 
@@ -192,10 +195,10 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={loading || !apiKey}>
-              {loading ? 'Verifying...' : 'Submit'}
+              {loading ? tCommon('verifying') : tCommon('submit')}
             </Button>
           </div>
         </form>

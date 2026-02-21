@@ -14,6 +14,7 @@ import { useContextMentionStore } from '@/stores/context-mention-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useFileSync } from '@/hooks/use-file-sync';
 import { waitForElement } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 interface FileContent {
   content: string | null;
@@ -30,6 +31,9 @@ interface FileTabContentProps {
 
 export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
   const activeProject = useActiveProject();
+  const t = useTranslations('editor');
+  const tCommon = useTranslations('common');
+  const tSidebar = useTranslations('sidebar');
   const { editorPosition, setEditorPosition, updateTabDirty, pendingEditorPosition, clearPendingEditorPosition } = useSidebarStore();
   const { selectedTask, tasks, createTask, selectTask, setSelectedTask } = useTaskStore();
   const { addFileMention, addLineMention } = useContextMentionStore();
@@ -439,7 +443,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       if (createNew || !targetTask) {
         const projectId = selectedProjectIds[0];
         if (!projectId) {
-          alert('No project selected');
+          alert(tSidebar('selectProject'));
           return;
         }
 
@@ -470,7 +474,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
       }
     } catch (error) {
       console.error('Failed to attach file:', error);
-      alert(error instanceof Error ? error.message : 'Failed to attach file to chat');
+      alert(error instanceof Error ? error.message : t('addFileToChat'));
     }
   };
 
@@ -498,7 +502,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               variant="ghost"
               size="icon-sm"
               onClick={() => setSearchVisible(!searchVisible)}
-              title="Search in file (⌘F)"
+              title={t('searchPlaceholder') + ' (⌘F)'}
               className={searchVisible ? 'bg-accent' : ''}
             >
               <Search className="size-4" />
@@ -512,7 +516,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 size="icon-sm"
                 onClick={handleUndo}
                 disabled={!canUndo}
-                title="Undo (⌘Z)"
+                title={t('undo') + ' (⌘Z)'}
               >
                 <Undo className="size-4" />
               </Button>
@@ -521,7 +525,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 size="icon-sm"
                 onClick={handleRedo}
                 disabled={!canRedo}
-                title="Redo (⌘⇧Z)"
+                title={t('redo') + ' (⌘⇧Z)'}
               >
                 <Redo className="size-4" />
               </Button>
@@ -534,7 +538,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               size="sm"
               onClick={handleSave}
               disabled={!isDirty || saveStatus === 'saving'}
-              title="Save (⌘S)"
+              title={tCommon('save') + ' (⌘S)'}
               className="text-xs gap-1"
             >
               <Save className="size-3" />
@@ -547,7 +551,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               variant="ghost"
               size="icon-sm"
               onClick={toggleViewMode}
-              title={viewMode === 'preview' ? 'Show source code' : 'Show preview'}
+              title={viewMode === 'preview' ? t('showSourceCode') : t('showPreview')}
               className={viewMode === 'preview' ? 'bg-accent' : ''}
             >
               {viewMode === 'preview' ? <Code className="size-4" /> : <Eye className="size-4" />}
@@ -560,7 +564,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  title={selection ? `Add lines L${selection.startLine}-${selection.endLine} to chat` : "Add file to chat"}
+                  title={selection ? t('addLinesToChat', { startLine: selection.startLine, endLine: selection.endLine }) : t('addFileToChat')}
                   className="relative"
                 >
                   <AtSign className="size-4" />
@@ -615,7 +619,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  title="Export"
+                  title={t('export')}
                 >
                   <Download className="size-4" />
                 </Button>
@@ -642,7 +646,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
         <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
           {/* Sync indicator */}
           {fileSync.isPolling && (
-            <span title="Checking for changes...">
+            <span title={t('checkingForChanges')}>
               <RefreshCw className="size-3 animate-spin text-muted-foreground" />
             </span>
           )}
@@ -652,7 +656,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
               size="sm"
               onClick={() => setShowDiffResolver(true)}
               className="text-xs gap-1 text-amber-600 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-400"
-              title="External changes detected - click to resolve"
+              title={t('externalChangesDetected')}
             >
               <AlertCircle className="size-3" />
               <span className="hidden sm:inline">Conflict</span>
@@ -687,7 +691,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 closeSearch();
               }
             }}
-            placeholder="Search..."
+            placeholder={t('searchPlaceholder')}
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
           />
           {searchQuery && (
@@ -700,7 +704,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 size="icon-sm"
                 onClick={handlePrevMatch}
                 disabled={totalMatches === 0}
-                title="Previous (⇧Enter)"
+                title={t('previousMatch') + ' (⇧Enter)'}
                 className="shrink-0"
               >
                 <span className="text-xs">↑</span>
@@ -710,7 +714,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
                 size="icon-sm"
                 onClick={handleNextMatch}
                 disabled={totalMatches === 0}
-                title="Next (Enter)"
+                title={t('nextMatch') + ' (Enter)'}
                 className="shrink-0"
               >
                 <span className="text-xs">↓</span>
@@ -721,7 +725,7 @@ export function FileTabContent({ tabId, filePath }: FileTabContentProps) {
             variant="ghost"
             size="icon-sm"
             onClick={closeSearch}
-            title="Close (Esc)"
+            title={tCommon('close') + ' (Esc)'}
             className="shrink-0"
           >
             <X className="size-4" />

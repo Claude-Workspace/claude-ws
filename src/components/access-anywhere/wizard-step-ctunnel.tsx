@@ -73,7 +73,7 @@ export function WizardStepCtunnel() {
 
   const checkAvailability = async () => {
     if (!subdomain || !email) {
-      setErrorMessage('Subdomain and email are required');
+      setErrorMessage(t('subdomainRequired'));
       return;
     }
 
@@ -84,7 +84,7 @@ export function WizardStepCtunnel() {
         // Subdomain already registered to this email, proceed to confirmation or direct connect
         await registerSubdomain();
       } else {
-        setErrorMessage('Subdomain is not available');
+        setErrorMessage(t('subdomainNotAvailable'));
       }
       return;
     }
@@ -107,10 +107,10 @@ export function WizardStepCtunnel() {
       if (data.success) {
         setStep('confirm');
       } else {
-        setErrorMessage(data.message || 'Failed to register subdomain');
+        setErrorMessage(data.message || t('failedToRegisterSubdomain'));
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to register subdomain');
+      setErrorMessage(error instanceof Error ? error.message : t('failedToRegisterSubdomain'));
     } finally {
       setRegistering(false);
     }
@@ -118,7 +118,7 @@ export function WizardStepCtunnel() {
 
   const confirmSubdomain = async () => {
     if (!confirmationCode) {
-      setErrorMessage('Confirmation code is required');
+      setErrorMessage(t('confirmationCodeIsRequired'));
       return;
     }
 
@@ -137,10 +137,10 @@ export function WizardStepCtunnel() {
         setStep('connecting');
         await startTunnel(subdomain);
       } else {
-        setErrorMessage(data.message || 'Failed to confirm subdomain');
+        setErrorMessage(data.message || t('failedToConfirmSubdomain'));
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to confirm subdomain');
+      setErrorMessage(error instanceof Error ? error.message : t('failedToConfirmSubdomain'));
     } finally {
       setVerifying(false);
     }
@@ -151,7 +151,7 @@ export function WizardStepCtunnel() {
       setStep('connected');
     } else if (status === 'error' && step === 'connecting') {
       setStep('error');
-      setErrorMessage(error || 'Failed to start tunnel');
+      setErrorMessage(error || t('failedToStartTunnel'));
     }
   }, [status, error]);
 

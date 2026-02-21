@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, ChevronDown, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export interface DependencyTreeNode {
   type: 'skill' | 'command' | 'agent';
@@ -29,6 +30,7 @@ export function DependencyTree({ nodes }: DependencyTreeProps) {
 }
 
 function TreeNode({ node }: { node: DependencyTreeNode }) {
+  const t = useTranslations('agentFactory');
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
 
@@ -68,20 +70,20 @@ function TreeNode({ node }: { node: DependencyTreeNode }) {
         {node.cycle && (
           <Badge variant="outline" className="text-orange-500 border-orange-500 text-xs">
             <AlertTriangle className="w-3 h-3 mr-1" />
-            Cycle
+            {t('cycle')}
           </Badge>
         )}
 
         {node.missing && (
           <Badge variant="outline" className="text-red-500 border-red-500 text-xs">
             <AlertCircle className="w-3 h-3 mr-1" />
-            Missing
+            {t('missing')}
           </Badge>
         )}
 
         {node.truncated && (
           <Badge variant="outline" className="text-gray-500 text-xs">
-            Max depth
+            {t('maxDepth')}
           </Badge>
         )}
 

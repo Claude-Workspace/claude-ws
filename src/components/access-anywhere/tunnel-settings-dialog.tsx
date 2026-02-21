@@ -81,7 +81,7 @@ export function TunnelSettingsDialog() {
   };
 
   const handleReset = async () => {
-    if (confirm('Are you sure you want to reset the tunnel configuration? This will clear all saved settings and open the setup wizard again.')) {
+    if (confirm(t('resetConfirmation'))) {
       setResetting(true);
       try {
         await useTunnelStore.getState().resetOnboarding();
@@ -120,7 +120,7 @@ export function TunnelSettingsDialog() {
             <VisuallyHidden>
               <DialogTitle>Access Anywhere</DialogTitle>
             </VisuallyHidden>
-            No tunnel configuration found. Please set up Access Anywhere first.
+            {t('noTunnelConfig')}
           </div>
         ) : (
           <>
@@ -141,7 +141,7 @@ export function TunnelSettingsDialog() {
                   variant={status === 'connected' ? 'default' : 'secondary'}
                   className={status === 'connected' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
                 >
-                  {status === 'connected' ? '● Connected' : '○ Disconnected'}
+                  {status === 'connected' ? `● ${t('connected')}` : `○ ${t('disconnected')}`}
                 </Badge>
                 {subdomain && (
                   <>
@@ -159,7 +159,7 @@ export function TunnelSettingsDialog() {
                       variant="outline"
                       size="sm"
                       onClick={handleCopyUrl}
-                      title={copiedUrl ? 'Copied!' : 'Copy URL'}
+                      title={copiedUrl ? t('copiedToClipboard') : t('copyUrl')}
                     >
                       {copiedUrl ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
                     </Button>
@@ -195,13 +195,13 @@ export function TunnelSettingsDialog() {
                       variant="outline"
                       size="icon"
                       onClick={handleCopyApiKey}
-                      title={copied ? 'Copied!' : 'Copy API key'}
+                      title={copied ? t('copiedToClipboard') : t('clickToCopyApiKey')}
                     >
                       {copied ? <RefreshCw className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {copied ? 'Copied to clipboard!' : 'Click to copy full API key'}
+                    {copied ? t('copiedToClipboard') : t('clickToCopyApiKey')}
                   </p>
                 </div>
               )}

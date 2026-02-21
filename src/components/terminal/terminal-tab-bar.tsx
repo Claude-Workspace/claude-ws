@@ -5,12 +5,14 @@ import { Plus, X, Terminal, ChevronDown, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTerminalStore } from '@/stores/terminal-store';
+import { useTranslations } from 'next-intl';
 
 interface TerminalTabBarProps {
   projectId?: string;
 }
 
 export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
+  const t = useTranslations('shells');
   const { tabs, activeTabId, setActiveTab, createTerminal, closeTerminal, closePanel, renameTerminal, sendInput } =
     useTerminalStore();
 
@@ -103,7 +105,7 @@ export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
         size="icon"
         className="h-6 w-6 ml-1"
         onClick={handleNewTerminal}
-        title="New Terminal"
+        title={t('newTerminal')}
       >
         <Plus className="h-3.5 w-3.5" />
       </Button>
@@ -116,7 +118,7 @@ export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
           size="icon"
           className="h-6 w-6 text-muted-foreground hover:text-red-500"
           onClick={() => sendInput(activeTabId, '\x03')}
-          title="Send Ctrl+C (SIGINT)"
+          title={t('sendCtrlC')}
         >
           <Square className="h-3 w-3 fill-current" />
         </Button>
@@ -127,7 +129,7 @@ export function TerminalTabBar({ projectId }: TerminalTabBarProps) {
         size="icon"
         className="h-6 w-6"
         onClick={closePanel}
-        title="Close Panel"
+        title={t('closePanel')}
       >
         <ChevronDown className="h-3.5 w-3.5" />
       </Button>

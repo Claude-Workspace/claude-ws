@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { FolderOpen, AlertCircle, Plus, FolderOpen as FolderOpenIcon, Folder } from 'lucide-react';
 import {
   Dialog,
@@ -25,6 +26,8 @@ interface SetupDialogProps {
 }
 
 export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const { createProject, setCurrentProject } = useProjectStore();
   const [mode, setMode] = useState<Mode>('open');
   const [name, setName] = useState('');
@@ -68,7 +71,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
     setError('');
 
     if (!name.trim()) {
-      setError('Project name is required');
+      setError(t('projectNameRequired'));
       return;
     }
 
@@ -77,26 +80,26 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
     // For create mode, build path from root + sanitized name
     if (mode === 'create') {
       if (!rootPath.trim()) {
-        setError('Root folder is required');
+        setError(t('rootFolderRequired'));
         return;
       }
       const sanitizedName = sanitizeDirName(name);
       if (!sanitizedName) {
-        setError('Project name must contain at least one alphanumeric character');
+        setError(t('projectNameAlphanumeric'));
         return;
       }
       finalPath = `${rootPath.trim()}/${sanitizedName}`;
     } else {
       // Open mode - path is required
       if (!path.trim()) {
-        setError('Project path is required');
+        setError(t('projectPathRequired'));
         return;
       }
     }
 
     // Validate path format
     if (!finalPath.startsWith('/') && !finalPath.match(/^[A-Za-z]:\\/)) {
-      setError('Please enter an absolute path');
+      setError(t('enterAbsolutePath'));
       return;
     }
 
@@ -122,11 +125,11 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Set Up Project</DialogTitle>
+          <DialogTitle>{t('setUpProject')}</DialogTitle>
           <DialogDescription>
             {mode === 'open'
-              ? 'Select an existing project folder to open.'
-              : 'Configure a project folder to use with Claude Code.'}
+              ? t('selectExistingDescription')
+              : t('configureNewDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -137,14 +140,14 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
               className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
             >
               <FolderOpenIcon className="h-4 w-4" />
-              Open Existing
+              {t('openExisting')}
             </TabsTrigger>
             <TabsTrigger
               value="create"
               className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
             >
               <Plus className="h-4 w-4" />
-              Create New
+              {t('createNew')}
             </TabsTrigger>
           </TabsList>
 
@@ -153,7 +156,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
               {/* Project Path - auto-named from folder */}
               <div className="space-y-2">
                 <label htmlFor="path-open" className="text-sm font-medium">
-                  Project Folder
+                  {t('projectFolder')}
                 </label>
                 <div className="flex gap-2">
                   <div
@@ -177,12 +180,12 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                     onClick={() => (setBrowserMode('project'), setFolderBrowserOpen(true))}
                     disabled={loading}
                   >
-                    Browse
+                    {tCommon('browse')}
                   </Button>
                 </div>
                 {path && (
                   <p className="text-xs text-muted-foreground">
-                    Project name: <span className="font-medium">{name || '(auto-detected)'}</span>
+                    {t('projectName')}: <span className="font-medium">{name || t('autoDetected')}</span>
                   </p>
                 )}
               </div>
@@ -203,10 +206,10 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   onClick={() => onOpenChange(false)}
                   disabled={loading}
                 >
-                  Cancel
+                  {tCommon('cancel')}
                 </Button>
                 <Button type="submit" disabled={loading || !path}>
-                  {loading ? 'Opening...' : 'Open Project'}
+                  {loading ? tCommon('opening') : t('openProject')}
                 </Button>
               </div>
             </form>
@@ -217,7 +220,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
               {/* Project Name */}
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium">
-                  Project Name
+                  {t('projectName')}
                 </label>
                 <Input
                   id="name"
@@ -227,14 +230,14 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   disabled={loading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This will be the project folder name
+                  {t('folderNameHint')}
                 </p>
               </div>
 
               {/* Root Folder */}
               <div className="space-y-2">
                 <label htmlFor="root-path" className="text-sm font-medium">
-                  Root Folder
+                  {t('rootFolder')}
                 </label>
                 <div className="flex gap-2">
                   <div
@@ -258,11 +261,11 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                     onClick={() => (setBrowserMode('root'), setFolderBrowserOpen(true))}
                     disabled={loading}
                   >
-                    Browse
+                    {tCommon('browse')}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Select the parent folder where project will be created
+                  {t('selectParentFolder')}
                 </p>
               </div>
 
@@ -270,7 +273,7 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
               {fullProjectPath && (
                 <div className="space-y-1">
                   <label className="text-sm font-medium">
-                    Project will be created at:
+                    {t('projectCreatedAt')}
                   </label>
                   <div className="p-3 bg-muted rounded-md text-sm font-mono break-all">
                     {fullProjectPath}
@@ -294,10 +297,10 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
                   onClick={() => onOpenChange(false)}
                   disabled={loading}
                 >
-                  Cancel
+                  {tCommon('cancel')}
                 </Button>
                 <Button type="submit" disabled={loading || !name || !rootPath}>
-                  {loading ? 'Creating...' : 'Create Project'}
+                  {loading ? tCommon('creating') : t('createProject')}
                 </Button>
               </div>
             </form>

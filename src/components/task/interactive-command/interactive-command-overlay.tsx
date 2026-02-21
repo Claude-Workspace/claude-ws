@@ -14,6 +14,7 @@ import { ModelSelector } from './model-selector';
 import { ConfigEditor } from './config-editor';
 import { ConfirmDialog } from './confirm-dialog';
 import { cn } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 // Get icon for command type
 function getCommandIcon(command: InteractiveCommand) {
@@ -34,6 +35,8 @@ function getCommandIcon(command: InteractiveCommand) {
 }
 
 export function InteractiveCommandOverlay() {
+  const t = useTranslations('chat');
+  const tCommon = useTranslations('common');
   const { activeCommand, isOpen, isLoading, error, closeCommand } =
     useInteractiveCommandStore();
 
@@ -91,9 +94,9 @@ export function InteractiveCommandOverlay() {
         )}
         {activeCommand.type === 'clear' && (
           <ConfirmDialog
-            title="Clear Conversation"
-            message="Are you sure you want to clear all messages? This cannot be undone."
-            confirmLabel="Clear"
+            title={t('clearConversation')}
+            message={t('clearConversationConfirm')}
+            confirmLabel={tCommon('clear')}
             confirmVariant="destructive"
             onConfirm={() => {
               // TODO: Implement clear
@@ -104,9 +107,9 @@ export function InteractiveCommandOverlay() {
         )}
         {activeCommand.type === 'compact' && (
           <ConfirmDialog
-            title="Compact Conversation"
-            message="This will summarize the conversation to save context space. Continue?"
-            confirmLabel="Compact"
+            title={t('compactConversation')}
+            message={t('compactConversationConfirm')}
+            confirmLabel={t('compact')}
             onConfirm={() => {
               // TODO: Implement compact
               closeCommand();
