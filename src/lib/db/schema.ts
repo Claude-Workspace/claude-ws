@@ -275,6 +275,33 @@ export const shells = sqliteTable(
   ]
 );
 
+// Subagents table - workflow agent tracking per attempt
+export const subagents = sqliteTable(
+  'subagents',
+  {
+    id: text('id').primaryKey(), // tool_use_id
+    attemptId: text('attempt_id').notNull(),
+    type: text('type').notNull(), // subagent_type
+    name: text('name'), // agent name
+    parentId: text('parent_id'), // parent tool_use_id
+    teamName: text('team_name'),
+    status: text('status', {
+      enum: ['in_progress', 'completed', 'failed', 'orphaned'],
+    }).notNull(),
+    error: text('error'),
+    startedAt: integer('started_at'),
+    completedAt: integer('completed_at'),
+    durationMs: integer('duration_ms'),
+    depth: integer('depth').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('idx_subagents_attempt').on(table.attemptId),
+  ]
+);
+
 // App Settings table - global application settings
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -307,5 +334,7 @@ export type PluginDependencyCache = typeof pluginDependencyCache.$inferSelect;
 export type NewPluginDependencyCache = typeof pluginDependencyCache.$inferInsert;
 export type Shell = typeof shells.$inferSelect;
 export type NewShell = typeof shells.$inferInsert;
+export type Subagent = typeof subagents.$inferSelect;
+export type NewSubagent = typeof subagents.$inferInsert;
 export type AppSetting = typeof appSettings.$inferSelect;
 export type NewAppSetting = typeof appSettings.$inferInsert;

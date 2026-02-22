@@ -11,6 +11,8 @@ import { SettingsPage } from '@/components/settings/settings-page';
 import { SetupDialog } from '@/components/settings/setup-dialog';
 import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
 import { RightSidebar } from '@/components/right-sidebar';
+import { QuestionsPanel } from '@/components/questions/questions-panel';
+import { WorkflowPanel } from '@/components/workflow/workflow-panel';
 import { PluginList } from '@/components/agent-factory/plugin-list';
 import { AccessAnywhereWizard } from '@/components/access-anywhere';
 import { TerminalPanel } from '@/components/terminal/terminal-panel';
@@ -282,6 +284,12 @@ function KanbanApp() {
         projectId={selectedProjectIds[0]}
         onCreateTask={() => setCreateTaskOpen(true)}
       />
+
+      {/* Questions Panel - pending questions sidebar */}
+      <QuestionsPanel />
+
+      {/* Workflow Panel - agent workflow sidebar */}
+      <WorkflowPanel />
 
       {/* Access Anywhere Wizard */}
       <AccessAnywhereWizard />

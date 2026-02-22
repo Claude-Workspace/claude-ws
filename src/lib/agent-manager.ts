@@ -576,14 +576,29 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
             const assistantMsg = message as unknown as { message: { content: Array<{ type: string; id?: string; name?: string; input?: unknown }> }; parent_tool_use_id: string | null };
             for (const block of assistantMsg.message.content) {
               if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
-                const taskInput = (block as { input?: { subagent_type?: string } }).input;
+                const taskInput = (block as { input?: { subagent_type?: string; team_name?: string; name?: string } }).input;
                 const subagentType = taskInput?.subagent_type || 'unknown';
                 workflowTracker.trackSubagentStart(
                   attemptId,
                   block.id,
                   subagentType,
-                  assistantMsg.parent_tool_use_id
+                  assistantMsg.parent_tool_use_id,
+                  { teamName: taskInput?.team_name, name: taskInput?.name }
                 );
+              }
+              // Track TeamCreate tool usage for workflow visualization
+              if (block.type === 'tool_use' && block.name === 'TeamCreate' && block.id) {
+                const teamInput = (block as { input?: { team_name?: string } }).input;
+                if (teamInput?.team_name) {
+                  workflowTracker.trackTeamCreate(attemptId, teamInput.team_name);
+                }
+              }
+              // Track SendMessage tool usage for inter-agent message visualization
+              if (block.type === 'tool_use' && block.name === 'SendMessage' && block.id) {
+                const msgInput = (block as { input?: { type?: string; recipient?: string; content?: string; summary?: string } }).input;
+                if (msgInput) {
+                  workflowTracker.trackMessage(attemptId, msgInput);
+                }
               }
               // Track Bash tool_uses for BGPID correlation
               if (block.type === 'tool_use' && block.name === 'Bash' && block.id) {
