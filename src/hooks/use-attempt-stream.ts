@@ -338,6 +338,40 @@ export function useAttemptStream(
       setActiveQuestion({ attemptId: data.attemptId, toolUseId: data.toolUseId, questions: data.questions });
     });
 
+    // Listen for stderr output (error messages from agent)
+    socketInstance.on('output:stderr', (data: { attemptId: string; content: string }) => {
+      if (currentAttemptIdRef.current && data.attemptId !== currentAttemptIdRef.current) return;
+      setMessages((prev) => [...prev, {
+        type: 'system' as any,
+        content: data.content,
+        isError: true,
+        _attemptId: data.attemptId,
+        _msgId: Math.random().toString(36),
+      }]);
+    });
+
+    // Listen for context compacting status
+    socketInstance.on('context:compacting', (data: { attemptId: string; taskId: string }) => {
+      setMessages((prev) => [...prev, {
+        type: 'system' as any,
+        content: 'Compacting conversation context...',
+        _attemptId: data.attemptId,
+        _msgId: Math.random().toString(36),
+      }]);
+    });
+
+    // Listen for prompt-too-long error
+    socketInstance.on('context:prompt-too-long', (data: { attemptId: string; message: string }) => {
+      if (currentAttemptIdRef.current && data.attemptId !== currentAttemptIdRef.current) return;
+      setMessages((prev) => [...prev, {
+        type: 'system' as any,
+        content: data.message,
+        isError: true,
+        _attemptId: data.attemptId,
+        _msgId: Math.random().toString(36),
+      }]);
+    });
+
     return () => {
       socketInstance.close();
       socketRef.current = null;
