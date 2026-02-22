@@ -90,6 +90,7 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     activeQuestion,
     answerQuestion,
     cancelQuestion,
+    refetchQuestion,
   } = useAttemptStream({
     taskId: task.id,
     onComplete: handleTaskComplete,
@@ -218,7 +219,13 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
         currentFiles={isRunning ? currentAttemptFiles : undefined}
         isRunning={isRunning}
         activeQuestion={activeQuestion}
-        onOpenQuestion={() => setShowQuestionPrompt(true)}
+        onOpenQuestion={() => {
+          if (activeQuestion) {
+            setShowQuestionPrompt(true);
+          } else {
+            refetchQuestion();
+          }
+        }}
       />
     </div>
   );
@@ -227,32 +234,23 @@ export function FloatingChatWindow({ task, zIndex, onClose, onMaximize, onFocus 
     <>
       <Separator />
       <div className="relative">
-        {showQuestionPrompt ? (
+        {showQuestionPrompt && activeQuestion ? (
           <div className="border-t bg-muted/30">
-            {activeQuestion ? (
-              <QuestionPrompt
-                key={activeQuestion.toolUseId}
-                questions={activeQuestion.questions}
-                onAnswer={(answers) => {
-                  if (task.status !== 'in_progress') {
-                    moveTaskToInProgress(task.id);
-                  }
-                  answerQuestion(activeQuestion.questions, answers as Record<string, string>);
-                  setShowQuestionPrompt(false);
-                }}
-                onCancel={() => {
-                  cancelQuestion();
-                  setShowQuestionPrompt(false);
-                }}
-              />
-            ) : (
-              <div className="py-8 px-4 text-center">
-                <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-                  <div className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  <span>Loading question...</span>
-                </div>
-              </div>
-            )}
+            <QuestionPrompt
+              key={activeQuestion.toolUseId}
+              questions={activeQuestion.questions}
+              onAnswer={(answers) => {
+                if (task.status !== 'in_progress') {
+                  moveTaskToInProgress(task.id);
+                }
+                answerQuestion(activeQuestion.questions, answers as Record<string, string>);
+                setShowQuestionPrompt(false);
+              }}
+              onCancel={() => {
+                cancelQuestion();
+                setShowQuestionPrompt(false);
+              }}
+            />
           </div>
         ) : shellPanelExpanded && currentProjectId ? (
           <ShellExpandedPanel

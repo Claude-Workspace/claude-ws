@@ -224,6 +224,7 @@ interface AgentEvents {
   stderr: (data: { attemptId: string; content: string }) => void;
   exit: (data: { attemptId: string; code: number | null }) => void;
   question: (data: { attemptId: string; toolUseId: string; questions: unknown[] }) => void;
+  questionResolved: (data: { attemptId: string }) => void;
   backgroundShell: (data: { attemptId: string; shell: BackgroundShellInfo }) => void;
   trackedProcess: (data: { attemptId: string; pid: number; command: string; logFile?: string }) => void;
 }
@@ -821,6 +822,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     pending.resolve({ questions, answers });
     this.pendingQuestions.delete(attemptId);
     this.pendingQuestionData.delete(attemptId);
+    this.emit('questionResolved', { attemptId });
     return true;
   }
 
@@ -839,6 +841,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
     pending.resolve(null);
     this.pendingQuestions.delete(attemptId);
     this.pendingQuestionData.delete(attemptId);
+    this.emit('questionResolved', { attemptId });
     return true;
   }
 
@@ -854,6 +857,16 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
    */
   getPendingQuestionData(attemptId: string): { toolUseId: string; questions: unknown[]; timestamp: number } | null {
     return this.pendingQuestionData.get(attemptId) || null;
+  }
+
+  /**
+   * Get all pending questions across all running attempts
+   */
+  getAllPendingQuestions(): Array<{ attemptId: string; toolUseId: string; questions: unknown[]; timestamp: number }> {
+    return Array.from(this.pendingQuestionData.entries()).map(([attemptId, data]) => ({
+      attemptId,
+      ...data,
+    }));
   }
 
   /**

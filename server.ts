@@ -857,19 +857,51 @@ app.prepare().then(async () => {
   });
 
   // Handle AskUserQuestion detection from AgentManager
-  agentManager.on('question', ({ attemptId, toolUseId, questions }) => {
+  agentManager.on('question', async ({ attemptId, toolUseId, questions }) => {
     log.info({
       attemptId,
       toolUseId,
       questionCount: questions?.length,
       questions: questions?.map((q: any) => ({ header: q.header, question: q.question?.substring(0, 50) }))
     }, '[Server] AskUserQuestion detected');
+
+    // Emit to attempt room (existing behavior)
     io.to(`attempt:${attemptId}`).emit('question:ask', {
       attemptId,
       toolUseId,
       questions,
     });
+
+    // Emit global question:new event for the questions panel
+    // Look up taskId from the attempt
+    try {
+      const attempt = await db.query.attempts.findFirst({
+        where: eq(schema.attempts.id, attemptId),
+      });
+      if (attempt) {
+        const task = await db.query.tasks.findFirst({
+          where: eq(schema.tasks.id, attempt.taskId),
+        });
+        io.emit('question:new', {
+          attemptId,
+          taskId: attempt.taskId,
+          taskTitle: task?.title || '',
+          projectId: task?.projectId || '',
+          toolUseId,
+          questions,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (err) {
+      log.error({ err }, '[Server] Failed to emit global question:new');
+    }
+
     log.info(`[Server] Emitted question:ask to attempt:${attemptId}`);
+  });
+
+  // Handle question resolved from AgentManager (answered or cancelled, including via REST API)
+  agentManager.on('questionResolved', ({ attemptId }) => {
+    io.emit('question:resolved', { attemptId });
   });
 
   // Handle background shell detection from AgentManager (Bash with run_in_background=true)
@@ -1164,6 +1196,54 @@ app.prepare().then(async () => {
     if (attempt?.taskId) {
       io.emit('task:finished', { taskId: attempt.taskId, status });
     }
+
+    // Auto-compact check: if context exceeded threshold and auto-compact is enabled
+    if (status === 'completed' && usageStats?.contextHealth?.shouldCompact && attempt?.taskId) {
+      try {
+        const autoCompactSetting = await db
+          .select()
+          .from(schema.appSettings)
+          .where(eq(schema.appSettings.key, 'auto_compact_enabled'))
+          .limit(1);
+
+        const autoCompactEnabled = autoCompactSetting.length > 0 && autoCompactSetting[0].value === 'true';
+
+        if (autoCompactEnabled) {
+          const project = await db.query.projects.findFirst({
+            where: eq(schema.projects.id, (await db.query.tasks.findFirst({ where: eq(schema.tasks.id, attempt.taskId) }))!.projectId),
+          });
+
+          if (project) {
+            const conversationSummary = await sessionManager.getConversationSummary(attempt.taskId);
+
+            const compactAttemptId = nanoid();
+            await db.insert(schema.attempts).values({
+              id: compactAttemptId,
+              taskId: attempt.taskId,
+              prompt: 'Auto-compact: summarize conversation context',
+              displayPrompt: 'Auto-compacting conversation...',
+              status: 'running',
+            });
+
+            log.info({ attemptId: compactAttemptId, taskId: attempt.taskId }, '[Server] Auto-compacting conversation');
+            io.to(`attempt:${attemptId}`).emit('context:compacting', { attemptId: compactAttemptId, taskId: attempt.taskId });
+
+            agentManager.compact({
+              attemptId: compactAttemptId,
+              projectPath: project.path,
+              conversationSummary,
+            });
+          }
+        }
+      } catch (compactError) {
+        log.error({ compactError }, '[Server] Auto-compact failed');
+      }
+    }
+
+    // Clean up in-memory tracking data for this attempt to prevent unbounded growth
+    usageTracker.clearSession(attemptId);
+    workflowTracker.clearWorkflow(attemptId);
+    gitStatsCache.clear(attemptId);
   });
 
   // Forward tracking module events to Socket.io clients
