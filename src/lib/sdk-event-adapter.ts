@@ -98,7 +98,7 @@ export type SDKMessage =
   | SDKUserMessage
   | SDKResultMessage
   | SDKStreamEvent
-  | { type: string; [key: string]: unknown }; // Fallback for other types
+  | { type: string;[key: string]: unknown }; // Fallback for other types
 
 /**
  * Runtime type guard for SDK messages
@@ -286,9 +286,15 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
 
     case 'assistant': {
       const asst = message as SDKAssistantMessage;
-      const content = asst.message.content.map(adaptContentBlock);
+      const rawContent = Array.isArray(asst.message.content)
+        ? asst.message.content
+        : (typeof asst.message.content === 'string'
+          ? [{ type: 'text', text: asst.message.content as string }]
+          : []) as SDKContentBlock[];
+
+      const content = rawContent.map(adaptContentBlock);
       // Log Write tool calls for debugging
-      logWriteToolUse(asst.message.content);
+      logWriteToolUse(rawContent);
       result.output = {
         type: 'assistant',
         message: {
@@ -297,12 +303,12 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
         },
       };
       // Check for AskUserQuestion tool use
-      const askQuestion = detectAskUserQuestion(asst.message.content);
+      const askQuestion = detectAskUserQuestion(rawContent);
       if (askQuestion) {
         result.askUserQuestion = askQuestion;
       }
       // Check for background shell (Bash with run_in_background=true)
-      const bgShell = detectBackgroundShell(asst.message.content);
+      const bgShell = detectBackgroundShell(rawContent);
       if (bgShell) {
         result.backgroundShell = bgShell;
       }
@@ -311,11 +317,17 @@ export function adaptSDKMessage(message: SDKMessage): AdaptedMessage {
 
     case 'user': {
       const user = message as SDKUserMessage;
+      const rawContent = Array.isArray(user.message.content)
+        ? user.message.content
+        : (typeof user.message.content === 'string'
+          ? [{ type: 'text', text: user.message.content as string }]
+          : []) as SDKContentBlock[];
+
       result.output = {
         type: 'user',
         message: {
           role: 'user',
-          content: user.message.content.map(adaptContentBlock),
+          content: rawContent.map(adaptContentBlock),
         },
       };
       // Capture checkpoint UUID for file checkpointing

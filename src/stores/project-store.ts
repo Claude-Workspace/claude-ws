@@ -180,17 +180,20 @@ export const useProjectStore = create<ProjectStore>()(
           if (!res.ok) throw new Error('Failed to fetch projects');
           const projects: Project[] = await res.json();
 
-          // Prune stale selectedProjectIds that no longer exist in DB
-          const validIds = new Set(projects.map((p: Project) => p.id));
-          const { selectedProjectIds, activeProjectId } = get();
-          const prunedIds = selectedProjectIds.filter(id => validIds.has(id));
-          const prunedActiveId = activeProjectId && validIds.has(activeProjectId) ? activeProjectId : null;
+          // Clean up any selected/active project IDs that no longer exist on the server
+          const currentStore = get();
+          const validProjectIds = new Set(projects.map(p => p.id));
+
+          const validSelectedIds = currentStore.selectedProjectIds.filter(id => validProjectIds.has(id));
+          const validActiveId = currentStore.activeProjectId && validProjectIds.has(currentStore.activeProjectId)
+            ? currentStore.activeProjectId
+            : null;
 
           set({
             projects,
             loading: false,
-            selectedProjectIds: prunedIds.length !== selectedProjectIds.length ? prunedIds : selectedProjectIds,
-            activeProjectId: prunedActiveId !== activeProjectId ? prunedActiveId : activeProjectId,
+            selectedProjectIds: validSelectedIds,
+            activeProjectId: validActiveId
           });
         } catch (error) {
           set({

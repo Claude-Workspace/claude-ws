@@ -68,9 +68,15 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated }: CreateTa
   useEffect(() => {
     if (open) {
       // Priority: activeProjectId > first selectedProjectId > first project
-      const defaultProject = activeProjectId
+      let defaultProject = activeProjectId
         || (selectedProjectIds.length > 0 ? selectedProjectIds[0] : null)
         || (projects.length > 0 ? projects[0].id : null);
+
+      // Ensure the selected project actually exists (it might have been deleted but cached)
+      if (defaultProject && !projects.some(p => p.id === defaultProject)) {
+        defaultProject = projects.length > 0 ? projects[0].id : null;
+      }
+
       setSelectedProjectId(defaultProject || '');
 
       // Generate new temp task ID for this dialog session

@@ -218,6 +218,11 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
   useEffect(() => {
     if (!taskId) return;
 
+    if (taskId.startsWith('__create_dialog_temp__')) {
+      console.log('[PromptInput] Ignoring stats fetch for temp task ID:', taskId);
+      return;
+    }
+
     const fetchStats = async () => {
       try {
         const res = await fetch(`/api/tasks/${taskId}/stats`);
@@ -664,68 +669,67 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
         {/* Stats and hints bar - below input */}
         {taskId && !hideStats && (
           <div className="flex items-center justify-between gap-2 sm:gap-3 text-[10px] text-muted-foreground px-1">
-              {/* Keyboard hints - left side */}
-              <div className="hidden sm:flex items-center gap-3">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">/</kbd>
-                  <span>{t('commandsHint')}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">@</kbd>
-                  <span>{t('filesHint')}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">⌘V</kbd>
-                  <span>{t('pasteImageHint')}</span>
-                </span>
+            {/* Keyboard hints - left side */}
+            <div className="hidden sm:flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">/</kbd>
+                <span>{t('commandsHint')}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">@</kbd>
+                <span>{t('filesHint')}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] font-mono">⌘V</kbd>
+                <span>{t('pasteImageHint')}</span>
+              </span>
+            </div>
+
+            {/* Stats - right side: git changes, then context % */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+              {/* Git changes */}
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <span className="text-green-600 text-[9px] sm:text-[10px]">+{taskStats?.totalAdditions || 0}</span>
+                <span className="text-red-600 text-[9px] sm:text-[10px]">-{taskStats?.totalDeletions || 0}</span>
               </div>
 
-              {/* Stats - right side: git changes, then context % */}
-              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                {/* Git changes */}
+              {/* Context Usage */}
+              <div className="flex items-center gap-1">
+                <TrendingUp className="size-3 hidden sm:inline" />
                 <div className="flex items-center gap-0.5 sm:gap-1">
-                  <span className="text-green-600 text-[9px] sm:text-[10px]">+{taskStats?.totalAdditions || 0}</span>
-                  <span className="text-red-600 text-[9px] sm:text-[10px]">-{taskStats?.totalDeletions || 0}</span>
-                </div>
-
-                {/* Context Usage */}
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="size-3 hidden sm:inline" />
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <div className="hidden sm:flex gap-0.5">
-                      {Array.from({ length: 10 }).map((_, i) => {
-                        const percentage = taskStats?.contextPercentage || 0;
-                        const filled = (percentage / 10) > i;
-                        let color = 'bg-muted';
-                        if (filled) {
-                          if (percentage > 90) {
-                            color = 'bg-red-500';
-                          } else if (percentage >= 60) {
-                            color = 'bg-yellow-500';
-                          } else {
-                            color = 'bg-green-500';
-                          }
+                  <div className="hidden sm:flex gap-0.5">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const percentage = taskStats?.contextPercentage || 0;
+                      const filled = (percentage / 10) > i;
+                      let color = 'bg-muted';
+                      if (filled) {
+                        if (percentage > 90) {
+                          color = 'bg-red-500';
+                        } else if (percentage >= 60) {
+                          color = 'bg-yellow-500';
+                        } else {
+                          color = 'bg-green-500';
                         }
-                        return (
-                          <div
-                            key={i}
-                            className={`w-1.5 h-2 rounded-[1px] ${color}`}
-                          />
-                        );
-                      })}
-                    </div>
-                    <span className={`font-medium text-[9px] sm:text-[10px] ${
-                      (taskStats?.contextPercentage || 0) > 90
-                        ? 'text-red-500'
-                        : (taskStats?.contextPercentage || 0) >= 60
-                          ? 'text-yellow-500'
-                          : ''
-                    }`}>
-                      {taskStats?.contextPercentage || 0}%
-                    </span>
+                      }
+                      return (
+                        <div
+                          key={i}
+                          className={`w-1.5 h-2 rounded-[1px] ${color}`}
+                        />
+                      );
+                    })}
                   </div>
+                  <span className={`font-medium text-[9px] sm:text-[10px] ${(taskStats?.contextPercentage || 0) > 90
+                    ? 'text-red-500'
+                    : (taskStats?.contextPercentage || 0) >= 60
+                      ? 'text-yellow-500'
+                      : ''
+                    }`}>
+                    {taskStats?.contextPercentage || 0}%
+                  </span>
                 </div>
               </div>
+            </div>
           </div>
         )}
       </form>

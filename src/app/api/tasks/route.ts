@@ -105,15 +105,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newTask, { status: 201 });
   } catch (error: any) {
-    console.error('Failed to create task:', error);
-
     // Handle foreign key constraint (invalid projectId)
     if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      console.warn(`[API] Rejected task creation due to invalid project ID (likely from an old browser tab).`);
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       );
     }
+
+    console.error('Failed to create task:', error);
 
     return NextResponse.json(
       { error: 'Failed to create task' },
