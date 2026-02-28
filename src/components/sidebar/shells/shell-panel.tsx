@@ -5,6 +5,7 @@ import { Square, Terminal, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useShellStore, type ShellInfo } from '@/stores/shell-store';
+import { useTranslations } from 'next-intl';
 
 interface ShellPanelProps {
   projectId: string;
@@ -12,6 +13,7 @@ interface ShellPanelProps {
 }
 
 function ShellItem({ shell, onStop }: { shell: ShellInfo; onStop: () => void }) {
+  const t = useTranslations('shells');
   // Truncate command for display
   const displayCommand = shell.command.length > 30
     ? shell.command.slice(0, 30) + '...'
@@ -48,7 +50,7 @@ function ShellItem({ shell, onStop }: { shell: ShellInfo; onStop: () => void }) 
           size="icon"
           className="h-6 w-6 flex-shrink-0"
           onClick={onStop}
-          title="Stop shell"
+          title={t('stopShell')}
         >
           <Square className="h-3 w-3" />
         </Button>

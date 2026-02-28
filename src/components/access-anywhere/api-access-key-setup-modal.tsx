@@ -73,14 +73,14 @@ export function ApiAccessKeySetupForm({ onSuccess }: ApiAccessKeySetupFormProps)
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to save API key');
+        throw new Error(data.error || t('failedToSaveApiKey'));
       }
 
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save API key');
+      setError(err instanceof Error ? err.message : t('failedToSaveApiKey'));
     } finally {
       setSaving(false);
     }

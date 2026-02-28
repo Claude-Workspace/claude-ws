@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useShellStore, type ShellInfo } from '@/stores/shell-store';
@@ -13,6 +14,7 @@ interface ShellLogViewProps {
 }
 
 export function ShellLogView({ shell, onClose, className }: ShellLogViewProps) {
+  const tCommon = useTranslations('common');
   const { shellLogs, getShellLogs } = useShellStore();
   const logContainerRef = useRef<HTMLDivElement>(null);
   const logs = shellLogs.get(shell.shellId) || [];
@@ -48,7 +50,7 @@ export function ShellLogView({ shell, onClose, className }: ShellLogViewProps) {
           size="icon"
           className="h-6 w-6 shrink-0"
           onClick={onClose}
-          title="Close (Esc)"
+          title={tCommon('close') + ' (Esc)'}
         >
           <X className="h-3 w-3" />
         </Button>

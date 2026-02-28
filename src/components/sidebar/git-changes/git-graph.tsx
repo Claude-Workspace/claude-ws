@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronRight, ChevronDown, RefreshCw, Loader2, ArrowUpFromLine, ArrowDownToLine, RotateCcw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { GitCommitItem } from './git-commit-item';
 import { GraphRenderer } from './graph-renderer';
 import { CommitDetailsModal } from './commit-details-modal';
@@ -23,6 +24,8 @@ interface GitCommit {
 }
 
 export function GitGraph() {
+  const t = useTranslations('git');
+  const tCommon = useTranslations('common');
   const activeProject = useActiveProject();
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [head, setHead] = useState<string>('');
@@ -129,7 +132,7 @@ export function GitGraph() {
               e.stopPropagation();
               setFilter(filter === 'current' ? 'all' : 'current');
             }}
-            title={filter === 'current' ? 'Show all branches' : 'Show current branch only'}
+            title={filter === 'current' ? t('showAllBranches') : t('showCurrentBranchOnly')}
           >
             <svg className="size-3.5" viewBox="0 0 16 16" fill="currentColor">
               {filter === 'current' ? (
@@ -147,7 +150,7 @@ export function GitGraph() {
               gitAction('fetch');
             }}
             disabled={actionLoading !== null}
-            title="Fetch"
+            title={t('fetch')}
           >
             <ArrowDownToLine className={cn('size-3.5', actionLoading === 'fetch' && 'animate-pulse')} />
           </button>
@@ -159,7 +162,7 @@ export function GitGraph() {
               gitAction('pull');
             }}
             disabled={actionLoading !== null}
-            title="Pull"
+            title={t('pull')}
           >
             <RotateCcw className={cn('size-3.5', actionLoading === 'pull' && 'animate-spin')} />
           </button>
@@ -171,7 +174,7 @@ export function GitGraph() {
               gitAction('push');
             }}
             disabled={actionLoading !== null}
-            title="Push"
+            title={t('push')}
           >
             <ArrowUpFromLine className={cn('size-3.5', actionLoading === 'push' && 'animate-pulse')} />
           </button>
@@ -182,7 +185,7 @@ export function GitGraph() {
               e.stopPropagation();
               fetchLog();
             }}
-            title="Refresh"
+            title={tCommon('refresh')}
           >
             <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
           </button>

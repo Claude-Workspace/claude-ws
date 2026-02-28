@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDistanceToNow as formatDateDistance } from 'date-fns';
+import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Attempt } from '@/types';
@@ -13,13 +14,14 @@ interface AttemptItemProps {
 }
 
 const STATUS_VARIANTS = {
-  running: { variant: 'secondary' as const, label: 'Running', color: 'text-yellow-600' },
-  completed: { variant: 'secondary' as const, label: 'Completed', color: 'text-green-600' },
-  failed: { variant: 'destructive' as const, label: 'Failed', color: 'text-red-600' },
-  cancelled: { variant: 'outline' as const, label: 'Cancelled', color: 'text-muted-foreground' },
+  running: { variant: 'secondary' as const, labelKey: 'statusRunning' as const, color: 'text-yellow-600' },
+  completed: { variant: 'secondary' as const, labelKey: 'statusCompleted' as const, color: 'text-green-600' },
+  failed: { variant: 'destructive' as const, labelKey: 'statusFailed' as const, color: 'text-red-600' },
+  cancelled: { variant: 'outline' as const, labelKey: 'statusCancelled' as const, color: 'text-muted-foreground' },
 };
 
 export function AttemptItem({ attempt, onClick, isActive, className }: AttemptItemProps) {
+  const t = useTranslations('task');
   const statusConfig = STATUS_VARIANTS[attempt.status];
   const hasDiff = attempt.diffAdditions > 0 || attempt.diffDeletions > 0;
 
@@ -38,7 +40,7 @@ export function AttemptItem({ attempt, onClick, isActive, className }: AttemptIt
             #{attempt.id.slice(0, 8)}
           </span>
           <Badge variant={statusConfig.variant} className={cn('text-xs', statusConfig.color)}>
-            {statusConfig.label}
+            {t(statusConfig.labelKey)}
           </Badge>
         </div>
         <span className="text-xs text-muted-foreground whitespace-nowrap">

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X, Loader2, Check, RotateCcw } from 'lucide-react';
 import { useInlineEditStore } from '@/stores/inline-edit-store';
+import { useTranslations } from 'next-intl';
 
 interface InlineEditDialogProps {
   filePath: string;
@@ -21,6 +22,8 @@ interface InlineEditDialogProps {
 }
 
 export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: InlineEditDialogProps) {
+  const t = useTranslations('editor');
+  const tCommon = useTranslations('common');
   const [instruction, setInstruction] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -155,7 +158,7 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
             className="flex items-center gap-1.5 text-xs bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 hover:text-emerald-300 font-medium px-2.5 py-1 rounded-md transition-colors"
           >
             <Check className="size-3" />
-            Accept
+            {t('accept')}
             <kbd className="text-[10px] text-emerald-600 bg-emerald-950/50 px-1 py-0.5 rounded">⌘↵</kbd>
           </button>
 
@@ -165,7 +168,7 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
             className="flex items-center gap-1.5 text-xs bg-zinc-700/30 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-300 font-medium px-2.5 py-1 rounded-md transition-colors"
           >
             <RotateCcw className="size-3" />
-            Reject
+            {t('reject')}
             <kbd className="text-[10px] text-zinc-600 bg-zinc-800/50 px-1 py-0.5 rounded">Esc</kbd>
           </button>
         </div>
@@ -187,7 +190,7 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
       <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg shadow-xl p-2 flex items-center gap-2">
         <Input
           ref={inputRef}
-          placeholder="Describe the change you want..."
+          placeholder={t('describeChange')}
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -197,14 +200,14 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
 
         {error && (
           <span className="text-xs text-red-400 truncate max-w-[80px]" title={error}>
-            Error
+            {t('error')}
           </span>
         )}
 
         {isGenerating ? (
           <div className="flex items-center gap-2 text-zinc-400 text-xs">
             <Loader2 className="size-4 animate-spin" />
-            <span>Generating...</span>
+            <span>{tCommon('generating')}</span>
           </div>
         ) : (
           <Button
@@ -213,7 +216,7 @@ export function InlineEditDialog({ filePath, onSubmit, onAccept, onReject }: Inl
             disabled={!instruction.trim()}
             className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium"
           >
-            Submit
+            {tCommon('submit')}
           </Button>
         )}
 

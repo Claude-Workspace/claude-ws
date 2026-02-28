@@ -15,6 +15,7 @@ import { EventEmitter } from 'events';
 import { existsSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
+import { normalize } from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeOutput } from '../types';
 import { adaptSDKMessage, isValidSDKMessage, type BackgroundShellInfo, type SDKResultMessage } from './sdk-event-adapter';
@@ -414,6 +415,30 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         log.debug({ path: `${projectPath}/.mcp.json` }, 'No MCP config found');
       }
 
+      // Resolve claude executable path for SDK (Windows only)
+      // On Windows, the SDK defaults to running its bundled cli.js via `bun cli.js`,
+      // which causes EPERM on C:\Windows\System32\ due to a Bun PATH-reading bug.
+      // Fix: pass the real claude.exe path directly so the SDK spawns it as a native binary.
+      // On other platforms (Linux/macOS), leave undefined so SDK uses its default.
+      const resolvedClaudePath = (() => {
+        if (process.platform !== 'win32') return undefined;
+        const envPath = process.env.CLAUDE_PATH;
+        if (envPath && existsSync(normalize(envPath))) {
+          return normalize(envPath);
+        }
+        // Fallback: search common Windows locations
+        const home = process.env.USERPROFILE || process.env.HOME || '';
+        const candidates = [
+          join(home, '.local', 'bin', 'claude.exe'),
+          join(home, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+        ];
+        for (const c of candidates) {
+          if (existsSync(c)) return c;
+        }
+        return undefined;
+
+      })();
+
       // Configure SDK query options
       // resumeSessionAt: resume conversation at specific message UUID (for rewind)
       // Model priority: provided model > DEFAULT_MODEL ('opus')
@@ -526,10 +551,14 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         ? `You are powered by the model named ${modelDisplayName}. The exact model ID is ${effectiveModel}.`
         : `You are powered by the model ${effectiveModel}.`;
 
+      log.info({ resolvedClaudePath }, 'Using claude executable path');
       const response = query({
         prompt,
         options: {
           ...queryOptions,
+          // Pass the real claude.exe path so the SDK doesn't fall back to its bundled cli.js
+          // Running `bun <sdk_cli.js>` on Windows causes EPERM errors on C:\Windows\System32\
+          ...(resolvedClaudePath ? { pathToClaudeCodeExecutable: resolvedClaudePath } : {}),
           systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: modelIdentity },
         },
       });
@@ -577,14 +606,29 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
             const assistantMsg = message as unknown as { message: { content: Array<{ type: string; id?: string; name?: string; input?: unknown }> }; parent_tool_use_id: string | null };
             for (const block of assistantMsg.message.content) {
               if (block.type === 'tool_use' && block.name === 'Task' && block.id) {
-                const taskInput = (block as { input?: { subagent_type?: string } }).input;
+                const taskInput = (block as { input?: { subagent_type?: string; team_name?: string; name?: string } }).input;
                 const subagentType = taskInput?.subagent_type || 'unknown';
                 workflowTracker.trackSubagentStart(
                   attemptId,
                   block.id,
                   subagentType,
-                  assistantMsg.parent_tool_use_id
+                  assistantMsg.parent_tool_use_id,
+                  { teamName: taskInput?.team_name, name: taskInput?.name }
                 );
+              }
+              // Track TeamCreate tool usage for workflow visualization
+              if (block.type === 'tool_use' && block.name === 'TeamCreate' && block.id) {
+                const teamInput = (block as { input?: { team_name?: string } }).input;
+                if (teamInput?.team_name) {
+                  workflowTracker.trackTeamCreate(attemptId, teamInput.team_name);
+                }
+              }
+              // Track SendMessage tool usage for inter-agent message visualization
+              if (block.type === 'tool_use' && block.name === 'SendMessage' && block.id) {
+                const msgInput = (block as { input?: { type?: string; recipient?: string; content?: string; summary?: string } }).input;
+                if (msgInput) {
+                  workflowTracker.trackMessage(attemptId, msgInput);
+                }
               }
               // Track Bash tool_uses for BGPID correlation
               if (block.type === 'tool_use' && block.name === 'Bash' && block.id) {

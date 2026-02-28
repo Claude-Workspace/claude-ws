@@ -9,6 +9,7 @@ import { useResizable } from '@/hooks/use-resizable';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { usePanelLayoutStore, PANEL_CONFIGS } from '@/stores/panel-layout-store';
 import { cn } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH } = PANEL_CONFIGS.filePreview;
 
@@ -35,6 +36,8 @@ function trimFileName(fileName: string, maxLength = 25): string {
 }
 
 export function FileTabsPanel() {
+  const tCommon = useTranslations('common');
+  const tEditor = useTranslations('editor');
   const {
     openTabs,
     activeTabId,
@@ -59,7 +62,7 @@ export function FileTabsPanel() {
     const tab = openTabs.find(t => t.id === tabId);
     if (tab?.isDirty) {
       const fileName = tab.filePath.split('/').pop() || tab.filePath;
-      if (!confirm(`"${fileName}" has unsaved changes. Close anyway?`)) {
+      if (!confirm(tCommon('unsavedChangesConfirm', { fileName }))) {
         return;
       }
     }
@@ -71,7 +74,7 @@ export function FileTabsPanel() {
     const dirtyTabs = openTabs.filter(t => t.isDirty);
     if (dirtyTabs.length > 0) {
       const fileNames = dirtyTabs.map(t => t.filePath.split('/').pop()).join(', ');
-      if (!confirm(`You have unsaved changes in: ${fileNames}\n\nClose all tabs anyway?`)) {
+      if (!confirm(tCommon('unsavedChangesConfirm', { fileName: fileNames }))) {
         return;
       }
     }
@@ -159,9 +162,9 @@ export function FileTabsPanel() {
             size="sm"
             onClick={handleCloseAllTabs}
             className="text-xs text-muted-foreground h-8 px-2 mr-1"
-            title="Close all tabs"
+            title={tEditor('closeAllTabs')}
           >
-            Close all
+            {tEditor('closeAllTabs')}
           </Button>
         )}
       </div>

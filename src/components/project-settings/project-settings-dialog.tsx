@@ -19,6 +19,7 @@ import { ComponentSelector } from './component-selector';
 import { useProjectSettingsStore } from '@/stores/project-settings-store';
 import { useAgentFactoryUIStore } from '@/stores/agent-factory-ui-store';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslations } from 'next-intl';
 
 interface InstallResult {
   installed: string[];
@@ -33,6 +34,7 @@ interface ProjectSettingsDialogProps {
 }
 
 export function ProjectSettingsDialog({ open, onOpenChange, projectId }: ProjectSettingsDialogProps) {
+  const t = useTranslations('settings');
   const { projects } = useProjectStore();
   const { setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const {
@@ -155,8 +157,8 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Project Settings</DialogTitle>
-            <DialogDescription>No projects available</DialogDescription>
+            <DialogTitle>{t('projectSettings')}</DialogTitle>
+            <DialogDescription>{t('noProjectsAvailable')}</DialogDescription>
           </DialogHeader>
         </DialogContent>
       </Dialog>
@@ -169,7 +171,7 @@ export function ProjectSettingsDialog({ open, onOpenChange, projectId }: Project
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            {selectedProject?.name || 'Project Settings'}
+            {selectedProject?.name || t('projectSettings')}
           </DialogTitle>
           <DialogDescription>
             Configure plugins and agent sets for this project

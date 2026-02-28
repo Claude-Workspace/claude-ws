@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Copy, ArrowLeft, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface FileDiffResolverModalProps {
   /** Whether the modal is open */
@@ -53,6 +54,8 @@ export function FileDiffResolverModal({
   onKeepLocal,
   onMerge,
 }: FileDiffResolverModalProps) {
+  const t = useTranslations('editor');
+
   // Working copy of local content that user can modify via inserts
   const [workingContent, setWorkingContent] = useState(localContent);
   const localScrollRef = useRef<HTMLDivElement>(null);
@@ -81,7 +84,7 @@ export function FileDiffResolverModal({
     // Insert the remote line with >>>>> marker before it
     lines.splice(insertAfterLocalLine, 0, '>>>>> REMOTE', remoteLine);
     setWorkingContent(lines.join('\n'));
-    toast.success('Line inserted with marker');
+    toast.success(t('lineInserted'));
   }, [workingContent]);
 
   // Insert all lines from a remote block
@@ -90,7 +93,7 @@ export function FileDiffResolverModal({
     // Insert marker before the block and all remote lines
     lines.splice(insertAfterLocalLine, 0, '>>>>> REMOTE', ...remoteLines, '<<<<< END REMOTE');
     setWorkingContent(lines.join('\n'));
-    toast.success(`${remoteLines.length} line(s) inserted with markers`);
+    toast.success(t('linesInserted', { count: remoteLines.length }));
   }, [workingContent]);
 
   // Insert deletion marker for lines that exist in local but not remote
@@ -106,34 +109,34 @@ export function FileDiffResolverModal({
     lines.splice(startPosition, 0, '>>>>> REMOTE DELETED');
 
     setWorkingContent(lines.join('\n'));
-    toast.success(lineCount > 1 ? 'Deletion markers inserted' : 'Deletion marker inserted');
+    toast.success(lineCount > 1 ? t('deletionMarkersInserted') : t('deletionMarkerInserted'));
   }, [workingContent]);
 
   // Handle keeping local (dismiss all remote changes)
   const handleKeepLocal = useCallback(() => {
     onKeepLocal();
     onClose();
-    toast.success('Kept local changes');
+    toast.success(t('keptLocalChanges'));
   }, [onKeepLocal, onClose]);
 
   // Handle accepting remote entirely
   const handleAcceptRemote = useCallback(() => {
     onAcceptRemote();
     onClose();
-    toast.success('Accepted remote changes');
+    toast.success(t('acceptedRemoteChanges'));
   }, [onAcceptRemote, onClose]);
 
   // Handle applying the working (merged) content
   const handleApplyMerged = useCallback(() => {
     onMerge(workingContent);
     onClose();
-    toast.success('Applied merged changes');
+    toast.success(t('appliedMergedChanges'));
   }, [workingContent, onMerge, onClose]);
 
   // Copy content to clipboard
   const handleCopy = useCallback(async (content: string, label: string) => {
     await navigator.clipboard.writeText(content);
-    toast.success(`Copied ${label} to clipboard`);
+    toast.success(t('copiedToClipboard', { label }));
   }, []);
 
   // Sync scroll between panels
@@ -159,32 +162,32 @@ export function FileDiffResolverModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="size-5 text-amber-500" />
-            File Changed Externally
+            {t('fileChangedExternally')}
           </DialogTitle>
           <DialogDescription>
             <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{fileName}</span>
-            {' '}has been modified on disk. Click <Plus className="inline size-3" /> to insert remote lines into your version.
+            {' '}{t('hasBeenModified')} <Plus className="inline size-3" /> {t('toInsertRemoteLines')}
           </DialogDescription>
         </DialogHeader>
 
         {/* Stats bar */}
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted-foreground">Differences:</span>
+          <span className="text-muted-foreground">{t('differences')}</span>
           {hasChanges ? (
             <>
               <span className="text-blue-600 dark:text-blue-400">
-                {diffBlocks.filter(b => b.type === 'added').reduce((sum, b) => sum + b.remoteLines.length, 0)} new in remote
+                {diffBlocks.filter(b => b.type === 'added').reduce((sum, b) => sum + b.remoteLines.length, 0)} {t('newInRemote')}
               </span>
               <span className="text-green-600 dark:text-green-400">
-                {diffBlocks.filter(b => b.type === 'removed').reduce((sum, b) => sum + b.localLines.length, 0)} only in local
+                {diffBlocks.filter(b => b.type === 'removed').reduce((sum, b) => sum + b.localLines.length, 0)} {t('onlyInLocal')}
               </span>
             </>
           ) : (
-            <span className="text-green-600 dark:text-green-400">✓ Files are identical</span>
+            <span className="text-green-600 dark:text-green-400">✓ {t('filesIdentical')}</span>
           )}
           {hasLocalModifications && (
             <span className="text-amber-600 dark:text-amber-400 ml-auto text-xs">
-              • Modified from original
+              • {t('modifiedFromOriginal')}
             </span>
           )}
         </div>
@@ -195,13 +198,13 @@ export function FileDiffResolverModal({
           <div className="flex flex-col border rounded-md overflow-hidden">
             <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b">
               <span className="text-xs font-medium text-muted-foreground">
-                Local {hasLocalModifications && '(modified)'}
+                {t('local')} {hasLocalModifications && t('modified')}
               </span>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => handleCopy(workingContent, 'local content')}
-                title="Copy local content"
+                title={t('copyLocalContent')}
               >
                 <Copy className="size-3.5" />
               </Button>
@@ -221,12 +224,12 @@ export function FileDiffResolverModal({
           {/* Remote (right) */}
           <div className="flex flex-col border rounded-md overflow-hidden">
             <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b">
-              <span className="text-xs font-medium text-muted-foreground">Remote (Disk)</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('remoteDisk')}</span>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => handleCopy(remoteContent, 'remote content')}
-                title="Copy remote content"
+                title={t('copyRemoteContent')}
               >
                 <Copy className="size-3.5" />
               </Button>
@@ -250,15 +253,15 @@ export function FileDiffResolverModal({
         <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
           <Button variant="outline" onClick={handleKeepLocal} className="gap-2">
             <ArrowLeft className="size-4" />
-            Keep Local Only
+            {t('keepLocalOnly')}
           </Button>
           <Button variant="outline" onClick={handleAcceptRemote} className="gap-2">
-            Accept Remote Only
+            {t('acceptRemoteOnly')}
           </Button>
           {hasLocalModifications && (
             <Button variant="default" onClick={handleApplyMerged} className="gap-2">
               <Check className="size-4" />
-              Apply Merged
+              {t('applyMerged')}
             </Button>
           )}
         </DialogFooter>
@@ -432,6 +435,7 @@ interface DiffPanelLocalProps {
 }
 
 function DiffPanelLocal({ diffBlocks, workingLines }: DiffPanelLocalProps) {
+  const t = useTranslations('editor');
   let lineNumber = 0;
 
   return (
@@ -490,7 +494,7 @@ function DiffPanelLocal({ diffBlocks, workingLines }: DiffPanelLocalProps) {
               className="px-2 py-0.5 flex bg-blue-500/10 text-muted-foreground/50 italic"
             >
               <span className="w-8 text-right mr-2 shrink-0">+</span>
-              <span className="flex-1">{block.remoteLines.length} line(s) in remote</span>
+              <span className="flex-1">{t('linesInRemote', { count: block.remoteLines.length })}</span>
             </div>
           );
         }
@@ -512,6 +516,7 @@ interface DiffPanelRemoteProps {
 }
 
 function DiffPanelRemote({ diffBlocks, remoteLines, onInsertLine, onInsertBlock, onInsertDeletedMarker }: DiffPanelRemoteProps) {
+  const t = useTranslations('editor');
   let lineNumber = 0;
   let currentLocalLine = 0;
 
@@ -564,7 +569,7 @@ function DiffPanelRemote({ diffBlocks, remoteLines, onInsertLine, onInsertBlock,
                     size="icon-sm"
                     className="opacity-0 group-hover:opacity-100 shrink-0 ml-1 h-5 w-5"
                     onClick={() => onInsertLine(line, insertPosition)}
-                    title="Insert this line into local"
+                    title={t('insertLineIntoLocal')}
                   >
                     <Plus className="size-3" />
                   </Button>
@@ -587,7 +592,7 @@ function DiffPanelRemote({ diffBlocks, remoteLines, onInsertLine, onInsertBlock,
                   onClick={() => onInsertBlock(block.remoteLines, insertPosition)}
                 >
                   <Plus className="size-3" />
-                  Insert all {block.remoteLines.length} lines
+                  {t('insertAllLines', { count: block.remoteLines.length })}
                 </Button>
               </div>
             );
@@ -603,7 +608,7 @@ function DiffPanelRemote({ diffBlocks, remoteLines, onInsertLine, onInsertBlock,
               className="px-2 py-0.5 flex items-center justify-between bg-green-500/10 gap-2"
             >
               <span className="text-muted-foreground/70 text-xs italic">
-                − {deletedLineCount} line(s) deleted in remote
+                − {t('linesDeletedInRemote', { count: deletedLineCount })}
               </span>
               <Button
                 variant="outline"
@@ -612,7 +617,7 @@ function DiffPanelRemote({ diffBlocks, remoteLines, onInsertLine, onInsertBlock,
                 onClick={() => onInsertDeletedMarker(insertPosition, deletedLineCount)}
               >
                 <Plus className="size-3" />
-                Mark as deleted
+                {t('markAsDeleted')}
               </Button>
             </div>
           );

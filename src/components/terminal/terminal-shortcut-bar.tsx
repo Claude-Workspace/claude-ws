@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, type PointerEvent as ReactPointerEvent }
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TextCursorInput, X, Copy, ClipboardPaste, TextSelect } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTerminalStore } from '@/stores/terminal-store';
+import { useTranslations } from 'next-intl';
 
 /**
  * Mobile paste: always show dialog, pre-fill from clipboard if possible.
@@ -65,6 +66,7 @@ const SHORTCUT_KEYS: { label: string; input?: string; modifier?: 'ctrl' | 'alt';
 ];
 
 export function TerminalShortcutBar() {
+  const t = useTranslations('shells');
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const sendInput = useTerminalStore((s) => s.sendInput);
   const selectionMode = useTerminalStore((s) => activeTabId ? s.selectionMode[activeTabId] : false);
@@ -202,7 +204,7 @@ export function TerminalShortcutBar() {
         onPointerDown={onDown}
         onPointerUp={(e) => { if (isTap(e)) setSelectionMode(activeTabId, true); }}
         className={cn(btnBase, 'bg-muted text-muted-foreground')}
-        title="Selection mode"
+        title={t('selectionMode')}
       >
         <TextCursorInput className="h-4 w-4" />
       </button>

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Upload, FileArchive, Loader2, AlertCircle, Package, FileText, Folder, Check, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface PreviewItem {
   type: 'skill' | 'command' | 'agent' | 'agent_set' | 'unknown';
@@ -35,6 +36,7 @@ interface PluginUploadDialogProps {
  * - Import to agent factory as well
  */
 export function PluginUploadDialog({ open, onOpenChange, projectId, onUploadSuccess }: PluginUploadDialogProps) {
+  const t = useTranslations('agentFactory');
   const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,15 +372,15 @@ export function PluginUploadDialog({ open, onOpenChange, projectId, onUploadSucc
                 {uploading ? (
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-                    <p className="text-muted-foreground">Analyzing archive...</p>
+                    <p className="text-muted-foreground">{t('analyzingArchive')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
                     <Upload className="w-12 h-12 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">Click to upload or drag and drop</p>
+                      <p className="font-medium">{t('clickToUploadOrDrag')}</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        .zip, .tar, .gz, .gzip, or .tgz files
+                        {t('supportedFormats')}
                       </p>
                     </div>
                   </div>
@@ -395,7 +397,7 @@ export function PluginUploadDialog({ open, onOpenChange, projectId, onUploadSucc
 
               {/* Info */}
               <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                <p className="font-medium mb-2">Automatic Organization:</p>
+                <p className="font-medium mb-2">{t('automaticOrganization')}</p>
                 <p className="text-xs mb-2">
                   Files will be automatically organized into the correct folders:
                 </p>
@@ -495,7 +497,7 @@ export function PluginUploadDialog({ open, onOpenChange, projectId, onUploadSucc
           {step === 'importing' && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">Installing plugins...</p>
+              <p className="text-muted-foreground">{t('importingPlugins')}</p>
             </div>
           )}
         </div>

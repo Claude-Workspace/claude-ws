@@ -230,22 +230,19 @@ export function ConversationView({
     }
   }, [isRunning]);
 
-  // Auto-scroll: during streaming, scroll if was near bottom recently (300ms threshold)
+  // Auto-scroll: during streaming, use sticky-to-bottom pattern
+  // When user scrolls up, stop auto-scrolling. Resume only when they scroll back to bottom.
   useEffect(() => {
     if (!isRunning) return;
 
     const contentContainer = scrollAreaRef.current;
     if (!contentContainer) return;
 
-    let lastNearBottomTime = Date.now();
-    const NEAR_BOTTOM_THRESHOLD = 300; // 300ms
+    // Start stuck to bottom
+    let isStuckToBottom = true;
 
     const observer = new MutationObserver(() => {
-      if (isNearBottom()) {
-        lastNearBottomTime = Date.now();
-      }
-      const wasNearBottomRecently = Date.now() - lastNearBottomTime < NEAR_BOTTOM_THRESHOLD;
-      if (wasNearBottomRecently) {
+      if (isStuckToBottom) {
         scrollToBottom();
       }
     });
@@ -256,14 +253,25 @@ export function ConversationView({
       characterData: true,
     });
 
-    // Resume auto-scroll when user scrolls back near bottom
-    const handleScroll = () => {
-      if (isNearBottom()) {
-        lastNearBottomTime = Date.now();
+    // Track user scroll: unstick when scrolling up, re-stick when at bottom
+    let lastScrollTop = 0;
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const currentScrollTop = target.scrollTop;
+      const atBottom = target.scrollHeight - currentScrollTop - target.clientHeight < 50;
+
+      if (atBottom) {
+        // User scrolled back to bottom — re-stick
+        isStuckToBottom = true;
+      } else if (currentScrollTop < lastScrollTop) {
+        // User scrolled up — unstick
+        isStuckToBottom = false;
       }
+      lastScrollTop = currentScrollTop;
     };
 
-    const viewport = contentContainer.querySelector('[data-slot="scroll-area-viewport"]');
+    const detachedContainer = contentContainer.closest('[data-detached-scroll-container]');
+    const viewport = detachedContainer || contentContainer.querySelector('[data-slot="scroll-area-viewport"]');
     viewport?.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {

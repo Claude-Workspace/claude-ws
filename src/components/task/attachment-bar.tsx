@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { FilePreview } from './file-preview';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,6 +20,8 @@ export function AttachmentBar({
   onRetry,
   onAddFiles,
 }: AttachmentBarProps) {
+  const t = useTranslations('editor');
+
   if (files.length === 0) return null;
 
   return (
@@ -42,7 +45,7 @@ export function AttachmentBar({
         variant="ghost"
         size="icon"
         onClick={onAddFiles}
-        title="Add more files"
+        title={t('addMoreFiles')}
         type="button"
         className="shrink-0"
       >

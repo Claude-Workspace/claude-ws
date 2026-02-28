@@ -5,6 +5,7 @@ import { useTerminalStore } from '@/stores/terminal-store';
 import { getSocket } from '@/lib/socket-service';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface TerminalInstanceProps {
   terminalId: string;
@@ -70,6 +71,13 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
 
   const { sendInput, sendResize, panelHeight } = useTerminalStore();
   const { resolvedTheme } = useTheme();
+  const tShells = useTranslations('shells');
+  const copiedMsgRef = useRef(tShells('copiedToClipboard'));
+  const failedCopyMsgRef = useRef(tShells('failedToCopy'));
+  const clipboardDeniedMsgRef = useRef(tShells('clipboardDenied'));
+  copiedMsgRef.current = tShells('copiedToClipboard');
+  failedCopyMsgRef.current = tShells('failedToCopy');
+  clipboardDeniedMsgRef.current = tShells('clipboardDenied');
 
   // Initialize xterm on mount
   useEffect(() => {
@@ -133,8 +141,8 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
         const sel = terminal.getSelection();
         if (!sel) return;
         const ok = await writeClipboard(sel);
-        if (ok) toast.success('Copied to clipboard');
-        else toast.error('Failed to copy');
+        if (ok) toast.success(copiedMsgRef.current);
+        else toast.error(failedCopyMsgRef.current);
       };
 
       const pasteFromClipboard = async () => {
@@ -142,7 +150,7 @@ export function TerminalInstance({ terminalId, isVisible, isMobile }: TerminalIn
           const text = await navigator.clipboard.readText();
           if (text) terminal.paste(text);
         } catch {
-          toast.error('Clipboard access denied — use the shortcut bar Paste button on mobile');
+          toast.error(clipboardDeniedMsgRef.current);
         }
       };
 

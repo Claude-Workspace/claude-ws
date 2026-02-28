@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Loader2, Copy, Check, FileIcon, FilePlus, FileMinus, ArrowLeft, GitBranch, GitCommit, AlertCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function CommitDetailsModal({
   commitHash,
   projectPath,
 }: CommitDetailsModalProps) {
+  const t = useTranslations('git');
   const [details, setDetails] = useState<CommitDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,7 +212,7 @@ export function CommitDetailsModal({
                     <button
                       onClick={copyHash}
                       className="p-1 hover:bg-accent rounded transition-colors"
-                      title="Copy full hash"
+                      title={t('copyFullHash')}
                     >
                       {copied ? (
                         <Check className="size-3.5 text-green-500" />
@@ -228,7 +230,7 @@ export function CommitDetailsModal({
                       className="h-7 text-xs"
                       onClick={handleCheckout}
                       disabled={checkoutLoading}
-                      title="Checkout this commit (detached HEAD state)"
+                      title={t('checkoutCommit')}
                     >
                       {checkoutLoading ? (
                         <Loader2 className="size-3.5 animate-spin mr-1.5" />
@@ -242,7 +244,7 @@ export function CommitDetailsModal({
                       size="sm"
                       className="h-7 text-xs"
                       onClick={() => setShowBranchDialog(true)}
-                      title="Create a new branch from this commit"
+                      title={t('createBranchFromCommit')}
                     >
                       <GitBranch className="size-3.5 mr-1.5" />
                       New Branch

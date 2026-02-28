@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface Checkpoint {
   id: string;
@@ -27,6 +28,7 @@ interface CheckpointListProps {
 }
 
 export function CheckpointList({ taskId }: CheckpointListProps) {
+  const t = useTranslations('chat');
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -83,17 +85,17 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
 
       // Determine toast type and message based on result
       if (hasFileRewind) {
-        toast.success('Rewound conversation & files to checkpoint', {
+        toast.success(t('rewoundToCheckpoint'), {
           description: 'Files restored via SDK checkpointing'
         });
       } else if (selectedCheckpoint?.gitCommitHash && fileRewindError) {
         // File checkpoint exists but rewind failed
-        toast.warning('Rewound conversation only', {
+        toast.warning(t('rewoundConversationOnly'), {
           description: fileRewindError,
           duration: 6000, // Show longer for error details
         });
       } else {
-        toast.success('Rewound conversation to checkpoint', {
+        toast.success(t('rewoundConversation'), {
           description: selectedCheckpoint?.gitCommitHash
             ? 'File rewind unavailable'
             : 'No file checkpoint for this attempt'

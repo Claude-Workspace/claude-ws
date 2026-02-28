@@ -57,11 +57,18 @@ class ProcessManager extends EventEmitter {
     let claudePath = process.env.CLAUDE_PATH;
 
     if (!claudePath) {
-      const commonPaths = [
-        '/home/roxane/.local/bin/claude',
-        '/usr/local/bin/claude',
-        '/opt/homebrew/bin/claude',
-      ];
+      const isWindows = process.platform === 'win32';
+      const home = process.env.USERPROFILE || process.env.HOME || '';
+      const commonPaths = isWindows
+        ? [
+          `${home}\.local\bin\claude.exe`,
+          `${home}\AppData\Roaming\npm\claude.cmd`,
+        ]
+        : [
+          `/home/${process.env.USER || 'user'}/.local/bin/claude`,
+          '/usr/local/bin/claude',
+          '/opt/homebrew/bin/claude',
+        ];
       claudePath = commonPaths.find(p => existsSync(p));
     }
 
@@ -106,15 +113,29 @@ class ProcessManager extends EventEmitter {
 
     log.info({ claudePath, argsCount: args.length }, 'Spawning process');
 
+    // Normalize path separators for the current OS (fixes mixed slash issues on Windows)
+    const normalizedProjectPath = process.platform === 'win32'
+      ? projectPath.replace(/\//g, '\\')
+      : projectPath;
+
     const child = spawn(claudePath, args, {
-      cwd: projectPath,
+      cwd: normalizedProjectPath,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         FORCE_COLOR: '0',
         NO_COLOR: '1',
         TERM: 'dumb',
-        PATH: `${process.env.PATH}:/opt/homebrew/bin:/usr/local/bin`,
+        // On Windows, Bun has a bug where it calls readFile() on each PATH entry
+        // causing EPERM on C:\Windows\System32\ (a protected directory).
+        // Fix: strip Windows system directories from PATH before passing to claude.exe.
+        PATH: process.platform === 'win32'
+          ? (process.env.PATH || '').split(';').filter(p => {
+            const lp = p.toLowerCase().trim().replace(/\//g, '\\');
+            return !lp.startsWith('c:\\windows') &&
+              !lp.startsWith('c:\\program files (x86)\\windows kits');
+          }).join(';')
+          : `${process.env.PATH}:/opt/homebrew/bin:/usr/local/bin`,
       },
     });
 

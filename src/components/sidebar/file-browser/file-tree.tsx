@@ -10,6 +10,7 @@ import { useSidebarStore } from '@/stores/sidebar-store';
 import { useActiveProject } from '@/hooks/use-active-project';
 import type { FileEntry } from '@/types';
 import { FileCreateButtons } from './file-create-buttons';
+import { useTranslations } from 'next-intl';
 
 interface FileTreeProps {
   onFileSelect?: (path: string, lineNumber?: number, column?: number, matchLength?: number) => void;
@@ -17,6 +18,7 @@ interface FileTreeProps {
 
 export function FileTree({ onFileSelect }: FileTreeProps) {
   const activeProject = useActiveProject();
+  const tSidebar = useTranslations('sidebar');
   const { expandedFolders, toggleFolder, selectedFile, setSelectedFile, openTab, setEditorPosition } =
     useSidebarStore();
 
@@ -183,7 +185,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   if (!activeProject) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        No project selected
+        {tSidebar('selectProject')}
       </div>
     );
   }

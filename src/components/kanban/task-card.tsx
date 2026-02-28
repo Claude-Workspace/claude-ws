@@ -1,13 +1,44 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
 import { cn, getProjectColor } from '@/lib/utils';
-import { GripVertical, MessageSquare, Trash2, Search } from 'lucide-react';
+import { GripVertical, MessageSquare, Trash2, Search, Network } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
+import { useQuestionsStore } from '@/stores/questions-store';
+import { useWorkflowStore } from '@/stores/workflow-store';
 import type { ChatHistoryMatch } from '@/hooks/use-chat-history-search';
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
+function formatAbsoluteTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString();
+}
+
+function RelativeTime({ timestamp }: { timestamp: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  return <>{formatRelativeTime(timestamp)}</>;
+}
 
 interface TaskCardProps {
   task: Task;
@@ -20,7 +51,14 @@ interface TaskCardProps {
 export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false, chatHistoryMatch }: TaskCardProps) {
   const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
+  const { getByTaskId } = useQuestionsStore();
+  const { getByTaskId: getWorkflowByTaskId } = useWorkflowStore();
+  const tTask = useTranslations('task');
+  const tKanban = useTranslations('kanban');
   const isSelected = selectedTaskId === task.id;
+  const hasPendingQuestion = !!getByTaskId(task.id);
+  const workflowEntry = getWorkflowByTaskId(task.id);
+  const hasActiveWorkflow = workflowEntry && workflowEntry.summary.activeCount > 0;
 
   // Helper function to highlight matched text
   const highlightText = (text: string) => {
@@ -47,7 +85,7 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Delete task "${task.title}"?`)) return;
+    if (!confirm(tTask('deleteTaskConfirm', { title: task.title }))) return;
     try {
       await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
       deleteTask(task.id);
@@ -115,10 +153,30 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
               : '-left-1 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none',
             'hover:bg-muted'
           )}
-          aria-label="Drag to reorder"
+          aria-label={tKanban('dragToReorder')}
         >
           <GripVertical className="size-4" />
         </button>
+
+        {/* Pending question indicator dot */}
+        {hasPendingQuestion && (
+          <span
+            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-amber-500 z-10"
+            title="Pending question"
+          />
+        )}
+
+        {/* Active workflow indicator */}
+        {hasActiveWorkflow && (
+          <span
+            className="absolute top-1.5 flex items-center gap-0.5 text-[9px] font-medium text-blue-500 z-10"
+            style={{ right: hasPendingQuestion ? '1rem' : '0.375rem' }}
+            title={`${workflowEntry.summary.activeCount} agent${workflowEntry.summary.activeCount !== 1 ? 's' : ''} running`}
+          >
+            <Network className="size-2.5" />
+            <span>{workflowEntry.summary.activeCount}</span>
+          </span>
+        )}
 
         {/* Delete button - always visible for Done/Cancelled tasks */}
         {showDeleteButton && (
@@ -129,7 +187,7 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
               'text-muted-foreground hover:text-destructive',
               'hover:bg-muted pointer-events-auto z-10'
             )}
-            aria-label="Delete task"
+            aria-label={tKanban('deleteTask')}
           >
             <Trash2 className="size-3" />
           </button>
@@ -184,6 +242,14 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
                 <MessageSquare className="size-3" />
                 <span>{attemptCount}</span>
               </div>
+            </div>
+          )}
+
+          {/* Timestamp - shows relative time, switches to exact time on card hover */}
+          {task.updatedAt && (
+            <div className="mt-1.5 text-[10px] text-muted-foreground/70">
+              <span className="group-hover:hidden"><RelativeTime timestamp={task.updatedAt} /></span>
+              <span className="hidden group-hover:inline">{formatAbsoluteTime(task.updatedAt)}</span>
             </div>
           )}
         </div>

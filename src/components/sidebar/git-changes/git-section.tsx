@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronRight, ChevronDown, Plus, Minus, Undo2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { GitFileItem } from './git-file-item';
 import { cn } from '@/lib/utils';
 import type { GitFileStatus } from '@/types';
@@ -35,6 +36,7 @@ export function GitSection({
   onUnstageAll,
   onDiscardAll,
 }: GitSectionProps) {
+  const t = useTranslations('git');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   if (files.length === 0) return null;
@@ -66,7 +68,7 @@ export function GitSection({
                 e.stopPropagation();
                 onUnstageAll?.();
               }}
-              title="Unstage All Changes"
+              title={t('unstageAllChanges')}
             >
               <Minus className="size-3.5" />
             </button>
@@ -79,7 +81,7 @@ export function GitSection({
                   e.stopPropagation();
                   onDiscardAll?.();
                 }}
-                title="Discard All Changes"
+                title={t('discardAllChanges')}
               >
                 <Undo2 className="size-3.5" />
               </button>
@@ -90,7 +92,7 @@ export function GitSection({
                   e.stopPropagation();
                   onStageAll?.();
                 }}
-                title="Stage All Changes"
+                title={t('stageAllChanges')}
               >
                 <Plus className="size-3.5" />
               </button>

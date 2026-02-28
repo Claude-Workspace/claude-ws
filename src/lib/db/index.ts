@@ -282,6 +282,24 @@ export function initDb() {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
+
+    CREATE TABLE IF NOT EXISTS subagents (
+      id TEXT PRIMARY KEY,
+      attempt_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      name TEXT,
+      parent_id TEXT,
+      team_name TEXT,
+      status TEXT NOT NULL CHECK(status IN ('in_progress', 'completed', 'failed', 'orphaned')),
+      error TEXT,
+      started_at INTEGER,
+      completed_at INTEGER,
+      duration_ms INTEGER,
+      depth INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_subagents_attempt ON subagents(attempt_id);
   `);
 }
 

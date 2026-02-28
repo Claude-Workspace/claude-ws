@@ -2,16 +2,43 @@
 
 import { useEffect, useState } from 'react';
 import { Clock, TrendingUp, GitBranch, Workflow, Gauge } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useSocket } from '@/hooks/use-socket';
 import { cn } from '@/lib/utils';
 import type { UsageStats } from '@/lib/usage-tracker';
 import type { GitStats } from '@/lib/git-stats-collector';
 
-interface WorkflowSummary {
-  chain: string[];
-  completedCount: number;
-  activeCount: number;
-  totalCount: number;
+interface SubagentNodeClient {
+  id: string;
+  type: string;
+  name?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'orphaned';
+  parentId: string | null;
+  depth: number;
+  teamName?: string;
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
+  error?: string;
+}
+
+interface AgentMessageClient {
+  fromType: string;
+  toType: string;
+  content: string;
+  summary: string;
+  timestamp: number;
+}
+
+interface WorkflowData {
+  nodes: SubagentNodeClient[];
+  messages: AgentMessageClient[];
+  summary: {
+    chain: string[];
+    completedCount: number;
+    activeCount: number;
+    totalCount: number;
+  };
 }
 
 interface StatusLineProps {
@@ -33,10 +60,12 @@ interface StatusLineProps {
  * - Last completed attempt (if no running attempt)
  */
 export function StatusLine({ taskId, currentAttemptId, className }: StatusLineProps) {
+  const t = useTranslations('task');
   const socket = useSocket();
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [gitStats, setGitStats] = useState<GitStats | null>(null);
-  const [workflow, setWorkflow] = useState<WorkflowSummary | null>(null);
+  const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
+  const [workflowExpanded, setWorkflowExpanded] = useState(false);
 
   // Reset state when task changes (not when attemptId changes)
   useEffect(() => {
@@ -63,10 +92,10 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
     };
 
     // Workflow updates
-    const handleWorkflowUpdate = (data: { attemptId: string; workflow: WorkflowSummary }) => {
+    const handleWorkflowUpdate = (data: { attemptId: string; nodes: SubagentNodeClient[]; messages: AgentMessageClient[]; summary: WorkflowData['summary'] }) => {
       console.log('[StatusLine] Workflow update:', data);
       if (data.attemptId === currentAttemptId) {
-        setWorkflow(data.workflow);
+        setWorkflow({ nodes: data.nodes, messages: data.messages, summary: data.summary });
       }
     };
 
@@ -105,14 +134,14 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
       {!hasRunningAttempt && !hasData && (
         <div className="flex items-center gap-1.5 text-muted-foreground/50">
           <TrendingUp className="size-3.5" />
-          <span>No attempt running. Send a message to start.</span>
+          <span>{t('noAttemptRunning')}</span>
         </div>
       )}
 
       {hasRunningAttempt && !hasData && (
         <div className="flex items-center gap-1.5 text-muted-foreground/50">
           <TrendingUp className="size-3.5 animate-pulse" />
-          <span>Waiting for tracking data...</span>
+          <span>{t('waitingForTracking')}</span>
         </div>
       )}
 
@@ -157,7 +186,7 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
         <div className="flex items-center gap-1.5">
           <TrendingUp className="size-3.5" />
           <span className="font-medium">
-            {usage.totalTokens.toLocaleString()} tokens
+            {usage.totalTokens.toLocaleString()} {t('tokens')}
           </span>
           {usage.totalCostUSD > 0 && (
             <span className="text-muted-foreground/70">
@@ -166,7 +195,7 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
           )}
           {usage.numTurns > 0 && (
             <span className="text-muted-foreground/70">
-              · {usage.numTurns} {usage.numTurns === 1 ? 'turn' : 'turns'}
+              · {usage.numTurns} {usage.numTurns === 1 ? t('turn') : t('turns')}
             </span>
           )}
           {usage.durationMs > 0 && (
@@ -188,22 +217,54 @@ export function StatusLine({ taskId, currentAttemptId, className }: StatusLinePr
             -{gitStats.deletions}
           </span>
           <span className="text-muted-foreground/70">
-            ({gitStats.filesChanged} {gitStats.filesChanged === 1 ? 'file' : 'files'})
+            ({gitStats.filesChanged} {gitStats.filesChanged === 1 ? t('file') : t('files')})
           </span>
         </div>
       )}
 
       {/* Workflow Section */}
-      {workflow && workflow.totalCount > 0 && (
-        <div className="flex items-center gap-1.5">
-          <Workflow className="size-3.5" />
-          <span className="font-medium">
-            {workflow.chain.slice(0, 3).join(' → ')}
-            {workflow.chain.length > 3 && ' ...'}
-          </span>
-          <span className="text-muted-foreground/70">
-            ({workflow.completedCount}/{workflow.totalCount} done)
-          </span>
+      {workflow && workflow.summary.totalCount > 0 && (
+        <div className="flex flex-col">
+          <div
+            className="flex items-center gap-1.5 cursor-pointer select-none"
+            onClick={() => setWorkflowExpanded(!workflowExpanded)}
+          >
+            <Workflow className="size-3.5" />
+            <span className="font-medium">
+              {workflowExpanded ? '▼' : '▶'} Workflow{workflowExpanded ? ` (${workflow.summary.totalCount} agents)` : `: ${workflow.summary.totalCount} agents (${workflow.summary.completedCount} done${workflow.summary.activeCount > 0 ? `, ${workflow.summary.activeCount} running` : ''})`}
+            </span>
+          </div>
+          {workflowExpanded && (
+            <div className="mt-1 ml-5 font-mono">
+              {workflow.nodes.map((node) => (
+                <div
+                  key={node.id}
+                  className="flex items-center gap-2"
+                  style={{ paddingLeft: `${node.depth * 16}px` }}
+                >
+                  <span className={cn(
+                    node.status === 'completed' && 'text-green-500',
+                    node.status === 'in_progress' && 'text-blue-500 animate-pulse',
+                    node.status === 'failed' && 'text-red-500',
+                    node.status === 'orphaned' && 'text-yellow-500'
+                  )}>
+                    {node.status === 'completed' && '✓'}
+                    {node.status === 'in_progress' && '●'}
+                    {node.status === 'failed' && '✗'}
+                    {node.status === 'orphaned' && '⊘'}
+                    {node.status === 'pending' && '○'}
+                  </span>
+                  <span className="font-medium">{node.name || node.type}</span>
+                  <span className="text-muted-foreground/70">
+                    {node.status === 'in_progress' && 'running...'}
+                    {node.status === 'completed' && node.durationMs != null && formatDuration(node.durationMs)}
+                    {node.status === 'failed' && 'failed'}
+                    {node.status === 'orphaned' && 'orphaned'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

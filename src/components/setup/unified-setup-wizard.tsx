@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,8 @@ interface UnifiedSetupWizardProps {
 }
 
 export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: UnifiedSetupWizardProps) {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const [expandedSection, setExpandedSection] = useState<SectionId | null>(null);
   const [status, setStatus] = useState<SectionStatus>({
     agentProvider: initialStatus?.agentProvider ?? false,
@@ -118,9 +121,9 @@ export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: Unifie
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] z-[9999] max-h-[80vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="p-6 pb-2 shrink-0">
-          <DialogTitle>Set Up Your Workspace</DialogTitle>
+          <DialogTitle>{t('setUpWorkspace')}</DialogTitle>
           <DialogDescription>
-            Configure the essential settings for your workspace. You can always change these later in Settings.
+            {t('setUpWorkspaceDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,9 +142,9 @@ export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: Unifie
                   {status.agentProvider ? <Check className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
                 <div>
-                  <span className="font-medium">Agent Provider</span>
+                  <span className="font-medium">{tCommon('agentProvider')}</span>
                   <p className="text-xs text-muted-foreground">
-                    {status.agentProvider ? 'Configured' : 'Configure how to authenticate with Claude API'}
+                    {status.agentProvider ? tCommon('configured') : t('configureAuthDescription')}
                   </p>
                 </div>
               </div>
@@ -171,9 +174,9 @@ export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: Unifie
                   {status.apiAccessKey ? <Check className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                 </div>
                 <div>
-                  <span className="font-medium">API Access Key</span>
+                  <span className="font-medium">{t('apiAccessKey')}</span>
                   <p className="text-xs text-muted-foreground">
-                    {status.apiAccessKey ? 'Configured' : 'Set up authentication for remote access'}
+                    {status.apiAccessKey ? tCommon('configured') : t('setUpRemoteAccess')}
                   </p>
                 </div>
               </div>
@@ -203,9 +206,9 @@ export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: Unifie
                   {status.remoteAccess ? <Check className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                 </div>
                 <div>
-                  <span className="font-medium">Remote Access</span>
+                  <span className="font-medium">{tCommon('accessAnywhere')}</span>
                   <p className="text-xs text-muted-foreground">
-                    {status.remoteAccess ? 'Configured' : 'Access your workspace from anywhere'}
+                    {status.remoteAccess ? tCommon('configured') : t('setUpRemoteAccess')}
                   </p>
                 </div>
               </div>
@@ -242,7 +245,7 @@ export function UnifiedSetupWizard({ open, onOpenChange, initialStatus }: Unifie
             </Label>
           </div>
           <Button variant="outline" onClick={handleClose}>
-            Close
+            {tCommon('close')}
           </Button>
         </div>
       </DialogContent>

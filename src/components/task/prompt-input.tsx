@@ -291,7 +291,7 @@ export const PromptInput = forwardRef<PromptInputRef, PromptInputProps>(({
 
     // Check if files are still uploading
     if (taskId && hasUploadingFiles(taskId)) {
-      toast.error('Please wait for files to finish uploading');
+      toast.error(t('waitForUpload'));
       return;
     }
 

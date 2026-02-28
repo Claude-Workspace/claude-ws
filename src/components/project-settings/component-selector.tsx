@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Search, Check, Loader2, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,6 +25,7 @@ interface InstalledStatus {
 }
 
 export function ComponentSelector({ type, selectedIds, onChange, projectId, installedIds = [], onRefresh, onCloseDialog }: ComponentSelectorProps) {
+  const t = useTranslations('agentFactory');
   const [components, setComponents] = useState<AgentFactoryPlugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,7 +115,7 @@ export function ComponentSelector({ type, selectedIds, onChange, projectId, inst
       onRefresh?.();
     } catch (error) {
       console.error('Error uninstalling component:', error);
-      alert('Failed to uninstall component');
+      alert(t('failedToUninstallComponent'));
     } finally {
       setUninstalling(null);
     }

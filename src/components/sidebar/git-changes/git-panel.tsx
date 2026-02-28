@@ -17,6 +17,7 @@ import type { GitStatus, GitFileStatus } from '@/types';
 
 export function GitPanel() {
   const t = useTranslations('git');
+  const tCommon = useTranslations('common');
   const activeProject = useActiveProject();
   const { openDiffTab } = useSidebarStore();
   const [status, setStatus] = useState<GitStatus | null>(null);
@@ -133,7 +134,7 @@ export function GitPanel() {
 
   const discardFile = useCallback(async (filePath: string) => {
     if (!activeProject?.path) return;
-    if (!confirm(`Discard changes to ${filePath}?`)) return;
+    if (!confirm(t('discardChangesConfirm', { filePath }))) return;
     try {
       await fetch('/api/git/discard', {
         method: 'POST',
@@ -176,7 +177,7 @@ export function GitPanel() {
 
   const discardAll = useCallback(async () => {
     if (!activeProject?.path) return;
-    if (!confirm('Discard ALL changes? This cannot be undone!')) return;
+    if (!confirm(t('discardAllConfirm'))) return;
     try {
       await fetch('/api/git/discard', {
         method: 'POST',
@@ -199,12 +200,12 @@ export function GitPanel() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to add to .gitignore');
+        throw new Error(data.error || t('failedToAddGitignore'));
       }
       fetchStatus(true);
     } catch (err) {
       console.error('Failed to add to .gitignore:', err);
-      alert(err instanceof Error ? err.message : 'Failed to add to .gitignore');
+      alert(err instanceof Error ? err.message : t('failedToAddGitignore'));
     }
   }, [activeProject?.path, fetchStatus]);
 
@@ -231,13 +232,13 @@ export function GitPanel() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to commit');
+        throw new Error(data.error || t('failedToCommit'));
       }
       setCommitTitle('');
       setCommitDescription('');
       fetchStatus(true);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to commit');
+      alert(err instanceof Error ? err.message : t('failedToCommit'));
     } finally {
       setCommitting(false);
     }
@@ -256,7 +257,7 @@ export function GitPanel() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to generate message');
+        throw new Error(data.error || t('failedToGenerateCommit'));
       }
 
       const { title, description } = await res.json();
@@ -264,7 +265,7 @@ export function GitPanel() {
       setCommitDescription(description || '');
     } catch (err) {
       console.error('AI generation error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to generate commit message');
+      alert(err instanceof Error ? err.message : t('failedToGenerateCommit'));
     } finally {
       setGeneratingMessage(false);
     }
@@ -281,11 +282,11 @@ export function GitPanel() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to push');
+        throw new Error(data.error || t('failedToPush'));
       }
       fetchStatus(true);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to push changes');
+      alert(err instanceof Error ? err.message : t('failedToPush'));
     } finally {
       setSyncing(false);
     }
@@ -334,7 +335,7 @@ export function GitPanel() {
       <div className="flex flex-col items-center justify-center h-full gap-2 p-4">
         <p className="text-sm text-destructive text-center">{error}</p>
         <Button variant="outline" size="sm" onClick={() => fetchStatus(true)}>
-          Retry
+          {tCommon('retry')}
         </Button>
       </div>
     );
@@ -343,7 +344,7 @@ export function GitPanel() {
   if (!activeProject) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        No project selected
+        {tCommon('noProjectsConfigured')}
       </div>
     );
   }
@@ -360,11 +361,11 @@ export function GitPanel() {
           <button
             className="flex items-center gap-1.5 min-w-0 hover:bg-accent/50 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer"
             onClick={() => setBranchModalOpen(true)}
-            title="Click to switch branches"
+            title={t('clickToSwitchBranches')}
           >
             <GitBranch className="size-4 shrink-0 text-muted-foreground" />
             <span className="text-sm font-medium truncate">
-              {status?.branch || 'No branch'}
+              {status?.branch || t('noBranch')}
             </span>
             {status && (status.ahead > 0 || status.behind > 0) && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -388,7 +389,7 @@ export function GitPanel() {
             size="icon-sm"
             onClick={() => fetchStatus(true)}
             disabled={loading}
-            title="Refresh"
+            title={tCommon('refresh')}
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -413,7 +414,7 @@ export function GitPanel() {
               ) : (
                 <ChevronRight className="size-4" />
               )}
-              <span className="flex-1">Changes</span>
+              <span className="flex-1">{t('changes')}</span>
 
               {/* Section action buttons */}
               <div className="flex items-center gap-0.5">
@@ -423,7 +424,7 @@ export function GitPanel() {
                     e.stopPropagation();
                     discardAll();
                   }}
-                  title="Discard All Changes"
+                  title={t('discardAllChanges')}
                 >
                   <Undo2 className="size-3.5" />
                 </button>
@@ -433,7 +434,7 @@ export function GitPanel() {
                     e.stopPropagation();
                     stageAll();
                   }}
-                  title="Stage All Changes"
+                  title={t('stageAllChanges')}
                 >
                   <Plus className="size-3.5" />
                 </button>
@@ -454,7 +455,7 @@ export function GitPanel() {
                   <input
                     type="text"
                     className="w-full px-2 py-1.5 text-sm bg-muted/50 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="Commit title"
+                    placeholder={t('commitTitle')}
                     value={commitTitle}
                     onChange={(e) => setCommitTitle(e.target.value)}
                     onKeyDown={(e) => {
@@ -466,7 +467,7 @@ export function GitPanel() {
                   {/* Commit description textarea */}
                   <textarea
                     className="w-full min-h-[60px] px-2 py-1.5 text-sm bg-muted/50 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                    placeholder="Description (optional)"
+                    placeholder={t('descriptionOptional')}
                     value={commitDescription}
                     onChange={(e) => setCommitDescription(e.target.value)}
                     onKeyDown={(e) => {
@@ -488,12 +489,12 @@ export function GitPanel() {
                       ) : hasUnpushedCommits ? (
                         <>
                           <ArrowUp className="size-4 mr-1" />
-                          Sync changes
+                          {t('syncChanges')}
                         </>
                       ) : (
                         <>
                           <Check className="size-4 mr-1" />
-                          Commit changes
+                          {t('commitChanges')}
                         </>
                       )}
                     </Button>
@@ -505,10 +506,10 @@ export function GitPanel() {
                       className="px-2"
                       title={
                         totalChanges === 0
-                          ? 'No changes to generate commit message for'
+                          ? t('noChangesToGenerate')
                           : generatingMessage
-                          ? 'Generating...'
-                          : 'Generate commit message with AI'
+                          ? t('generatingCommit')
+                          : t('generateCommitMessage')
                       }
                       onClick={handleGenerateMessage}
                       disabled={generatingMessage || totalChanges === 0}
@@ -539,7 +540,7 @@ export function GitPanel() {
                 {totalChanges === 0 ? (
                   <div className="flex flex-col items-center justify-center py-4 text-muted-foreground text-sm">
                     <p>{t('noChanges')}</p>
-                    <p className="text-xs mt-1">Working tree clean</p>
+                    <p className="text-xs mt-1">{t('workingTreeClean')}</p>
                   </div>
                 ) : (
                   <>
@@ -627,7 +628,7 @@ export function GitPanel() {
           open={branchModalOpen}
           onOpenChange={setBranchModalOpen}
           projectPath={activeProject.path}
-          currentBranch={status.branch || 'No branch'}
+          currentBranch={status.branch || t('noBranch')}
           onCheckout={handleBranchCheckout}
         />
       )}

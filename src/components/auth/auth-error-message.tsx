@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { AlertCircle, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AgentProviderDialog, isProviderAuthError } from './agent-provider-dialog';
@@ -15,6 +16,7 @@ interface AuthErrorMessageProps {
  * Shows when authentication/provider errors are detected
  */
 export function AuthErrorMessage({ message, className }: AuthErrorMessageProps) {
+  const t = useTranslations('auth');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Only show if it's an auth-related error
@@ -29,7 +31,7 @@ export function AuthErrorMessage({ message, className }: AuthErrorMessageProps) 
           <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1 space-y-3">
             <div className="text-sm text-destructive font-medium">
-              Authentication Error
+              {t('authenticationError')}
             </div>
             <div className="text-sm text-muted-foreground">
               {message}
@@ -41,7 +43,7 @@ export function AuthErrorMessage({ message, className }: AuthErrorMessageProps) 
               className="gap-2"
             >
               <Settings2 className="h-4 w-4" />
-              Config Agent Provider
+              {t('configAgentProvider')}
             </Button>
           </div>
         </div>
@@ -59,6 +61,7 @@ export function AuthErrorMessage({ message, className }: AuthErrorMessageProps) 
  * Inline button for showing in tool results or smaller contexts
  */
 export function ConfigProviderButton({ className }: { className?: string }) {
+  const t = useTranslations('auth');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -70,7 +73,7 @@ export function ConfigProviderButton({ className }: { className?: string }) {
         className={className}
       >
         <Settings2 className="h-4 w-4 mr-2" />
-        Config Agent Provider
+        {t('configAgentProvider')}
       </Button>
 
       <AgentProviderDialog

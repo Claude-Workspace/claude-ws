@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -17,6 +18,7 @@ interface PendingQuestionIndicatorProps {
 }
 
 export function PendingQuestionIndicator({ questions, onOpen }: PendingQuestionIndicatorProps) {
+  const t = useTranslations('task');
   const firstQuestion = questions[0];
 
   return (
@@ -30,7 +32,7 @@ export function PendingQuestionIndicator({ questions, onOpen }: PendingQuestionI
                 {firstQuestion.header}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                {questions.length} question{questions.length > 1 ? 's' : ''} pending
+                {t('questionsPending', { count: questions.length })}
               </span>
             </div>
             <p className="text-sm text-foreground truncate">
@@ -38,7 +40,7 @@ export function PendingQuestionIndicator({ questions, onOpen }: PendingQuestionI
             </p>
             {questions.length > 1 && (
               <p className="text-xs text-muted-foreground mt-1">
-                +{questions.length - 1} more question{questions.length - 1 > 1 ? 's' : ''}
+                {t('moreQuestions', { count: questions.length - 1 })}
               </p>
             )}
           </div>
@@ -49,7 +51,7 @@ export function PendingQuestionIndicator({ questions, onOpen }: PendingQuestionI
           onClick={onOpen}
           className="shrink-0"
         >
-          Open
+          {t('open')}
         </Button>
       </div>
     </div>
