@@ -14,6 +14,18 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// ── Subcommand detection ──────────────────────────────────────────────
+// If the first positional arg is a known subcommand, delegate and exit.
+// Otherwise, fall through to the existing foreground startup logic.
+const SUBCOMMANDS = ['start', 'stop', 'status', 'logs', 'open'];
+const _firstArg = process.argv[2];
+if (SUBCOMMANDS.includes(_firstArg)) {
+  require(`./lib/commands/${_firstArg}`).run(process.argv.slice(3));
+  // The command handles process.exit — nothing else to do here.
+  return;
+}
+// ── End subcommand detection ──────────────────────────────────────────
+
 const isWindows = process.platform === 'win32';
 
 /**
@@ -59,7 +71,23 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 Claude Workspace - Visual workspace for Claude Code
 
 Usage:
-  claude-ws [options]
+  claude-ws [options]          Start server in foreground (blocks terminal)
+  claude-ws <command> [flags]  Daemon management
+
+Commands:
+  start    Start as background daemon
+           --port, -p <port>   Server port (default: 8556)
+           --host <host>       Bind host (default: localhost)
+           --data-dir <dir>    Data directory
+           --log-dir <dir>     Log directory
+           --no-open           Don't open browser after start
+  stop     Stop the running daemon
+  status   Show daemon PID, URL, and health
+  logs     Tail daemon log files
+           -f, --follow        Follow log output
+           -n, --lines <N>     Number of lines (default: 50)
+           -e, --error         Show error log instead
+  open     Open browser to running instance
 
 Options:
   -v, --version    Show version number
@@ -68,10 +96,15 @@ Options:
 Environment:
   .env: Loaded from current working directory (./.env)
   Database: Stored in ./data/claude-ws.db (or DATA_DIR env)
+  Config:  ~/.claude-ws/config.json (port, host, dataDir, logDir)
 
 Examples:
-  claude-ws              Start server using .env from current directory
-  cd ~/myproject && claude-ws   Use ~/myproject/.env and database
+  claude-ws                     Start server in foreground
+  claude-ws start               Start as daemon
+  claude-ws start --port 3000   Start daemon on port 3000
+  claude-ws status              Check if daemon is running
+  claude-ws logs -f             Follow daemon logs
+  claude-ws stop                Stop the daemon
 
 For more info: https://github.com/Claude-Workspace/claude-ws
   `);
