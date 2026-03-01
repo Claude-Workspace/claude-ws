@@ -44,7 +44,7 @@ const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'can
 export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const t = useTranslations('chat');
   const tk = useTranslations('kanban');
-  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress, renameTask } = useTaskStore();
+  const { selectedTask, setSelectedTask, updateTaskStatus, setTaskChatInit, pendingAutoStartTask, pendingAutoStartPrompt, pendingAutoStartFileIds, setPendingAutoStartTask, moveTaskToInProgress, renameTask, updateTaskDescription } = useTaskStore();
   const { activeProjectId, selectedProjectIds, projects } = useProjectStore();
   const { widths, setWidth: setPanelWidth } = usePanelLayoutStore();
   const { getPendingFiles, clearFiles } = useAttachmentStore();
@@ -60,10 +60,13 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const [showQuestionPrompt, setShowQuestionPrompt] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescriptionValue, setEditDescriptionValue] = useState('');
 
   const panelRef = useRef<HTMLDivElement>(null);
   const promptInputRef = useRef<PromptInputRef>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { shells } = useShellStore();
   const hasAutoStartedRef = useRef(false);
   const lastCompletedTaskRef = useRef<string | null>(null);
@@ -167,6 +170,8 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
     setShowQuestionPrompt(false);
     setIsEditingTitle(false);
     setEditTitleValue('');
+    setIsEditingDescription(false);
+    setEditDescriptionValue('');
     lastCompletedTaskRef.current = null;
     hasAutoStartedRef.current = false;
 
@@ -266,6 +271,30 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
   const handleCancelEditTitle = () => {
     setIsEditingTitle(false);
     setEditTitleValue('');
+  };
+
+  const handleStartEditDescription = () => {
+    setEditDescriptionValue(selectedTask.description || '');
+    setIsEditingDescription(true);
+    setTimeout(() => descriptionTextareaRef.current?.focus(), 0);
+  };
+
+  const handleSaveDescription = async () => {
+    const trimmed = editDescriptionValue.trim();
+    const newValue = trimmed || null;
+    if (newValue !== (selectedTask.description || null)) {
+      try {
+        await updateTaskDescription(selectedTask.id, newValue);
+      } catch {
+        // Store reverts on failure
+      }
+    }
+    setIsEditingDescription(false);
+  };
+
+  const handleCancelEditDescription = () => {
+    setIsEditingDescription(false);
+    setEditDescriptionValue('');
   };
 
   const handlePromptSubmit = (prompt: string, displayPrompt?: string, fileIds?: string[]) => {
@@ -492,6 +521,32 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
           >
             {selectedTask.title}
           </h2>
+        )}
+        {isEditingDescription ? (
+          <textarea
+            ref={descriptionTextareaRef}
+            value={editDescriptionValue}
+            onChange={(e) => setEditDescriptionValue(e.target.value)}
+            onBlur={handleSaveDescription}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSaveDescription();
+              } else if (e.key === 'Escape') {
+                handleCancelEditDescription();
+              }
+            }}
+            rows={3}
+            className="mt-1 text-sm text-muted-foreground w-full bg-transparent border border-border rounded-md p-2 outline-none resize-y"
+            placeholder="Add description..."
+          />
+        ) : (
+          <p
+            className="mt-1 text-sm text-muted-foreground line-clamp-3 cursor-text min-h-[1.25rem]"
+            onClick={handleStartEditDescription}
+          >
+            {selectedTask.description || 'Add description...'}
+          </p>
         )}
       </div>
 

@@ -8,45 +8,47 @@ import type { TaskStatus } from '@/types';
 // Query params:
 //   ?projectId=xxx - Single project (backward compat)
 //   ?projectIds=id1,id2,id3 - Multiple projects
+//   ?status=in_review - Filter by status (single or comma-separated)
 //   No params - All tasks
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const projectId = searchParams.get('projectId');
     const projectIds = searchParams.get('projectIds');
+    const statusParam = searchParams.get('status');
 
-    let tasks;
+    // Build status filter conditions
+    const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled'];
+    let statusFilter: ReturnType<typeof inArray> | undefined;
+    if (statusParam) {
+      const statuses = statusParam.split(',').filter((s): s is TaskStatus => validStatuses.includes(s as TaskStatus));
+      if (statuses.length > 0) {
+        statusFilter = inArray(schema.tasks.status, statuses);
+      }
+    }
 
+    // Build project filter conditions
+    let projectFilter: ReturnType<typeof eq> | ReturnType<typeof inArray> | undefined;
     if (projectIds) {
-      // Multi-project mode
       const ids = projectIds.split(',').filter(Boolean);
       if (ids.length > 0) {
-        tasks = await db
-          .select()
-          .from(schema.tasks)
-          .where(inArray(schema.tasks.projectId, ids))
-          .orderBy(schema.tasks.status, schema.tasks.position);
-      } else {
-        // Empty filter = all tasks
-        tasks = await db
-          .select()
-          .from(schema.tasks)
-          .orderBy(schema.tasks.status, schema.tasks.position);
+        projectFilter = inArray(schema.tasks.projectId, ids);
       }
     } else if (projectId) {
-      // Single project mode (backward compat)
-      tasks = await db
-        .select()
-        .from(schema.tasks)
-        .where(eq(schema.tasks.projectId, projectId))
-        .orderBy(schema.tasks.status, schema.tasks.position);
-    } else {
-      // No filter - return all tasks
-      tasks = await db
-        .select()
-        .from(schema.tasks)
-        .orderBy(schema.tasks.status, schema.tasks.position);
+      projectFilter = eq(schema.tasks.projectId, projectId);
     }
+
+    // Combine filters
+    const conditions = [projectFilter, statusFilter].filter(Boolean);
+    const whereClause = conditions.length > 0
+      ? conditions.length === 1 ? conditions[0] : and(...conditions)
+      : undefined;
+
+    const tasks = await db
+      .select()
+      .from(schema.tasks)
+      .where(whereClause)
+      .orderBy(schema.tasks.status, schema.tasks.position);
 
     return NextResponse.json(tasks);
   } catch (error) {

@@ -35,6 +35,7 @@ interface TaskStore {
   reorderTasks: (taskId: string, newStatus: TaskStatus, newPosition: number) => Promise<void>;
   updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
   renameTask: (taskId: string, title: string) => Promise<void>;
+  updateTaskDescription: (taskId: string, description: string | null) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -327,6 +328,39 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         set({ selectedTask: { ...selected, title: task.title } });
       }
       log.error({ error, taskId }, 'Error renaming task');
+      throw error;
+    }
+  },
+
+  updateTaskDescription: async (taskId: string, description: string | null) => {
+    const oldTasks = get().tasks;
+    const task = oldTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic update
+    get().updateTask(taskId, { description });
+
+    // Update selectedTask if it's the same task
+    const selected = get().selectedTask;
+    if (selected?.id === taskId) {
+      set({ selectedTask: { ...selected, description } });
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description }),
+      });
+      if (!res.ok) throw new Error('Failed to update task description');
+    } catch (error) {
+      // Revert on failure
+      get().updateTask(taskId, { description: task.description });
+      const selected = get().selectedTask;
+      if (selected?.id === taskId) {
+        set({ selectedTask: { ...selected, description: task.description } });
+      }
+      log.error({ error, taskId }, 'Error updating task description');
       throw error;
     }
   },
