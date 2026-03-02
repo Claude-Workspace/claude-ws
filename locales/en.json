@@ -86,6 +86,8 @@
     "cancelled": "Cancelled",
     "deleteColumn": "Delete Column",
     "addColumn": "Add Column",
+    "columns": "Columns",
+    "toggleColumns": "Toggle Columns",
     "noTasks": "No tasks",
     "deleteAllTasks": "Delete all {count} task(s) in \"{status}\"?",
     "newTaskShortcut": "New Task (Ctrl/⌘ + Space)",

@@ -86,6 +86,8 @@
     "cancelled": "취소됨",
     "deleteColumn": "열 삭제",
     "addColumn": "열 추가",
+    "columns": "열",
+    "toggleColumns": "열 표시",
     "noTasks": "작업 없음",
     "deleteAllTasks": "\"{status}\"의 모든 {count} 개의 작업을 삭제하시겠습니까?",
     "newTaskShortcut": "새 작업 (Ctrl/⌘ + Space)",

@@ -86,6 +86,8 @@
     "cancelled": "キャンセル済み",
     "deleteColumn": "列を削除",
     "addColumn": "列を追加",
+    "columns": "列",
+    "toggleColumns": "列の表示切替",
     "noTasks": "タスクなし",
     "deleteAllTasks": "「{status}」のすべての {count} 個のタスクを削除しますか？",
     "newTaskShortcut": "新しいタスク (Ctrl/⌘ + Space)",

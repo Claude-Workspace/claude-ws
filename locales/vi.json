@@ -86,6 +86,8 @@
     "cancelled": "Đã hủy",
     "deleteColumn": "Xóa cột",
     "addColumn": "Thêm cột",
+    "columns": "Cột",
+    "toggleColumns": "Hiển thị cột",
     "noTasks": "Không có nhiệm vụ",
     "deleteAllTasks": "Xóa tất cả {count} nhiệm vụ trong \"{status}\"?",
     "newTaskShortcut": "Nhiệm vụ mới (Ctrl/⌘ + Space)",

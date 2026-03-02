@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { TaskStatus } from '@/types';
 
 export interface PanelWidths {
   leftSidebar: number;
@@ -23,11 +24,13 @@ export const PANEL_CONFIGS: Record<keyof PanelWidths, PanelConfig> = {
 
 interface PanelLayoutState {
   widths: PanelWidths;
+  hiddenColumns: TaskStatus[];
 }
 
 interface PanelLayoutActions {
   setWidth: (panel: keyof PanelWidths, width: number) => void;
   resetWidths: () => void;
+  toggleColumn: (status: TaskStatus) => void;
 }
 
 type PanelLayoutStore = PanelLayoutState & PanelLayoutActions;
@@ -43,6 +46,7 @@ export const usePanelLayoutStore = create<PanelLayoutStore>()(
   persist(
     (set) => ({
       widths: getDefaultWidths(),
+      hiddenColumns: [] as TaskStatus[],
 
       setWidth: (panel, width) =>
         set((state) => {
@@ -57,10 +61,17 @@ export const usePanelLayoutStore = create<PanelLayoutStore>()(
         }),
 
       resetWidths: () => set({ widths: getDefaultWidths() }),
+
+      toggleColumn: (status) =>
+        set((state) => ({
+          hiddenColumns: state.hiddenColumns.includes(status)
+            ? state.hiddenColumns.filter((s) => s !== status)
+            : [...state.hiddenColumns, status],
+        })),
     }),
     {
       name: 'panel-layout-store',
-      partialize: (state) => ({ widths: state.widths }),
+      partialize: (state) => ({ widths: state.widths, hiddenColumns: state.hiddenColumns }),
     }
   )
 );

@@ -18,15 +18,24 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
-import { Plus, Trash2, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, ArrowDown, Columns3 } from 'lucide-react';
 import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { Column } from './column';
 import { TaskCard } from './task-card';
 import { useTaskStore } from '@/stores/task-store';
+import { usePanelLayoutStore } from '@/stores/panel-layout-store';
 import { useTouchDetection } from '@/hooks/use-touch-detection';
 import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { useChatHistorySearch } from '@/hooks/use-chat-history-search';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 /**
  * Custom collision detector for mobile status tabs.
@@ -152,6 +161,20 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   const [animatingColumn, setAnimatingColumn] = useState<TaskStatus | null>(null);
   const isMobile = useTouchDetection(); // Single global touch detection
   const isMobileViewport = useIsMobileViewport();
+
+  const { hiddenColumns, toggleColumn } = usePanelLayoutStore();
+
+  const visibleColumns = useMemo(
+    () => KANBAN_COLUMNS.filter(col => !hiddenColumns.includes(col.id)),
+    [hiddenColumns]
+  );
+
+  // If mobile active column is hidden, reset to first visible column
+  useEffect(() => {
+    if (visibleColumns.length > 0 && !visibleColumns.some(c => c.id === mobileActiveColumn)) {
+      setMobileActiveColumn(visibleColumns[0].id);
+    }
+  }, [visibleColumns, mobileActiveColumn]);
 
   // Search chat history for matches
   const { matches: chatHistoryMatches } = useChatHistorySearch(searchQuery);
@@ -420,7 +443,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
     touchStartRef.current = null;
     setIsDragging(false);
 
-    const columnIds = KANBAN_COLUMNS.map(c => c.id);
+    const columnIds = visibleColumns.map(c => c.id);
     const currentIndex = columnIds.indexOf(mobileActiveColumn);
     const threshold = window.innerWidth * 0.2; // 20% of screen width to trigger column change
 
@@ -470,7 +493,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
   // Mobile: single column view with tab bar
   if (isMobileViewport) {
     const activeColumnTasks = tasksByStatus.get(mobileActiveColumn) || [];
-    const columnIds = KANBAN_COLUMNS.map(c => c.id);
+    const columnIds = visibleColumns.map(c => c.id);
     const currentIndex = columnIds.indexOf(mobileActiveColumn);
 
     // Determine which adjacent column to show based on swipe direction
@@ -501,7 +524,7 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
           {/* Column tab bar */}
           <div className="flex-shrink-0 border-b overflow-x-auto">
             <div className="flex min-w-min">
-              {KANBAN_COLUMNS.map((column) => {
+              {visibleColumns.map((column) => {
                 const count = (tasksByStatus.get(column.id) || []).length;
                 const isActive = column.id === mobileActiveColumn;
                 const isOver = hoveredStatusTab === column.id;
@@ -673,20 +696,45 @@ export function Board({ attempts = [], onCreateTask, searchQuery = '' }: BoardPr
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4 h-full overflow-x-auto pb-4 pl-4">
-        {KANBAN_COLUMNS.map((column) => (
-          <Column
-            key={column.id}
-            status={column.id}
-            title={t(column.titleKey)}
-            tasks={tasksByStatus.get(column.id) || []}
-            attemptCounts={attemptCounts}
-            onCreateTask={onCreateTask}
-            searchQuery={searchQuery}
-            isMobile={isMobile}
-            chatHistoryMatches={chatHistoryMatches}
-          />
-        ))}
+      <div className="flex flex-col h-full">
+        <div className="flex justify-end px-4 pt-2 pb-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="inline-flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-accent transition-colors">
+                <Columns3 className="h-3.5 w-3.5" />
+                <span>{t('columns')}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{t('toggleColumns')}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {KANBAN_COLUMNS.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column.id}
+                  checked={!hiddenColumns.includes(column.id)}
+                  onCheckedChange={() => toggleColumn(column.id)}
+                >
+                  {t(column.titleKey)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="flex gap-4 flex-1 min-h-0 overflow-x-auto pb-4 pl-4">
+          {visibleColumns.map((column) => (
+            <Column
+              key={column.id}
+              status={column.id}
+              title={t(column.titleKey)}
+              tasks={tasksByStatus.get(column.id) || []}
+              attemptCounts={attemptCounts}
+              onCreateTask={onCreateTask}
+              searchQuery={searchQuery}
+              isMobile={isMobile}
+              chatHistoryMatches={chatHistoryMatches}
+            />
+          ))}
+        </div>
       </div>
 
       <DragOverlay>
