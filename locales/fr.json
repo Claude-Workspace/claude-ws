@@ -86,6 +86,8 @@
     "cancelled": "Annulé",
     "deleteColumn": "Supprimer la colonne",
     "addColumn": "Ajouter une colonne",
+    "columns": "Colonnes",
+    "toggleColumns": "Afficher les colonnes",
     "noTasks": "Aucune tâche",
     "deleteAllTasks": "Supprimer les {count} tâche(s) dans \"{status}\" ?",
     "newTaskShortcut": "Nouvelle tâche (Ctrl/⌘ + Espace)",

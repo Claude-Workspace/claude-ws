@@ -86,6 +86,8 @@
     "cancelled": "Abgebrochen",
     "deleteColumn": "Spalte löschen",
     "addColumn": "Spalte hinzufügen",
+    "columns": "Spalten",
+    "toggleColumns": "Spalten anzeigen",
     "noTasks": "Keine Aufgaben",
     "deleteAllTasks": "Alle {count} Aufgabe(n) in \"{status}\" löschen?",
     "newTaskShortcut": "Neue Aufgabe (Strg/⌘ + Leertaste)",
