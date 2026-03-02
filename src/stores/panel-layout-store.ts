@@ -46,7 +46,7 @@ export const usePanelLayoutStore = create<PanelLayoutStore>()(
   persist(
     (set) => ({
       widths: getDefaultWidths(),
-      hiddenColumns: ['done', 'cancelled'] as TaskStatus[],
+      hiddenColumns: [] as TaskStatus[],
 
       setWidth: (panel, width) =>
         set((state) => {
