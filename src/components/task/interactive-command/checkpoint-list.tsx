@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { RotateCcw, Clock, MessageSquare, Loader2, FileCheck, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
+import { useTaskStore } from '@/stores/task-store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -162,14 +163,20 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
         });
       }
 
-      // Store the prompt in localStorage so it can be pre-filled after reload
+      // Store the prompt in localStorage so it can be pre-filled on the new task
       if (data.attemptPrompt && data.taskId) {
         localStorage.setItem(`rewind-prompt-${data.taskId}`, data.attemptPrompt);
       }
 
-      // Success - close overlay and soft refresh conversation (no hard reload)
+      // Add the new task to the store and navigate to it
+      if (data.task) {
+        const taskStore = useTaskStore.getState();
+        taskStore.addTask(data.task);
+        taskStore.setSelectedTask(data.task);
+      }
+
+      // Close overlay
       closeCommand();
-      window.dispatchEvent(new CustomEvent('rewind-complete'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fork');
     } finally {

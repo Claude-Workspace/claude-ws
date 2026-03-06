@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { nanoid } from 'nanoid';
 import { db, schema } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
 import { sessionManager } from '@/lib/session-manager';
 import { createLogger } from '@/lib/logger';
@@ -13,9 +14,10 @@ process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
 
 // POST /api/checkpoints/fork
 // Body: { checkpointId: string, rewindFiles?: boolean }
-// Forks conversation from a checkpoint WITHOUT deleting any attempts or checkpoints
+// Creates a NEW task that forks conversation from a checkpoint
+// The original task and its attempts/checkpoints are left untouched
 // Optionally rewinds files using SDK rewindFiles()
-// Returns the checkpoint's sessionId for resuming
+// Returns the new task for the UI to navigate to
 export async function POST(request: Request) {
   try {
     const { checkpointId, rewindFiles = true } = await request.json();
@@ -33,10 +35,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Checkpoint not found' }, { status: 404 });
     }
 
-    // Get task and project for SDK rewind
-    const task = await db.query.tasks.findFirst({
+    // Get original task
+    const originalTask = await db.query.tasks.findFirst({
       where: eq(schema.tasks.id, checkpoint.taskId),
     });
+
+    if (!originalTask) {
+      return NextResponse.json({ error: 'Original task not found' }, { status: 404 });
+    }
 
     // Get the attempt to retrieve its prompt for pre-filling input after fork
     const attempt = await db.query.attempts.findFirst({
@@ -47,9 +53,9 @@ export async function POST(request: Request) {
 
     // Rewind files using SDK if requested and checkpoint UUID exists
     // Note: gitCommitHash field now stores SDK checkpoint UUID
-    if (rewindFiles && checkpoint.gitCommitHash && checkpoint.sessionId && task) {
+    if (rewindFiles && checkpoint.gitCommitHash && checkpoint.sessionId) {
       const project = await db.query.projects.findFirst({
-        where: eq(schema.projects.id, task.projectId),
+        where: eq(schema.projects.id, originalTask.projectId),
       });
 
       if (project) {
@@ -99,17 +105,49 @@ export async function POST(request: Request) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           log.error({ err: error }, 'SDK rewind for fork failed');
           sdkRewindResult = { success: false, error: errorMessage };
-          // Continue with conversation fork even if SDK rewind fails
+          // Continue with fork even if SDK rewind fails
         }
       }
     }
 
-    // Set rewind state on task so next attempt resumes at this checkpoint's message
-    // This ensures conversation context is forked from checkpoint point
-    // gitCommitHash stores the user message UUID for conversation rewind
+    // Create a new task in the same project
+    const tasksInTodo = await db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.projectId, originalTask.projectId),
+          eq(schema.tasks.status, 'todo')
+        )
+      )
+      .orderBy(desc(schema.tasks.position))
+      .limit(1);
+
+    const position = tasksInTodo.length > 0 ? tasksInTodo[0].position + 1 : 0;
+
+    const newTaskId = nanoid();
+    const truncatedTitle = originalTask.title.length > 80
+      ? originalTask.title.slice(0, 80) + '...'
+      : originalTask.title;
+    const newTask = {
+      id: newTaskId,
+      projectId: originalTask.projectId,
+      title: `Fork: ${truncatedTitle}`,
+      description: originalTask.description,
+      status: 'todo' as const,
+      position,
+      chatInit: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await db.insert(schema.tasks).values(newTask);
+    log.info({ newTaskId, originalTaskId: originalTask.id, checkpointId }, 'Created forked task');
+
+    // Set rewind state on the NEW task so its first attempt resumes from the checkpoint
     if (checkpoint.gitCommitHash) {
       await sessionManager.setRewindState(
-        checkpoint.taskId,
+        newTaskId,
         checkpoint.sessionId,
         checkpoint.gitCommitHash
       );
@@ -117,11 +155,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      task: newTask,
+      taskId: newTaskId,
+      originalTaskId: originalTask.id,
       sessionId: checkpoint.sessionId,
       messageUuid: checkpoint.gitCommitHash,
-      taskId: checkpoint.taskId,
       attemptId: checkpoint.attemptId,
-      attemptPrompt: attempt?.prompt || null, // Include prompt for pre-filling input
+      attemptPrompt: attempt?.prompt || null,
       sdkRewind: sdkRewindResult,
       conversationForked: !!checkpoint.gitCommitHash,
     });
