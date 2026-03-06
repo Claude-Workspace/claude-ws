@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import { db, schema } from '@/lib/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc, lte } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
 import { sessionManager } from '@/lib/session-manager';
 import { createLogger } from '@/lib/logger';
@@ -143,6 +143,94 @@ export async function POST(request: Request) {
 
     await db.insert(schema.tasks).values(newTask);
     log.info({ newTaskId, originalTaskId: originalTask.id, checkpointId }, 'Created forked task');
+
+    // Copy attempts and their logs up to and including the checkpoint's attempt
+    // This gives the forked task visible conversation history
+    const originalAttempts = await db.query.attempts.findMany({
+      where: and(
+        eq(schema.attempts.taskId, originalTask.id),
+        lte(schema.attempts.createdAt, checkpoint.createdAt)
+      ),
+      orderBy: [asc(schema.attempts.createdAt)],
+    });
+
+    const attemptIdMap = new Map<string, string>(); // old ID -> new ID
+    for (const orig of originalAttempts) {
+      const newAttemptId = nanoid();
+      attemptIdMap.set(orig.id, newAttemptId);
+
+      await db.insert(schema.attempts).values({
+        id: newAttemptId,
+        taskId: newTaskId,
+        prompt: orig.prompt,
+        displayPrompt: orig.displayPrompt,
+        status: orig.status,
+        sessionId: orig.sessionId,
+        branch: orig.branch,
+        diffAdditions: orig.diffAdditions,
+        diffDeletions: orig.diffDeletions,
+        totalTokens: orig.totalTokens,
+        inputTokens: orig.inputTokens,
+        outputTokens: orig.outputTokens,
+        cacheCreationTokens: orig.cacheCreationTokens,
+        cacheReadTokens: orig.cacheReadTokens,
+        totalCostUSD: orig.totalCostUSD,
+        numTurns: orig.numTurns,
+        durationMs: orig.durationMs,
+        contextUsed: orig.contextUsed,
+        contextLimit: orig.contextLimit,
+        contextPercentage: orig.contextPercentage,
+        baselineContext: orig.baselineContext,
+        createdAt: orig.createdAt,
+        completedAt: orig.completedAt,
+        outputFormat: orig.outputFormat,
+        outputSchema: orig.outputSchema,
+      });
+
+      // Copy attempt logs
+      const logs = await db.query.attemptLogs.findMany({
+        where: eq(schema.attemptLogs.attemptId, orig.id),
+        orderBy: [asc(schema.attemptLogs.createdAt)],
+      });
+
+      for (const logEntry of logs) {
+        await db.insert(schema.attemptLogs).values({
+          attemptId: newAttemptId,
+          type: logEntry.type,
+          content: logEntry.content,
+          createdAt: logEntry.createdAt,
+        });
+      }
+    }
+
+    log.info({ copiedAttempts: originalAttempts.length, newTaskId }, 'Copied attempts and logs to forked task');
+
+    // Also copy checkpoints up to the fork point so the forked task has its own checkpoint history
+    const originalCheckpoints = await db.query.checkpoints.findMany({
+      where: and(
+        eq(schema.checkpoints.taskId, originalTask.id),
+        lte(schema.checkpoints.createdAt, checkpoint.createdAt)
+      ),
+      orderBy: [asc(schema.checkpoints.createdAt)],
+    });
+
+    for (const origCp of originalCheckpoints) {
+      const newAttemptId = attemptIdMap.get(origCp.attemptId);
+      if (!newAttemptId) continue;
+
+      await db.insert(schema.checkpoints).values({
+        id: nanoid(),
+        taskId: newTaskId,
+        attemptId: newAttemptId,
+        sessionId: origCp.sessionId,
+        gitCommitHash: origCp.gitCommitHash,
+        messageCount: origCp.messageCount,
+        summary: origCp.summary,
+        createdAt: origCp.createdAt,
+      });
+    }
+
+    log.info({ copiedCheckpoints: originalCheckpoints.length, newTaskId }, 'Copied checkpoints to forked task');
 
     // Set rewind state on the NEW task so its first attempt resumes from the checkpoint
     if (checkpoint.gitCommitHash) {
