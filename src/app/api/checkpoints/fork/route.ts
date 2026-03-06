@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import { db, schema } from '@/lib/db';
-import { eq, and, desc, asc, lte } from 'drizzle-orm';
+import { eq, and, desc, asc, lt } from 'drizzle-orm';
 import { checkpointManager } from '@/lib/checkpoint-manager';
 import { sessionManager } from '@/lib/session-manager';
 import { createLogger } from '@/lib/logger';
@@ -144,12 +144,16 @@ export async function POST(request: Request) {
     await db.insert(schema.tasks).values(newTask);
     log.info({ newTaskId, originalTaskId: originalTask.id, checkpointId }, 'Created forked task');
 
-    // Copy attempts and their logs up to and including the checkpoint's attempt
-    // This gives the forked task visible conversation history
+    // Copy attempts BEFORE the checkpoint's attempt (not including it)
+    // The user wants to fork from the state before the checkpoint's question was asked
+    // so they can re-ask it differently
+    const checkpointAttempt = await db.query.attempts.findFirst({
+      where: eq(schema.attempts.id, checkpoint.attemptId),
+    });
     const originalAttempts = await db.query.attempts.findMany({
       where: and(
         eq(schema.attempts.taskId, originalTask.id),
-        lte(schema.attempts.createdAt, checkpoint.createdAt)
+        lt(schema.attempts.createdAt, checkpointAttempt?.createdAt ?? checkpoint.createdAt)
       ),
       orderBy: [asc(schema.attempts.createdAt)],
     });
@@ -205,11 +209,11 @@ export async function POST(request: Request) {
 
     log.info({ copiedAttempts: originalAttempts.length, newTaskId }, 'Copied attempts and logs to forked task');
 
-    // Also copy checkpoints up to the fork point so the forked task has its own checkpoint history
+    // Copy checkpoints before the fork point (not including the fork checkpoint itself)
     const originalCheckpoints = await db.query.checkpoints.findMany({
       where: and(
         eq(schema.checkpoints.taskId, originalTask.id),
-        lte(schema.checkpoints.createdAt, checkpoint.createdAt)
+        lt(schema.checkpoints.createdAt, checkpoint.createdAt)
       ),
       orderBy: [asc(schema.checkpoints.createdAt)],
     });
