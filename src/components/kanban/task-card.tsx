@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Task } from '@/types';
+import { Task, TaskStatus, KANBAN_COLUMNS } from '@/types';
 import { cn, getProjectColor } from '@/lib/utils';
-import { GripVertical, MessageSquare, Trash2, Search, Network } from 'lucide-react';
+import { GripVertical, MessageSquare, Trash2, Search, Network, Copy, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useQuestionsStore } from '@/stores/questions-store';
@@ -49,7 +59,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = false, chatHistoryMatch }: TaskCardProps) {
-  const { selectedTaskId, selectTask, deleteTask } = useTaskStore();
+  const { selectedTaskId, selectTask, deleteTask, addTask, updateTaskStatus } = useTaskStore();
   const { projects, selectedProjectIds, isAllProjectsMode } = useProjectStore();
   const { getByTaskId } = useQuestionsStore();
   const { getByTaskId: getWorkflowByTaskId } = useWorkflowStore();
@@ -59,6 +69,31 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
   const hasPendingQuestion = !!getByTaskId(task.id);
   const workflowEntry = getWorkflowByTaskId(task.id);
   const hasActiveWorkflow = workflowEntry && workflowEntry.summary.activeCount > 0;
+
+  const handleStatusChange = useCallback(async (newStatus: TaskStatus) => {
+    if (newStatus === task.status) return;
+    await updateTaskStatus(task.id, newStatus);
+  }, [task.id, task.status, updateTaskStatus]);
+
+  const handleDuplicate = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: task.projectId,
+          title: task.title,
+          description: task.description,
+          status: 'todo',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to duplicate');
+      const newTask = await res.json();
+      addTask(newTask);
+    } catch (error) {
+      console.error('Failed to duplicate task:', error);
+    }
+  }, [task, addTask]);
 
   // Helper function to highlight matched text
   const highlightText = (text: string) => {
@@ -83,8 +118,8 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
   const projectName = projects.find(p => p.id === task.projectId)?.name;
   const showDeleteButton = task.status === 'done' || task.status === 'cancelled';
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!confirm(tTask('deleteTaskConfirm', { title: task.title }))) return;
     try {
       await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
@@ -114,7 +149,17 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
     transition,
   };
 
+  const statusLabelMap: Record<TaskStatus, string> = {
+    todo: tKanban('todo'),
+    in_progress: tKanban('inProgress'),
+    in_review: tKanban('inReview'),
+    done: tKanban('done'),
+    cancelled: tKanban('cancelled'),
+  };
+
   return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
     <div
       ref={setNodeRef}
       style={style}
@@ -255,5 +300,34 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
         </div>
       </div>
     </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <ArrowRight className="size-4 mr-2" />
+            {tKanban('moveTo')}
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-40">
+            {KANBAN_COLUMNS.filter(col => col.id !== task.status).map(col => (
+              <ContextMenuItem key={col.id} onClick={() => handleStatusChange(col.id)}>
+                {statusLabelMap[col.id]}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuItem onClick={handleDuplicate}>
+          <Copy className="size-4 mr-2" />
+          {tKanban('duplicate')}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={handleDelete}
+        >
+          <Trash2 className="size-4 mr-2" />
+          {tKanban('delete')}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

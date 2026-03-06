@@ -111,7 +111,10 @@
     "waitFileUpload": "Please wait for files to finish uploading",
     "failedToCreate": "Failed to create task",
     "dragToReorder": "Drag to reorder",
-    "deleteTask": "Delete task"
+    "deleteTask": "Delete task",
+    "moveTo": "Move to",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
   },
   "task": {
     "title": "Title",
