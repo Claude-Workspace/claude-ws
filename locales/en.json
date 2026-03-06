@@ -595,6 +595,9 @@
     "rewoundToCheckpoint": "Rewound conversation & files to checkpoint",
     "rewoundConversationOnly": "Rewound conversation only",
     "rewoundConversation": "Rewound conversation to checkpoint",
+    "forkedToCheckpoint": "Forked conversation & files from checkpoint",
+    "forkedConversationOnly": "Forked conversation only",
+    "forkedConversation": "Forked conversation from checkpoint",
     "waitForUpload": "Please wait for files to finish uploading"
   },
   "agentProvider": {

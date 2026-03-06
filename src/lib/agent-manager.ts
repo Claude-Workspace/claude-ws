@@ -552,15 +552,28 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         ? `You are powered by the model named ${modelDisplayName}. The exact model ID is ${effectiveModel}.`
         : `You are powered by the model ${effectiveModel}.`;
 
-      log.info({ resolvedClaudePath }, 'Using claude executable path');
+      // Build a clean env for the subprocess:
+      // - Remove proxy ANTHROPIC_BASE_URL (subprocess uses OAuth directly)
+      // - Remove CLAUDECODE to prevent nested session detection
+      // - Remove CLAUDE_CODE_ENTRYPOINT so SDK sets it to 'sdk-ts'
+      const subprocessEnv = { ...process.env };
+      delete subprocessEnv.ANTHROPIC_BASE_URL;
+      delete subprocessEnv.ANTHROPIC_PROXIED_BASE_URL;
+      delete subprocessEnv.CLAUDECODE;
+      delete subprocessEnv.CLAUDE_CODE_ENTRYPOINT;
+
+      log.info({ resolvedClaudePath, hasAnthropicBaseUrl: !!subprocessEnv.ANTHROPIC_BASE_URL }, 'Using claude executable path');
       const response = query({
         prompt,
         options: {
           ...queryOptions,
+          env: subprocessEnv,
           // Pass the real claude.exe path so the SDK doesn't fall back to its bundled cli.js
           // Running `bun <sdk_cli.js>` on Windows causes EPERM errors on C:\Windows\System32\
           ...(resolvedClaudePath ? { pathToClaudeCodeExecutable: resolvedClaudePath } : {}),
           systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: modelIdentity },
+          // Capture stderr from the spawned Claude process for debugging
+          stderr: (data: string) => { log.error({ stderr: data.slice(0, 500), attemptId }, 'Claude process stderr'); },
         },
       });
       log.info({ attemptId }, 'Query stream started, iterating messages...');
