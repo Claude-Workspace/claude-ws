@@ -1,0 +1,39 @@
+{
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Write|Edit|MultiEdit|Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/block-write.sh"
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                "matcher": "",
+                "background": true,
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "npx tsx .claude/hooks/minio-pull-sync.ts"
+                    }
+                ]
+            }
+        ],
+        "Stop": [
+            {
+                "matcher": "",
+                "background": true,
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "npx tsx .claude/hooks/minio-push-sync.ts"
+                    }
+                ]
+            }
+        ]
+    }
+}
