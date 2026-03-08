@@ -63,6 +63,11 @@
   "scripts": {
     "postinstall": "node -e \"try{require('fs').chmodSync(require('path').join('node_modules','@homebridge','node-pty-prebuilt-multiarch','prebuilds',process.platform+'-'+process.arch,'spawn-helper'),0o755)}catch{}\"",
     "dev": "tsx server.ts",
+    "pm2": "pm2 start ecosystem.config.js && pm2 save",
+    "pm2-restart": "pm2 restart claudews",
+    "pm2-stop": "pm2 stop claudews",
+    "pm2-logs": "pm2 logs claudews",
+    "pm2-monit": "pm2 monit",
     "build": "cross-env NODE_ENV=production next build",
     "start": "cross-env NODE_ENV=production tsx server.ts",
     "db:generate": "drizzle-kit generate",
