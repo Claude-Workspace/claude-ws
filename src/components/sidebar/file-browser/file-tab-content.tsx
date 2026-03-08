@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, AlertCircle, File, Copy, Check, Save, Undo, Redo, Search, X, AtSign, MoreVertical, Download, Eye, Code, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { CodeEditorWithInlineEdit } from '@/components/editor/code-editor-with-inline-edit';
+import dynamic from 'next/dynamic';
+
+const CodeEditorWithInlineEdit = dynamic(
+  () => import('@/components/editor/code-editor-with-inline-edit').then((mod) => mod.CodeEditorWithInlineEdit),
+  { ssr: false, loading: () => <div className="animate-pulse bg-muted rounded-md w-full h-full" /> }
+);
 import { MarkdownFileViewer } from '@/components/editor/markdown-file-viewer';
 import { FileDiffResolverModal } from '@/components/editor/file-diff-resolver-modal';
 import { useSidebarStore } from '@/stores/sidebar-store';

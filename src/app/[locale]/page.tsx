@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SearchProvider } from '@/components/search/search-provider';
 import { Header } from '@/components/header';
-import { Board } from '@/components/kanban/board';
-import { CreateTaskDialog } from '@/components/kanban/create-task-dialog';
-import { TaskDetailPanel } from '@/components/task/task-detail-panel';
-import { FloatingChatWindowsContainer } from '@/components/task/floating-chat-windows-container';
-import { SettingsPage } from '@/components/settings/settings-page';
-import { SetupDialog } from '@/components/settings/setup-dialog';
-import { SidebarPanel, FileTabsPanel, DiffTabsPanel } from '@/components/sidebar';
+import dynamic from 'next/dynamic';
 import { RightSidebar } from '@/components/right-sidebar';
 import { QuestionsPanel } from '@/components/questions/questions-panel';
 import { WorkflowPanel } from '@/components/workflow/workflow-panel';
@@ -27,6 +21,45 @@ import { useSettingsUIStore } from '@/stores/settings-ui-store';
 import { useIsMobileViewport } from '@/hooks/use-mobile-viewport';
 import { useTerminalStore } from '@/stores/terminal-store';
 import { useTranslations } from 'next-intl';
+
+// Lazy-load heavy components to isolate third-party chunks (@dnd-kit, @codemirror, @lezer)
+// and avoid Turbopack HMR "module factory not available" errors from stale browser cache.
+const Board = dynamic(
+  () => import('@/components/kanban/board').then(m => ({ default: m.Board })),
+  { ssr: false }
+);
+const CreateTaskDialog = dynamic(
+  () => import('@/components/kanban/create-task-dialog').then(m => ({ default: m.CreateTaskDialog })),
+  { ssr: false }
+);
+const TaskDetailPanel = dynamic(
+  () => import('@/components/task/task-detail-panel').then(m => ({ default: m.TaskDetailPanel })),
+  { ssr: false }
+);
+const FloatingChatWindowsContainer = dynamic(
+  () => import('@/components/task/floating-chat-windows-container').then(m => ({ default: m.FloatingChatWindowsContainer })),
+  { ssr: false }
+);
+const SettingsPage = dynamic(
+  () => import('@/components/settings/settings-page').then(m => ({ default: m.SettingsPage })),
+  { ssr: false }
+);
+const SetupDialog = dynamic(
+  () => import('@/components/settings/setup-dialog').then(m => ({ default: m.SetupDialog })),
+  { ssr: false }
+);
+const SidebarPanel = dynamic(
+  () => import('@/components/sidebar/sidebar-panel').then(m => ({ default: m.SidebarPanel })),
+  { ssr: false }
+);
+const FileTabsPanel = dynamic(
+  () => import('@/components/sidebar/file-browser/file-tabs-panel').then(m => ({ default: m.FileTabsPanel })),
+  { ssr: false }
+);
+const DiffTabsPanel = dynamic(
+  () => import('@/components/sidebar/git-changes/diff-tabs-panel').then(m => ({ default: m.DiffTabsPanel })),
+  { ssr: false }
+);
 
 function KanbanApp() {
   const tCommon = useTranslations('common');

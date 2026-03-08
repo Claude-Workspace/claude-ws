@@ -450,6 +450,9 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
         permissionMode: 'bypassPermissions' as const,
         // Enable skill loading from filesystem (~/.claude/skills/ and .claude/skills/)
         settingSources: ['user', 'project'] as ('user' | 'project')[],
+        // Enable hooks from .claude/settings.json (UserPromptSubmit, Stop, etc.)
+        // SDK checks: !!o1 to enable hook support, empty object enables file-based hooks
+        hooks: {} as Partial<Record<string, unknown>>,
         // MCP servers configuration (loaded from .mcp.json)
         ...(mcpConfig?.mcpServers ? { mcpServers: mcpConfig.mcpServers } : {}),
         // Enable Skill tool for skill invocation + MCP tool wildcards
@@ -831,7 +834,7 @@ Your task is INCOMPLETE until:\n1. File exists with valid content\n2. You have R
 
       // Detect "prompt too long" errors for auto-compact handling
       const isPromptTooLong = errorMessage.toLowerCase().includes('prompt is too long') ||
-                              errorMessage.toLowerCase().includes('request too large');
+        errorMessage.toLowerCase().includes('request too large');
       if (isPromptTooLong) {
         this.emit('promptTooLong', { attemptId });
       }

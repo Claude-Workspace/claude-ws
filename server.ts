@@ -206,8 +206,10 @@ app.prepare().then(async () => {
                 : join(userCwd, 'data', 'projects', projectDirName);
 
               try {
+                const { setupProjectDefaults } = await import('./src/lib/project-utils');
                 await mkdir(projectPath, { recursive: true });
-                log.info({ projectPath }, '[Socket] Created project directory');
+                await setupProjectDefaults(projectPath, projectId);
+                log.info({ projectPath, projectId }, '[Socket] Created project directory and defaults');
               } catch (mkdirError: any) {
                 if (mkdirError?.code !== 'EEXIST') {
                   log.error({ mkdirError }, '[Socket] Failed to create project folder');
@@ -517,7 +519,7 @@ app.prepare().then(async () => {
 
             log.warn(`[Server] Auto-retried answer for ${attemptId} as new attempt ${newAttemptId}`);
           } catch (error) {
-            log.error({error},`[Server] Auto-retry failed for ${attemptId}:`);
+            log.error({ error }, `[Server] Auto-retry failed for ${attemptId}:`);
             socket.emit('error', { message: 'Auto-retry failed: ' + (error instanceof Error ? error.message : 'Unknown error') });
           }
         }
@@ -1423,9 +1425,9 @@ app.prepare().then(async () => {
               taskTitle: task?.title || 'Unknown',
               summary: expanded.summary,
             });
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   });
 
