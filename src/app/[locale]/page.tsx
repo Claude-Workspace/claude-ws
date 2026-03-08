@@ -40,7 +40,7 @@ function KanbanApp() {
   const isMobile = useIsMobileViewport();
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading, error: projectError } = useProjectStore();
-  const { selectedTask, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
+  const { selectedTask, selectedTaskId, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
   const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
   const isOpen = useSidebarStore((s) => s.isOpen);
   const setIsOpen = useSidebarStore((s) => s.setIsOpen);
@@ -133,7 +133,16 @@ function KanbanApp() {
 
         // Wait for fetchTasks to complete, then select the task
         setTimeout(() => {
-          useTaskStore.getState().setSelectedTask(task);
+          // On mobile, open directly as floating window (full-screen mobile view)
+          // Check window.innerWidth directly to avoid race condition with
+          // useIsMobileViewport hook which initializes as false
+          if (window.innerWidth < 768) {
+            const { openWindow } = useFloatingWindowsStore.getState();
+            openWindow(task.id, 'chat', task.projectId);
+            useTaskStore.getState().setSelectedTaskId(task.id);
+          } else {
+            useTaskStore.getState().setSelectedTask(task);
+          }
         }, 500);
       } catch (error) {
         console.warn('Task deep link: failed to fetch task', error);
@@ -163,15 +172,17 @@ function KanbanApp() {
   }, [selectedProjectIds]);
 
   // Update URL when selected task changes
+  // Track both selectedTask (panel) and selectedTaskId (floating windows)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const url = new URL(window.location.href);
     const currentTaskParam = url.searchParams.get('task');
+    const activeId = selectedTask?.id || selectedTaskId;
 
-    if (selectedTask) {
-      if (currentTaskParam !== selectedTask.id) {
-        url.searchParams.set('task', selectedTask.id);
+    if (activeId) {
+      if (currentTaskParam !== activeId) {
+        url.searchParams.set('task', activeId);
         window.history.replaceState({}, '', url.toString());
       }
     } else {
@@ -180,7 +191,7 @@ function KanbanApp() {
         window.history.replaceState({}, '', url.toString());
       }
     }
-  }, [selectedTask]);
+  }, [selectedTask, selectedTaskId]);
 
   // Fetch tasks when selectedProjectIds changes
   useEffect(() => {
