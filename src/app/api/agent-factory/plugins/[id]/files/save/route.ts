@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
+import path, { join, dirname } from 'path';
+import os from 'os';
 import { existsSync } from 'fs';
 import { db } from '@/lib/db';
 import { agentFactoryPlugins } from '@/lib/db/schema';
@@ -67,9 +68,17 @@ export async function PUT(
       fullPath = component.sourcePath!;
     }
 
-    // Security check: ensure file is within allowed paths
-    const resolvedPath = require('path').resolve(fullPath);
-    const homeDir = require('os').homedir();
+    // Security check: restrict writes to the plugin's own directory
+    const resolvedPath = path.resolve(fullPath);
+
+    // Validate against the plugin's base directory (not all of $HOME)
+    const pluginBaseDir = path.resolve(path.dirname(basePath));
+    if (!resolvedPath.startsWith(pluginBaseDir + path.sep) && resolvedPath !== pluginBaseDir) {
+      return NextResponse.json({ error: 'Access denied: path outside plugin directory' }, { status: 403 });
+    }
+
+    // Additional guardrail: must still be within home directory
+    const homeDir = os.homedir();
     if (!resolvedPath.startsWith(homeDir)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
