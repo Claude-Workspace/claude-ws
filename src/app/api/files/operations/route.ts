@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rm, rename, mkdir, writeFile } from 'fs/promises';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import AdmZip from 'adm-zip';
 import { createLogger } from '@/lib/logger';
 
@@ -25,6 +26,19 @@ function validatePath(targetPath: string, allowedRoot: string): string {
     throw new Error('Path traversal detected');
   }
 
+  return resolved;
+}
+
+/**
+ * Validate that the root path itself is within allowed boundaries.
+ * Prevents client from setting rootPath to '/' or other sensitive directories.
+ */
+function validateRootPath(rootPath: string): string {
+  const resolved = path.resolve(rootPath);
+  const home = os.homedir();
+  if (!resolved.startsWith(home)) {
+    throw new Error('Root path outside home directory');
+  }
   return resolved;
 }
 
@@ -53,6 +67,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Security: Validate root path is within home directory
+    validateRootPath(rootPath);
+
     // Security: Validate path stays within root
     const resolved = validatePath(targetPath, rootPath);
 
@@ -73,6 +90,14 @@ export async function DELETE(request: NextRequest) {
     if (error instanceof Error) {
       // Path traversal attempt
       if (error.message === 'Path traversal detected') {
+        return NextResponse.json(
+          { error: 'Invalid path' },
+          { status: 403 }
+        );
+      }
+
+      // Root path outside home directory
+      if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
           { error: 'Invalid path' },
           { status: 403 }
@@ -124,6 +149,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Security: Validate root path is within home directory
+    validateRootPath(rootPath);
+
     // Security: Validate path stays within root
     const resolved = validatePath(targetPath, rootPath);
 
@@ -149,7 +177,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(new Uint8Array(zipBuffer), {
         headers: {
           'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="${filename}.zip"`,
+          'Content-Disposition': \`attachment; filename="${filename}.zip"\`,
           'Content-Length': zipBuffer.length.toString(),
         },
       });
@@ -184,7 +212,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(new Uint8Array(fileBuffer), {
         headers: {
           'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Disposition': \`attachment; filename="${filename}"\`,
           'Content-Length': fileBuffer.length.toString(),
         },
       });
@@ -194,6 +222,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       // Path traversal attempt
       if (error.message === 'Path traversal detected') {
+        return NextResponse.json(
+          { error: 'Invalid path' },
+          { status: 403 }
+        );
+      }
+
+      // Root path outside home directory
+      if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
           { error: 'Invalid path' },
           { status: 403 }
@@ -250,6 +286,9 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Security: Validate root path is within home directory
+    validateRootPath(rootPath);
 
     // Security: Validate parent path stays within root
     const resolvedParent = validatePath(parentPath, rootPath);
@@ -310,6 +349,14 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      // Root path outside home directory
+      if (error.message === 'Root path outside home directory') {
+        return NextResponse.json(
+          { error: 'Invalid path' },
+          { status: 403 }
+        );
+      }
+
       // Permission denied
       if ('code' in error && error.code === 'EACCES') {
         return NextResponse.json(
@@ -353,6 +400,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Security: Validate root path is within home directory
+    validateRootPath(rootPath);
+
     // Security: Validate path stays within root
     const resolved = validatePath(targetPath, rootPath);
 
@@ -393,6 +443,14 @@ export async function PUT(request: NextRequest) {
     if (error instanceof Error) {
       // Path traversal attempt
       if (error.message === 'Path traversal detected') {
+        return NextResponse.json(
+          { error: 'Invalid path' },
+          { status: 403 }
+        );
+      }
+
+      // Root path outside home directory
+      if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
           { error: 'Invalid path' },
           { status: 403 }

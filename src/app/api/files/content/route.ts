@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -88,6 +89,14 @@ export async function GET(request: NextRequest) {
     // Construct full path and validate it's within basePath
     const fullPath = path.resolve(basePath, filePath);
     const normalizedBase = path.resolve(basePath);
+
+    // Security: validate basePath is within home directory
+    if (!normalizedBase.startsWith(os.homedir())) {
+      return NextResponse.json(
+        { error: 'Access denied: base path outside home directory' },
+        { status: 403 }
+      );
+    }
 
     // Security: prevent directory traversal
     if (!fullPath.startsWith(normalizedBase)) {
@@ -208,6 +217,14 @@ export async function POST(request: NextRequest) {
     // Construct full path and validate within basePath
     const fullPath = path.resolve(basePath, filePath);
     const normalizedBase = path.resolve(basePath);
+
+    // Security: validate basePath is within home directory
+    if (!normalizedBase.startsWith(os.homedir())) {
+      return NextResponse.json(
+        { error: 'Access denied: base path outside home directory' },
+        { status: 403 }
+      );
+    }
 
     // Security: prevent directory traversal
     if (!fullPath.startsWith(normalizedBase)) {
