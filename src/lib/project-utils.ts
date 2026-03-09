@@ -48,6 +48,7 @@ export async function setupProjectDefaults(projectPath: string, projectId: strin
         const hooksDir = join(claudeDir, 'hooks');
         const commandsDir = join(claudeDir, 'commands');
 
+        await mkdir(hooksDir, { recursive: true });
         await mkdir(commandsDir, { recursive: true });
 
         const templateHooksDir = join(workspaceRoot, 'src', 'hooks', 'template');
