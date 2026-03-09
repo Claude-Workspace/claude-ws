@@ -25,6 +25,7 @@ process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
 delete process.env.CLAUDECODE;
 
 import { createServer } from 'http';
+import { timingSafeEqual } from 'crypto';
 import { parse } from 'url';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
@@ -57,6 +58,20 @@ const port = getPort();
 const app = next({ dev, hostname, port, turbopack: false });
 const handle = app.getRequestHandler();
 
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+      timingSafeEqual(bufA, bufA);
+      return false;
+    }
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 app.prepare().then(async () => {
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
@@ -76,7 +91,7 @@ app.prepare().then(async () => {
     if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint && !isUploadsGetEndpoint && apiAccessKey && apiAccessKey.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
-      if (!providedKey || providedKey !== apiAccessKey) {
+      if (!providedKey || typeof providedKey !== 'string' || !safeCompare(providedKey, apiAccessKey)) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized', message: 'Valid API key required' }));
         return;

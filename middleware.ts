@@ -2,6 +2,21 @@ import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { locales, defaultLocale } from './src/i18n/config';
+import { timingSafeEqual } from 'crypto';
+
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+      timingSafeEqual(bufA, bufA);
+      return false;
+    }
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
 
 // Create i18n middleware
 const intlMiddleware = createMiddleware({
@@ -54,7 +69,7 @@ export default function middleware(request: NextRequest) {
     // Check for x-api-key header
     const providedKey = request.headers.get('x-api-key');
 
-    if (!providedKey || providedKey !== apiAccessKey) {
+    if (!providedKey || !safeCompare(providedKey, apiAccessKey)) {
       return addNoCacheHeaders(NextResponse.json(
         { error: 'Unauthorized', message: 'Valid API key required' },
         { status: 401 }

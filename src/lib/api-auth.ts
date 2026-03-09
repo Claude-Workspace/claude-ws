@@ -1,7 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 
 const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
+
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+      timingSafeEqual(bufA, bufA);
+      return false;
+    }
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Check if API authentication is enabled
@@ -21,7 +36,7 @@ export function verifyApiKey(request: NextRequest): boolean {
   }
 
   const providedKey = request.headers.get('x-api-key');
-  return providedKey === API_ACCESS_KEY;
+  return providedKey !== null && API_ACCESS_KEY !== undefined && safeCompare(providedKey, API_ACCESS_KEY);
 }
 
 /**
