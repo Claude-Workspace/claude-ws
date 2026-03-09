@@ -127,7 +127,20 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    let { apiKey } = body;
+    const { apiKey: rawApiKey, currentKey } = body;
+
+    // If an API key is already configured, require the current key to modify it
+    const existingKey = process.env.API_ACCESS_KEY;
+    if (existingKey && existingKey.length > 0) {
+      if (!currentKey || currentKey !== existingKey) {
+        return NextResponse.json(
+          { error: 'Current API key required to modify' },
+          { status: 401 }
+        );
+      }
+    }
+
+    let apiKey = rawApiKey;
 
     // Generate a key if not provided
     if (!apiKey) {
@@ -181,9 +194,16 @@ export async function POST(request: NextRequest) {
 
     log.info({ envPath }, 'Saved API access key');
 
+    // Only return the key on initial setup (no existing key)
+    const isInitialSetup = !existingKey || existingKey.length === 0;
+    const maskedNewKey = apiKey.length > 8
+      ? apiKey.slice(0, 4) + '••••' + apiKey.slice(-4)
+      : '••••••••';
+
     return NextResponse.json({
       success: true,
-      apiKey, // Return the key so user can copy it
+      apiKey: isInitialSetup ? apiKey : undefined,
+      maskedKey: isInitialSetup ? undefined : maskedNewKey,
       message: 'API access key saved. Server restart required for full effect.',
     });
   } catch (error) {
