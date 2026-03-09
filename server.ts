@@ -106,7 +106,9 @@ app.prepare().then(async () => {
   // Initialize Socket.io
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: dev ? '*' : false,
+      origin: dev
+        ? ['http://localhost:3000', 'http://127.0.0.1:3000', ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : [])]
+        : (process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : false),
     },
     // Keep connections alive through Cloudflare Tunnel (100s idle timeout)
     pingInterval: 10000,
