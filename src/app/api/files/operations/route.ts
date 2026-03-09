@@ -31,7 +31,6 @@ function validatePath(targetPath: string, allowedRoot: string): string {
 
 /**
  * Validate that the root path itself is within allowed boundaries.
- * Prevents client from setting rootPath to '/' or other sensitive directories.
  */
 function validateRootPath(rootPath: string): string {
   const resolved = path.resolve(rootPath);
@@ -99,7 +98,7 @@ export async function DELETE(request: NextRequest) {
       // Root path outside home directory
       if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
-          { error: 'Invalid path' },
+          { error: 'Invalid root path' },
           { status: 403 }
         );
       }
@@ -231,7 +230,7 @@ export async function POST(request: NextRequest) {
       // Root path outside home directory
       if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
-          { error: 'Invalid path' },
+          { error: 'Invalid root path' },
           { status: 403 }
         );
       }
@@ -352,7 +351,7 @@ export async function PATCH(request: NextRequest) {
       // Root path outside home directory
       if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
-          { error: 'Invalid path' },
+          { error: 'Invalid root path' },
           { status: 403 }
         );
       }
@@ -452,7 +451,7 @@ export async function PUT(request: NextRequest) {
       // Root path outside home directory
       if (error.message === 'Root path outside home directory') {
         return NextResponse.json(
-          { error: 'Invalid path' },
+          { error: 'Invalid root path' },
           { status: 403 }
         );
       }
