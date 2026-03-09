@@ -1031,8 +1031,20 @@ app.prepare().then(async () => {
         log.info(`[Server] Waiting 6.6s for process to bind to port ${port}...`);
         await new Promise(resolve => setTimeout(resolve, 6666));
         try {
-          const { execSync } = require('child_process');
-          const pidOutput = execSync(`lsof -ti :${port} 2>/dev/null || true`, { encoding: 'utf-8' }).trim();
+          const { execFileSync } = require('child_process');
+          // Validate port is a valid number
+          const portNum = parseInt(port, 10);
+          if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+            log.warn({ port }, '[Server] Invalid port number, skipping lsof');
+            return;
+          }
+          let pidOutput = '';
+          try {
+            pidOutput = execFileSync('lsof', ['-ti', `:${portNum}`], { encoding: 'utf-8' }).trim();
+          } catch {
+            // lsof returns non-zero when no process found
+            pidOutput = '';
+          }
           if (pidOutput) {
             const pid = parseInt(pidOutput.split('\n')[0], 10);
             if (pid) {
