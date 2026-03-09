@@ -31,6 +31,16 @@ function validatePath(targetPath: string, allowedRoot: string): string {
  */
 async function extractZip(filePath: string, destDir: string): Promise<void> {
   const zip = new AdmZip(filePath);
+  const resolvedDest = path.resolve(destDir);
+
+  // Validate each entry path before extraction to prevent Zip Slip
+  for (const entry of zip.getEntries()) {
+    const entryPath = path.resolve(destDir, entry.entryName);
+    if (!entryPath.startsWith(resolvedDest + path.sep) && entryPath !== resolvedDest) {
+      throw new Error(`Zip Slip detected: ${entry.entryName}`);
+    }
+  }
+
   zip.extractAllTo(destDir, true);
 }
 
