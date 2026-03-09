@@ -105,7 +105,9 @@ class ProcessManager extends EventEmitter {
     args.push('-p', fullPrompt);
     args.push('--output-format', 'stream-json');
     args.push('--verbose');
-    args.push('--dangerously-skip-permissions');
+    if (process.env.CLAUDE_SKIP_PERMISSIONS !== 'false') {
+      args.push('--dangerously-skip-permissions');
+    }
 
     if (sessionId) {
       args.push('--resume', sessionId);
