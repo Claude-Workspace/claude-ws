@@ -116,6 +116,10 @@ app.prepare().then(async () => {
   // Disconnect cleanup timers - keyed by attemptId
   const disconnectTimers = new Map<string, NodeJS.Timeout>();
 
+  // Terminal rate limiting - max terminals per socket
+  const MAX_TERMINALS_PER_SOCKET = 5;
+  const socketTerminals = new Map<string, Set<string>>();
+
   // Socket.io connection handler
   io.on('connection', (socket) => {
     log.info(`Client connected: ${socket.id}`);
@@ -683,6 +687,14 @@ app.prepare().then(async () => {
       ack?: (result: { success: boolean; terminalId?: string; error?: string }) => void
     ) => {
       log.info('[Server] Creating terminal session');
+
+      // Rate limit: max terminals per socket
+      const existingTerminals = socketTerminals.get(socket.id) || new Set();
+      if (existingTerminals.size >= MAX_TERMINALS_PER_SOCKET) {
+        if (ack) ack({ success: false, error: `Maximum ${MAX_TERMINALS_PER_SOCKET} terminals per connection` });
+        return;
+      }
+
       try {
         // Resolve CWD: try project path if projectId given, fallback to user CWD
         let cwd = userCwd;
@@ -701,6 +713,10 @@ app.prepare().then(async () => {
         });
 
         socket.join(`terminal:${terminalId}`);
+        if (!socketTerminals.has(socket.id)) {
+          socketTerminals.set(socket.id, new Set());
+        }
+        socketTerminals.get(socket.id)!.add(terminalId);
         log.info({ terminalId, cwd }, '[Server] Terminal session created');
         if (ack) ack({ success: true, terminalId });
       } catch (error) {
@@ -724,6 +740,8 @@ app.prepare().then(async () => {
     ) => {
       log.info({ terminalId: data.terminalId }, '[Server] Closing terminal session');
       const success = terminalManager.destroy(data.terminalId);
+      const terms = socketTerminals.get(socket.id);
+      if (terms) terms.delete(data.terminalId);
       if (ack) ack({ success });
     });
 
@@ -741,6 +759,15 @@ app.prepare().then(async () => {
 
     socket.on('disconnect', () => {
       log.info(`Client disconnected: ${socket.id}`);
+
+      // Clean up terminals created by this socket
+      const terms = socketTerminals.get(socket.id);
+      if (terms) {
+        for (const terminalId of terms) {
+          terminalManager.destroy(terminalId);
+        }
+        socketTerminals.delete(socket.id);
+      }
 
       // Find all attempt rooms this socket was in
       // Socket.io automatically removes the socket from rooms on disconnect
