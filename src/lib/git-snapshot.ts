@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { createLogger } from './logger';
 
 const log = createLogger('GitSnapshot');
@@ -82,7 +82,7 @@ export function createSnapshot(
     const shortPrompt = prompt.substring(0, 50).replace(/"/g, '\\"');
     const message = `${SNAPSHOT_PREFIX}: ${attemptId}\n\nBefore: ${shortPrompt}...`;
 
-    execSync(`git commit -m "${message}" --no-verify`, {
+    execFileSync('git', ['commit', '-m', message, '--no-verify'], {
       cwd,
       stdio: 'pipe',
       env: {
@@ -117,11 +117,15 @@ export function rewindToCommit(
   }
 
   try {
+    if (!/^[a-f0-9]{4,40}$/i.test(commitHash)) {
+      return { success: false, error: 'Invalid commit hash' };
+    }
+
     // Verify commit exists
-    execSync(`git cat-file -t ${commitHash}`, { cwd, stdio: 'pipe' });
+    execFileSync('git', ['cat-file', '-t', commitHash], { cwd, stdio: 'pipe' });
 
     // Hard reset to the commit
-    execSync(`git reset --hard ${commitHash}`, { cwd, stdio: 'pipe' });
+    execFileSync('git', ['reset', '--hard', commitHash], { cwd, stdio: 'pipe' });
 
     log.info({ commitHash }, 'Rewound to commit');
     return { success: true };
