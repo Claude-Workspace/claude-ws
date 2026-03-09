@@ -25,6 +25,7 @@ process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1';
 delete process.env.CLAUDECODE;
 
 import { createServer } from 'http';
+import { timingSafeEqual } from 'crypto';
 import { parse } from 'url';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
@@ -111,6 +112,30 @@ app.prepare().then(async () => {
     // Keep connections alive through Cloudflare Tunnel (100s idle timeout)
     pingInterval: 10000,
     pingTimeout: 10000,
+  });
+
+  // Socket.IO authentication middleware
+  io.use((socket, next) => {
+    const apiAccessKey = process.env.API_ACCESS_KEY;
+    if (!apiAccessKey || apiAccessKey.length === 0) {
+      return next();
+    }
+
+    const token = socket.handshake.auth?.token || socket.handshake.headers['x-api-key'];
+    if (!token || typeof token !== 'string') {
+      return next(new Error('Authentication required'));
+    }
+
+    try {
+      const keyBuf = Buffer.from(apiAccessKey);
+      const tokenBuf = Buffer.from(token);
+      if (keyBuf.length !== tokenBuf.length || !timingSafeEqual(keyBuf, tokenBuf)) {
+        return next(new Error('Authentication required'));
+      }
+      next();
+    } catch {
+      return next(new Error('Authentication required'));
+    }
   });
 
   // Disconnect cleanup timers - keyed by attemptId
