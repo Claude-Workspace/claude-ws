@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, basename, resolve } from 'path';
 import { homedir } from 'os';
 
 interface CommandParams {
@@ -43,13 +43,26 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const subcommand = searchParams.get('subcommand');
 
+    // Sanitize name and subcommand to prevent path traversal
+    const safeName = basename(name);
+    const safeSubcommand = subcommand ? basename(subcommand) : null;
+
     const commandsDir = join(homedir(), '.claude', 'commands');
 
     let filePath: string;
-    if (subcommand) {
-      filePath = join(commandsDir, name, `${subcommand}.md`);
+    if (safeSubcommand) {
+      filePath = join(commandsDir, safeName, `${safeSubcommand}.md`);
     } else {
-      filePath = join(commandsDir, `${name}.md`);
+      filePath = join(commandsDir, `${safeName}.md`);
+    }
+
+    // Validate resolved path is within commands directory
+    const resolvedPath = resolve(filePath);
+    if (!resolvedPath.startsWith(resolve(commandsDir))) {
+      return NextResponse.json(
+        { error: 'Invalid command path' },
+        { status: 403 }
+      );
     }
 
     if (!existsSync(filePath)) {
@@ -85,13 +98,26 @@ export async function POST(
     const body = await request.json();
     const { arguments: args, subcommand } = body;
 
+    // Sanitize name and subcommand to prevent path traversal
+    const safeName = basename(name);
+    const safeSubcommand = subcommand ? basename(subcommand) : null;
+
     const commandsDir = join(homedir(), '.claude', 'commands');
 
     let filePath: string;
-    if (subcommand) {
-      filePath = join(commandsDir, name, `${subcommand}.md`);
+    if (safeSubcommand) {
+      filePath = join(commandsDir, safeName, `${safeSubcommand}.md`);
     } else {
-      filePath = join(commandsDir, `${name}.md`);
+      filePath = join(commandsDir, `${safeName}.md`);
+    }
+
+    // Validate resolved path is within commands directory
+    const resolvedPath = resolve(filePath);
+    if (!resolvedPath.startsWith(resolve(commandsDir))) {
+      return NextResponse.json(
+        { error: 'Invalid command path' },
+        { status: 403 }
+      );
     }
 
     if (!existsSync(filePath)) {
