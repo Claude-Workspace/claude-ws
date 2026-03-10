@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { createLogger } from '@/lib/logger';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual } from 'crypto';
 
 const log = createLogger('ApiAccessKeyAPI');
 
@@ -132,7 +132,16 @@ export async function POST(request: NextRequest) {
     // If an API key is already configured, require the current key to modify it
     const existingKey = process.env.API_ACCESS_KEY;
     if (existingKey && existingKey.length > 0) {
-      if (!currentKey || currentKey !== existingKey) {
+      if (!currentKey || typeof currentKey !== 'string') {
+        return NextResponse.json(
+          { error: 'Current API key required to modify' },
+          { status: 401 }
+        );
+      }
+      // Use timing-safe comparison to prevent timing attacks
+      const keyBuf = Buffer.from(existingKey);
+      const tokenBuf = Buffer.from(currentKey);
+      if (keyBuf.length !== tokenBuf.length || !timingSafeEqual(keyBuf, tokenBuf)) {
         return NextResponse.json(
           { error: 'Current API key required to modify' },
           { status: 401 }
