@@ -8,31 +8,19 @@ import { ToolUseBlock } from '@/components/claude/tool-use-block';
 import { RunningDots, useRandomStatusVerb } from '@/components/ui/running-dots';
 import { PendingQuestionIndicator } from '@/components/task/pending-question-indicator';
 import { AuthErrorMessage } from '@/components/auth/auth-error-message';
-import { isProviderAuthError } from '@/components/auth/agent-provider-dialog';
 import { cn } from '@/lib/utils';
-import type { ClaudeOutput, ClaudeContentBlock, AttemptFile, PendingFile } from '@/types';
+import type { ClaudeOutput, ClaudeContentBlock, PendingFile } from '@/types';
 import { useTranslations } from 'next-intl';
-
-interface ActiveQuestion {
-  attemptId: string;
-  toolUseId: string;
-  questions: Array<{
-    question: string;
-    header: string;
-    options: Array<{ label: string; description: string }>;
-    multiSelect: boolean;
-  }>;
-}
-
-interface ConversationTurn {
-  type: 'user' | 'assistant';
-  prompt?: string;
-  messages: ClaudeOutput[];
-  attemptId: string;
-  timestamp: number;
-  files?: AttemptFile[];
-  attemptStatus?: string;
-}
+import {
+  buildToolResultsMap,
+  hasVisibleContent,
+  findAuthError,
+  findLastToolUseId,
+  isToolExecuting,
+  isImageMimeType,
+  formatTimestamp,
+} from '@/components/task/conversation-view-utils';
+import type { ActiveQuestion, ConversationTurn, ToolResult } from '@/components/task/conversation-view-utils';
 
 interface ConversationViewProps {
   taskId: string;
@@ -48,126 +36,6 @@ interface ConversationViewProps {
   // Refs from parent to track fetching state across remounts
   lastFetchedTaskIdRef?: React.RefObject<string | null>;
   isFetchingRef?: React.RefObject<boolean>;
-}
-
-// Build a map of tool results from messages
-function buildToolResultsMap(messages: ClaudeOutput[]): Map<string, { result: string; isError: boolean }> {
-  const map = new Map<string, { result: string; isError: boolean }>();
-  for (const msg of messages) {
-    // Tool result messages have tool_data.tool_use_id that references the tool_use
-    if (msg.type === 'tool_result') {
-      // Try multiple paths for tool_use_id
-      const toolUseId = (msg.tool_data?.tool_use_id as string) || (msg.tool_data?.id as string);
-      if (toolUseId) {
-        // Handle result being either a string or an object like {type, text}
-        let resultStr = '';
-        if (typeof msg.result === 'string') {
-          resultStr = msg.result;
-        } else if (msg.result && typeof msg.result === 'object') {
-          const resultObj = msg.result as { type?: string; text?: string };
-          if (resultObj.text) {
-            resultStr = resultObj.text;
-          } else {
-            resultStr = JSON.stringify(msg.result);
-          }
-        }
-        map.set(toolUseId, {
-          result: resultStr,
-          isError: msg.is_error || false,
-        });
-      }
-    }
-    // Also extract tool_results from user messages (CLI outputs tool_result inside user messages)
-    if (msg.type === 'user' && msg.message?.content && Array.isArray(msg.message.content)) {
-      for (const block of msg.message.content) {
-        if (block.type === 'tool_result') {
-          const toolUseId = (block as { tool_use_id?: string }).tool_use_id;
-          if (toolUseId) {
-            const content = (block as { content?: string }).content;
-            map.set(toolUseId, {
-              result: typeof content === 'string' ? content : JSON.stringify(content || ''),
-              isError: (block as { is_error?: boolean }).is_error || false,
-            });
-          }
-        }
-      }
-    }
-  }
-  return map;
-}
-
-// Check if messages have visible content (text, thinking, or tool_use)
-// Used to keep "Thinking..." spinner until actual content appears
-function hasVisibleContent(messages: ClaudeOutput[]): boolean {
-  return messages.some(msg => {
-    // Assistant message with content blocks
-    if (msg.type === 'assistant' && msg.message?.content?.length) {
-      return msg.message.content.some(block =>
-        (block.type === 'text' && block.text) ||
-        (block.type === 'thinking' && block.thinking) ||
-        block.type === 'tool_use'
-      );
-    }
-    // Top-level tool_use message
-    if (msg.type === 'tool_use') return true;
-    return false;
-  });
-}
-
-// Check if messages contain an auth/provider error
-function findAuthError(messages: ClaudeOutput[]): string | null {
-  for (const msg of messages) {
-    // Check tool_result errors
-    if (msg.type === 'tool_result' && msg.is_error && msg.result) {
-      const result = typeof msg.result === 'string' ? msg.result : JSON.stringify(msg.result);
-      if (isProviderAuthError(result)) {
-        return result;
-      }
-    }
-    // Check assistant message text content for error messages
-    if (msg.type === 'assistant' && msg.message?.content) {
-      for (const block of msg.message.content) {
-        if (block.type === 'text' && block.text && isProviderAuthError(block.text)) {
-          return block.text;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-// Find the last tool_use ID across all messages (globally)
-function findLastToolUseId(messages: ClaudeOutput[]): string | null {
-  let lastToolUseId: string | null = null;
-  for (const msg of messages) {
-    // Check assistant message content blocks
-    if (msg.type === 'assistant' && msg.message?.content) {
-      for (const block of msg.message.content) {
-        if (block.type === 'tool_use' && block.id) {
-          lastToolUseId = block.id;
-        }
-      }
-    }
-    // Check top-level tool_use messages
-    if (msg.type === 'tool_use' && msg.id) {
-      lastToolUseId = msg.id;
-    }
-  }
-  return lastToolUseId;
-}
-
-// Check if this is the last tool_use globally (still executing)
-function isToolExecuting(
-  toolId: string,
-  lastToolUseId: string | null,
-  toolResultsMap: Map<string, { result: string; isError: boolean }>,
-  isStreaming: boolean
-): boolean {
-  if (!isStreaming) return false;
-  // If we have a result, it's not executing
-  if (toolResultsMap.has(toolId)) return false;
-  // Only the LAST tool_use globally is executing
-  return toolId === lastToolUseId;
 }
 
 export function ConversationView({
@@ -372,7 +240,7 @@ export function ConversationView({
     block: ClaudeContentBlock,
     index: number,
     lastToolUseId: string | null,
-    toolResultsMap: Map<string, { result: string; isError: boolean }>,
+    toolResultsMap: Map<string, ToolResult>,
     isStreaming: boolean,
     allBlocks?: ClaudeContentBlock[]
   ) => {
@@ -414,7 +282,7 @@ export function ConversationView({
     output: ClaudeOutput,
     index: number,
     isStreaming: boolean,
-    toolResultsMap: Map<string, { result: string; isError: boolean }>,
+    toolResultsMap: Map<string, ToolResult>,
     lastToolUseId: string | null
   ) => {
     // Handle assistant messages - render ALL content blocks in order (text, thinking, tool_use)
@@ -458,32 +326,6 @@ export function ConversationView({
     return null;
   };
 
-  // Check if file is an image
-  const isImage = (mimeType: string) => mimeType.startsWith('image/');
-
-  // Format timestamp for display
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-
-    if (isToday) {
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    }
-  };
-
   // User prompt - simple muted box with file thumbnails
   const renderUserTurn = (turn: ConversationTurn) => {
     const isCancelled = turn.attemptStatus === 'cancelled';
@@ -500,7 +342,7 @@ export function ConversationView({
         {turn.files && turn.files.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
             {turn.files.map((file) => (
-              isImage(file.mimeType) ? (
+              isImageMimeType(file.mimeType) ? (
                 <a
                   key={file.id}
                   href={`/api/uploads/${file.id}`}
@@ -625,7 +467,7 @@ export function ConversationView({
                         // since we don't revoke it until page reload
                         const imgSrc = file.previewUrl;
 
-                        return isImage(file.mimeType) ? (
+                        return isImageMimeType(file.mimeType) ? (
                           <img
                             key={file.tempId}
                             src={imgSrc}
