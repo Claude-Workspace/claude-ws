@@ -1,7 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 
 const API_ACCESS_KEY = process.env.API_ACCESS_KEY;
+
+/**
+ * Timing-safe string comparison to prevent timing attacks on API key validation.
+ * Exported for use in server.ts and other non-Next.js contexts.
+ */
+export function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+      // Compare with self to maintain constant time regardless of length mismatch
+      timingSafeEqual(bufA, bufA);
+      return false;
+    }
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Check if API authentication is enabled
@@ -21,7 +41,8 @@ export function verifyApiKey(request: NextRequest): boolean {
   }
 
   const providedKey = request.headers.get('x-api-key');
-  return providedKey === API_ACCESS_KEY;
+  if (!providedKey || !API_ACCESS_KEY) return false;
+  return safeCompare(providedKey, API_ACCESS_KEY);
 }
 
 /**

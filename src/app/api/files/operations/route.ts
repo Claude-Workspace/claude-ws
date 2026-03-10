@@ -36,7 +36,7 @@ function validatePath(targetPath: string, allowedRoot: string): string {
 function validateRootPath(rootPath: string): string {
   const resolved = path.resolve(rootPath);
   const home = os.homedir();
-  if (!resolved.startsWith(home)) {
+  if (!resolved.startsWith(home + path.sep) && resolved !== home) {
     throw new Error('Root path outside home directory');
   }
   return resolved;

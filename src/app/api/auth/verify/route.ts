@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isApiAuthEnabled, verifyApiKey } from '@/lib/api-auth';
+import { isApiAuthEnabled, safeCompare } from '@/lib/api-auth';
 
 /**
  * Verify API key endpoint
@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ valid: true, authRequired: false });
     }
 
-    // Check if provided key matches
-    const valid = apiKey === process.env.API_ACCESS_KEY;
+    // Check if provided key matches (timing-safe)
+    const valid = typeof apiKey === 'string' && typeof process.env.API_ACCESS_KEY === 'string'
+      && safeCompare(apiKey, process.env.API_ACCESS_KEY);
 
     return NextResponse.json({ valid, authRequired: true });
   } catch {

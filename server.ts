@@ -37,6 +37,7 @@ import { shellManager } from './src/lib/shell-manager';
 import { terminalManager } from './src/lib/terminal-manager';
 import { db, schema } from './src/lib/db';
 import { createLogger } from './src/lib/logger';
+import { safeCompare } from './src/lib/api-auth';
 
 const log = createLogger('Server');
 import { eq } from 'drizzle-orm';
@@ -76,7 +77,7 @@ app.prepare().then(async () => {
     if (isApiRoute && !isVerifyEndpoint && !isProxyEndpoint && !isTunnelStatusEndpoint && !isApiAccessKeyEndpoint && !isUploadsGetEndpoint && apiAccessKey && apiAccessKey.length > 0) {
       const providedKey = req.headers['x-api-key'];
 
-      if (!providedKey || providedKey !== apiAccessKey) {
+      if (!providedKey || typeof providedKey !== 'string' || !safeCompare(providedKey, apiAccessKey)) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized', message: 'Valid API key required' }));
         return;

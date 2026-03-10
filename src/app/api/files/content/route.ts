@@ -91,7 +91,8 @@ export async function GET(request: NextRequest) {
     const normalizedBase = path.resolve(basePath);
 
     // Security: validate basePath is within home directory
-    if (!normalizedBase.startsWith(os.homedir())) {
+    const home = os.homedir();
+    if (!normalizedBase.startsWith(home + path.sep) && normalizedBase !== home) {
       return NextResponse.json(
         { error: 'Access denied: base path outside home directory' },
         { status: 403 }
@@ -219,7 +220,8 @@ export async function POST(request: NextRequest) {
     const normalizedBase = path.resolve(basePath);
 
     // Security: validate basePath is within home directory
-    if (!normalizedBase.startsWith(os.homedir())) {
+    const home = os.homedir();
+    if (!normalizedBase.startsWith(home + path.sep) && normalizedBase !== home) {
       return NextResponse.json(
         { error: 'Access denied: base path outside home directory' },
         { status: 403 }

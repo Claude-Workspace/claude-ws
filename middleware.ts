@@ -3,6 +3,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { locales, defaultLocale } from './src/i18n/config';
 
+/**
+ * Edge Runtime compatible timing-safe string comparison.
+ * Cannot use Node.js crypto.timingSafeEqual here — middleware runs in Edge Runtime.
+ * Uses constant-time XOR comparison instead.
+ */
+function edgeSafeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 // Create i18n middleware
 const intlMiddleware = createMiddleware({
   locales,
@@ -54,7 +68,7 @@ export default function middleware(request: NextRequest) {
     // Check for x-api-key header
     const providedKey = request.headers.get('x-api-key');
 
-    if (!providedKey || providedKey !== apiAccessKey) {
+    if (!providedKey || !edgeSafeCompare(providedKey, apiAccessKey)) {
       return addNoCacheHeaders(NextResponse.json(
         { error: 'Unauthorized', message: 'Valid API key required' },
         { status: 401 }
