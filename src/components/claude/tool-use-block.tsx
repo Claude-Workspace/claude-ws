@@ -328,7 +328,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, input, result, is
       >
         {/* Completed indicator or expand/collapse */}
         {isCompleted && !hasOtherDetails ? (
-          <span className="text-green-600 dark:text-green-500 shrink-0 mt-1">●</span>
+          <span className="shrink-0 mt-[7px] size-2 rounded-full bg-emerald-500/90 shadow-[0_0_4px_rgba(16,185,129,0.4)]" />
         ) : hasOtherDetails ? (
           isExpanded ? (
             <ChevronDown className="size-3.5 shrink-0 mt-1" />
