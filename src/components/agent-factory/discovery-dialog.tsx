@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -10,283 +10,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Package, Search, RefreshCw, RotateCcw, ChevronDown, ChevronRight, Folder } from 'lucide-react';
+import { Package, Search, RefreshCw } from 'lucide-react';
 import { useAgentFactoryStore } from '@/stores/agent-factory-store';
-import { DiscoveredPlugin, DiscoveredFolder, DiscoveredNode, Plugin } from '@/types/agent-factory';
+import { DiscoveredPlugin, DiscoveredNode } from '@/types/agent-factory';
 import { PluginDetailDialog } from './plugin-detail-dialog';
+import { DiscoveredWithStatus, flattenTree, getAllItemsInFolder, getNodeKey } from '@/components/agent-factory/discovery-comparison-utils';
+import { TreeNode } from '@/components/agent-factory/discovery-tree-view';
 
 interface DiscoveryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-interface DiscoveredWithStatus extends DiscoveredPlugin {
-  status: 'new' | 'update' | 'current';
-  existingPlugin?: {
-    id: string;
-    sourcePath: string | null;
-    updatedAt: number;
-  };
-}
-
-interface CompareResponse {
-  plugins: DiscoveredWithStatus[];
-}
-
-// Helper to flatten tree for comparison
-function flattenTree(nodes: DiscoveredNode[]): DiscoveredPlugin[] {
-  const result: DiscoveredPlugin[] = [];
-  function traverse(nodes: DiscoveredNode[]) {
-    for (const node of nodes) {
-      if (node.type === 'folder') {
-        traverse(node.children);
-      } else {
-        result.push(node);
-      }
-    }
-  }
-  traverse(nodes);
-  return result;
-}
-
-// Get all items in a folder (recursively)
-function getAllItemsInFolder(node: DiscoveredNode): DiscoveredPlugin[] {
-  if (node.type !== 'folder') return [node];
-  const items: DiscoveredPlugin[] = [];
-  function traverse(n: DiscoveredNode) {
-    if (n.type === 'folder') {
-      for (const child of n.children) {
-        traverse(child);
-      }
-    } else {
-      items.push(n);
-    }
-  }
-  traverse(node);
-  return items;
-}
-
-// Generate unique key for a node
-function getNodeKey(node: DiscoveredNode, index: number): string {
-  if (node.type === 'folder') {
-    return `folder-${node.path}-${index}`;
-  }
-  return `${node.type}-${node.name}-${node.sourcePath}`;
-}
-
-// Memoized tree node component
-interface TreeNodeProps {
-  node: DiscoveredNode;
-  index: number;
-  level: number;
-  statusMap: Map<string, DiscoveredWithStatus>;
-  expandedFolders: Set<string>;
-  selectedIds: Set<string>;
-  processingIds: Set<string>;
-  onToggleFolder: (key: string) => void;
-  onToggleSelection: (node: DiscoveredNode, key: string) => void;
-  onImport: (plugin: DiscoveredPlugin) => void;
-  onClick: (plugin: DiscoveredPlugin, e: React.MouseEvent) => void;
-}
-
-const TreeNode = memo(function TreeNode({
-  node,
-  index,
-  level,
-  statusMap,
-  expandedFolders,
-  selectedIds,
-  processingIds,
-  onToggleFolder,
-  onToggleSelection,
-  onImport,
-  onClick
-}: TreeNodeProps) {
-  const t = useTranslations('agentFactory');
-  const key = getNodeKey(node, index);
-  const isExpanded = expandedFolders.has(key);
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'skill':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'command':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'agent':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'new':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('newStatus')}</span>;
-      case 'update':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">{t('update')}</span>;
-      case 'current':
-        return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">{t('current')}</span>;
-      default:
-        return null;
-    }
-  };
-
-  // For folders, check if all children are selected
-  let isSelected = false;
-  let isIndeterminate = false;
-  let folderStatus: 'new' | 'update' | 'current' | 'mixed' = 'mixed';
-  let hasActionableItems = false;
-
-  if (node.type === 'folder') {
-    const items = getAllItemsInFolder(node);
-    const selectedItems = items.filter(item => {
-      const itemKey = getNodeKey(item, 0);
-      return selectedIds.has(itemKey);
-    });
-    isSelected = items.length > 0 && selectedItems.length === items.length;
-    isIndeterminate = selectedItems.length > 0 && selectedItems.length < items.length;
-
-    // Determine overall folder status
-    const statuses = items.map(item => statusMap.get(`${item.type}-${item.name}`)?.status);
-    const hasNew = statuses.includes('new');
-    const hasUpdate = statuses.includes('update');
-    const hasCurrent = statuses.includes('current');
-
-    if (hasNew || hasUpdate) hasActionableItems = true;
-    if (hasNew && !hasUpdate && !hasCurrent) folderStatus = 'new';
-    else if (hasUpdate && !hasNew && !hasCurrent) folderStatus = 'update';
-    else if (hasCurrent && !hasNew && !hasUpdate) folderStatus = 'current';
-    else folderStatus = 'mixed';
-  }
-
-  if (node.type !== 'folder') {
-    const status = statusMap.get(`${node.type}-${node.name}`);
-    isSelected = selectedIds.has(key);
-    if (status?.status !== 'current') hasActionableItems = true;
-  }
-
-  const isProcessing = processingIds.has(key);
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-2 py-2 px-3 rounded-lg border transition-colors ${
-          node.type === 'folder'
-            ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/50 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800'
-            : 'cursor-pointer hover:border-primary/70 ' + (
-                statusMap.get(`${node.type}-${node.name}`)?.status === 'current'
-                  ? 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800 opacity-60'
-                  : statusMap.get(`${node.type}-${node.name}`)?.status === 'update'
-                    ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-              )
-        }`}
-        style={{ paddingLeft: `${level * 16 + 12}px` }}
-        onClick={() => {
-          if (node.type === 'folder') {
-            onToggleFolder(key);
-          } else {
-            onClick(node, { stopPropagation: () => {} } as React.MouseEvent);
-          }
-        }}
-      >
-        {node.type === 'folder' ? (
-          <>
-            <button
-              onClick={() => onToggleFolder(key)}
-              className="p-0 hover:bg-muted rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            <Folder className="w-4 h-4 text-muted-foreground" />
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => onToggleSelection(node, key)}
-              disabled={!hasActionableItems}
-            />
-            <span className="font-medium flex-1">{node.name}</span>
-            {folderStatus !== 'mixed' && folderStatus !== 'current' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                {node.children.length} items
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="w-4" />
-            <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(node.type)}`}>
-              {node.type}
-            </span>
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => onToggleSelection(node, key)}
-              disabled={statusMap.get(`${node.type}-${node.name}`)?.status === 'current' || isProcessing}
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium">{node.name}</span>
-                {getStatusBadge(statusMap.get(`${node.type}-${node.name}`)?.status || 'new')}
-              </div>
-              {node.description && (
-                <p className="text-sm text-muted-foreground line-clamp-1">
-                  {node.description}
-                </p>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onImport(node);
-              }}
-              disabled={statusMap.get(`${node.type}-${node.name}`)?.status === 'current' || isProcessing}
-            >
-              {isProcessing ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : statusMap.get(`${node.type}-${node.name}`)?.status === 'current' ? (
-                'Current'
-              ) : statusMap.get(`${node.type}-${node.name}`)?.status === 'update' ? (
-                <>
-                  <RotateCcw className="w-3 h-3 mr-1" />
-                  {t('update')}
-                </>
-              ) : (
-                t('import')
-              )}
-            </Button>
-          </>
-        )}
-      </div>
-      {node.type === 'folder' && isExpanded && (
-        <div>
-          {node.children.map((child, childIndex) => (
-            <TreeNode
-              key={getNodeKey(child, childIndex)}
-              node={child}
-              index={childIndex}
-              level={level + 1}
-              statusMap={statusMap}
-              expandedFolders={expandedFolders}
-              selectedIds={selectedIds}
-              processingIds={processingIds}
-              onToggleFolder={onToggleFolder}
-              onToggleSelection={onToggleSelection}
-              onImport={onImport}
-              onClick={onClick}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
 
 export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
   const t = useTranslations('agentFactory');
@@ -313,7 +47,6 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     }
   }, [open]);
 
-  // Memoize filter counts to prevent recalculation on every render
   const { newCount, updateCount, currentCount, needsAction } = useMemo(() => {
     let newCount = 0, updateCount = 0, currentCount = 0;
     for (const status of statusMap.values()) {
@@ -325,7 +58,32 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     return { newCount, updateCount, currentCount, needsAction };
   }, [statusMap]);
 
-  // Memoize handlers to prevent recreation on every render
+  const checkPluginStatus = async (discoveredPlugins: DiscoveredPlugin[]): Promise<DiscoveredWithStatus[]> => {
+    try {
+      const res = await fetch('/api/agent-factory/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discovered: discoveredPlugins }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to compare plugins');
+      }
+      const data: { plugins: DiscoveredWithStatus[] } = await res.json();
+      return data.plugins;
+    } catch (error) {
+      console.error('Failed to compare plugins:', error);
+      return discoveredPlugins.map((p) => ({ ...p, status: 'new' as const }));
+    }
+  };
+
+  const buildStatusMap = (items: DiscoveredWithStatus[]): Map<string, DiscoveredWithStatus> => {
+    const map = new Map<string, DiscoveredWithStatus>();
+    for (const item of items) {
+      map.set(`${item.type}-${item.name}`, item);
+    }
+    return map;
+  };
+
   const handleScan = useCallback(async () => {
     setScanning(true);
     setDiscovered([]);
@@ -335,14 +93,9 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
       const results = await discoverPlugins();
       setDiscovered(results);
 
-      // Build status map by flattening the tree
       const flatItems = flattenTree(results);
       const withStatus = await checkPluginStatus(flatItems);
-      const newStatusMap = new Map<string, DiscoveredWithStatus>();
-      for (const item of withStatus) {
-        newStatusMap.set(`${item.type}-${item.name}`, item);
-      }
-      setStatusMap(newStatusMap);
+      setStatusMap(buildStatusMap(withStatus));
 
       // Auto-expand top level folders
       const newExpanded = new Set<string>();
@@ -361,25 +114,6 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     }
   }, [discoverPlugins]);
 
-  const checkPluginStatus = async (discoveredPlugins: DiscoveredPlugin[]): Promise<DiscoveredWithStatus[]> => {
-    try {
-      const res = await fetch('/api/agent-factory/compare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ discovered: discoveredPlugins }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to compare plugins');
-      }
-      const data: CompareResponse = await res.json();
-      return data.plugins;
-    } catch (error) {
-      console.error('Failed to compare plugins:', error);
-      // Fallback: mark all as new
-      return discoveredPlugins.map((p) => ({ ...p, status: 'new' as const }));
-    }
-  };
-
   const toggleFolder = useCallback((key: string) => {
     setExpandedFolders((prev) => {
       const newSet = new Set(prev);
@@ -396,26 +130,19 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
     setSelectedIds((prev) => {
       const newSelected = new Set(prev);
       if (node.type === 'folder') {
-        // For folders, select/deselect all descendants
         const items = getAllItemsInFolder(node);
-        const isCurrentlySelected = items.every(item => {
-          const itemKey = getNodeKey(item, 0);
-          return newSelected.has(itemKey);
-        });
+        const isCurrentlySelected = items.every(item => newSelected.has(getNodeKey(item, 0)));
 
         if (isCurrentlySelected) {
-          // Deselect all
           for (const item of items) {
             newSelected.delete(getNodeKey(item, 0));
           }
         } else {
-          // Select all
           for (const item of items) {
             newSelected.add(getNodeKey(item, 0));
           }
         }
       } else {
-        // For individual items, just toggle
         if (newSelected.has(key)) {
           newSelected.delete(key);
         } else {
@@ -425,14 +152,6 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
       return newSelected;
     });
   }, []);
-
-  const isSelected = useCallback((node: DiscoveredNode, key: string) => {
-    return selectedIds.has(key);
-  }, [selectedIds]);
-
-  const isProcessing = useCallback((key: string) => {
-    return processingIds.has(key);
-  }, [processingIds]);
 
   const handleDetailClick = useCallback((plugin: DiscoveredPlugin, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -446,7 +165,6 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
   const handleImportSelected = useCallback(async () => {
     setImporting(true);
     try {
-      // Get all selected items by key
       const itemsToImport: DiscoveredWithStatus[] = [];
       for (const [key, itemWithStatus] of statusMap) {
         if (selectedIds.has(key) && itemWithStatus.status !== 'current') {
@@ -477,11 +195,7 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
       // Refresh status after import
       const flatItems = flattenTree(discovered);
       const withStatus = await checkPluginStatus(flatItems);
-      const newStatusMap = new Map<string, DiscoveredWithStatus>();
-      for (const item of withStatus) {
-        newStatusMap.set(`${item.type}-${item.name}`, item);
-      }
-      setStatusMap(newStatusMap);
+      setStatusMap(buildStatusMap(withStatus));
       setSelectedIds(new Set());
     } catch (error) {
       console.error('Failed to import plugins:', error);
@@ -491,7 +205,6 @@ export function DiscoveryDialog({ open, onOpenChange }: DiscoveryDialogProps) {
   }, [discovered, selectedIds, statusMap, importPlugin, fetchPlugins]);
 
   const handleImportAll = useCallback(async () => {
-    // Select all plugins that need action (new or update)
     const allToImport = new Set<string>();
     for (const [key, item] of statusMap) {
       if (item.status !== 'current') {
