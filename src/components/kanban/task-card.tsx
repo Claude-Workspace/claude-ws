@@ -7,6 +7,7 @@ import { Task } from '@/types';
 import { cn, getProjectColor } from '@/lib/utils';
 import { GripVertical, MessageSquare, Trash2, Search, Network } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { TaskCardContextMenu } from './task-card-context-menu';
 import { useTaskStore } from '@/stores/task-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useQuestionsStore } from '@/stores/questions-store';
@@ -115,6 +116,7 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
   };
 
   return (
+    <TaskCardContextMenu task={task}>
     <div
       ref={setNodeRef}
       style={style}
@@ -255,5 +257,6 @@ export function TaskCard({ task, attemptCount = 0, searchQuery = '', isMobile = 
         </div>
       </div>
     </div>
+    </TaskCardContextMenu>
   );
 }

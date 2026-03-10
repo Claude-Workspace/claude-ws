@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RotateCcw, Clock, MessageSquare, Loader2, FileCheck } from 'lucide-react';
+import { RotateCcw, Clock, MessageSquare, Loader2, FileCheck, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInteractiveCommandStore } from '@/stores/interactive-command-store';
+import { useTaskStore } from '@/stores/task-store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -33,12 +34,14 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rewinding, setRewinding] = useState(false);
+  const [forking, setForking] = useState(false);
   const { closeCommand, setError } = useInteractiveCommandStore();
 
   // Reset state when taskId changes
   useEffect(() => {
     setSelectedId(null);
     setRewinding(false);
+    setForking(false);
     setError(null);
   }, [taskId, setError]);
 
@@ -114,6 +117,57 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
       setError(err instanceof Error ? err.message : 'Failed to rewind');
     } finally {
       setRewinding(false);
+    }
+  };
+
+  // Handle fork — creates a new task from the selected checkpoint
+  const handleFork = async () => {
+    if (!selectedId) return;
+    const selectedCheckpoint = checkpoints.find((c) => c.id === selectedId);
+    setForking(true);
+    try {
+      const res = await fetch('/api/checkpoints/fork', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkpointId: selectedId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to fork');
+      }
+      const data = await res.json();
+
+      const hasFileRewind = data.sdkRewind?.success;
+      const fileRewindError = data.sdkRewind?.error;
+
+      if (hasFileRewind) {
+        toast.success(t('forkedToCheckpoint'));
+      } else if (selectedCheckpoint?.gitCommitHash && fileRewindError) {
+        toast.warning(t('forkedConversationOnly'), {
+          description: fileRewindError,
+          duration: 6000,
+        });
+      } else {
+        toast.success(t('forkedConversation'));
+      }
+
+      // Pre-fill prompt on the new task
+      if (data.attemptPrompt && data.taskId) {
+        localStorage.setItem(`rewind-prompt-${data.taskId}`, data.attemptPrompt);
+      }
+
+      // Add the new task to store and navigate to it
+      if (data.task) {
+        const taskStore = useTaskStore.getState();
+        taskStore.addTask(data.task);
+        taskStore.setSelectedTask(data.task);
+      }
+
+      closeCommand();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fork');
+    } finally {
+      setForking(false);
     }
   };
 
@@ -252,18 +306,33 @@ export function CheckpointList({ taskId }: CheckpointListProps) {
           <span className="mx-2">·</span>
           <kbd className="px-1 bg-muted rounded">Enter</kbd> rewind
         </p>
-        <Button
-          size="sm"
-          disabled={!selectedId || rewinding}
-          onClick={handleRewind}
-        >
-          {rewinding ? (
-            <Loader2 className="size-4 animate-spin mr-1" />
-          ) : (
-            <RotateCcw className="size-4 mr-1" />
-          )}
-          Rewind
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!selectedId || forking || rewinding}
+            onClick={handleFork}
+          >
+            {forking ? (
+              <Loader2 className="size-4 animate-spin mr-1" />
+            ) : (
+              <GitBranch className="size-4 mr-1" />
+            )}
+            Fork
+          </Button>
+          <Button
+            size="sm"
+            disabled={!selectedId || rewinding || forking}
+            onClick={handleRewind}
+          >
+            {rewinding ? (
+              <Loader2 className="size-4 animate-spin mr-1" />
+            ) : (
+              <RotateCcw className="size-4 mr-1" />
+            )}
+            Rewind
+          </Button>
+        </div>
       </div>
     </div>
   );

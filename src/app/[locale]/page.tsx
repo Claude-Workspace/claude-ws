@@ -33,13 +33,14 @@ function KanbanApp() {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [taskDeepLinkProcessed, setTaskDeepLinkProcessed] = useState(false);
 
   const { open: agentFactoryOpen, setOpen: setAgentFactoryOpen } = useAgentFactoryUIStore();
   const { open: settingsOpen, setOpen: setSettingsOpen } = useSettingsUIStore();
   const isMobile = useIsMobileViewport();
 
   const { projects, selectedProjectIds, fetchProjects, loading: projectLoading, error: projectError } = useProjectStore();
-  const { selectedTask, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
+  const { selectedTask, selectedTaskId, fetchTasks, setSelectedTask, setSelectedTaskId, setPendingAutoStartTask } = useTaskStore();
   const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
   const isOpen = useSidebarStore((s) => s.isOpen);
   const setIsOpen = useSidebarStore((s) => s.setIsOpen);
@@ -70,6 +71,11 @@ function KanbanApp() {
     if (typeof window === 'undefined') return;
 
     const urlParams = new URLSearchParams(window.location.search);
+
+    // If ?task= is present, let the task deep link handler manage project selection
+    const taskId = urlParams.get('task');
+    if (taskId) return;
+
     const projectId = urlParams.get('project');
 
     if (projectId && projects.length > 0) {
@@ -84,6 +90,75 @@ function KanbanApp() {
       }
     }
   }, [projects]);
+
+  // Read task from URL deep link and open it
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (taskDeepLinkProcessed) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('task');
+    if (!taskId) return;
+
+    // Wait for projects to load
+    if (projects.length === 0 || projectLoading) return;
+
+    setTaskDeepLinkProcessed(true);
+
+    const processTaskDeepLink = async () => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}`);
+        if (!response.ok) {
+          console.warn(`Task deep link: task ${taskId} not found (${response.status})`);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('task');
+          window.history.replaceState({}, '', url.toString());
+          return;
+        }
+
+        const task: Task = await response.json();
+
+        // Verify the task's project exists
+        const projectExists = projects.some(p => p.id === task.projectId);
+        if (!projectExists) {
+          console.warn(`Task deep link: project ${task.projectId} not found`);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('task');
+          window.history.replaceState({}, '', url.toString());
+          return;
+        }
+
+        // Select the task's project, then wait for tasks to load via store subscription
+        useProjectStore.getState().setSelectedProjectIds([task.projectId]);
+
+        // Subscribe to task store — select the task once fetchTasks completes
+        const unsubscribe = useTaskStore.subscribe((state) => {
+          const found = state.tasks.find(t => t.id === task.id);
+          if (found) {
+            unsubscribe();
+            // On mobile, open as floating window (full-screen mobile view)
+            if (window.innerWidth < 768) {
+              const { openWindow } = useFloatingWindowsStore.getState();
+              openWindow(task.id, 'chat', task.projectId);
+              useTaskStore.getState().setSelectedTaskId(task.id);
+            } else {
+              useTaskStore.getState().setSelectedTask(found);
+            }
+          }
+        });
+
+        // Safety timeout: unsubscribe after 10s to prevent memory leak
+        setTimeout(() => unsubscribe(), 10000);
+      } catch (error) {
+        console.warn('Task deep link: failed to fetch task', error);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('task');
+        window.history.replaceState({}, '', url.toString());
+      }
+    };
+
+    processTaskDeepLink();
+  }, [projects, projectLoading, taskDeepLinkProcessed]);
 
   // Update URL when project selection changes
   useEffect(() => {
@@ -100,6 +175,27 @@ function KanbanApp() {
     // Update URL without triggering a navigation
     window.history.replaceState({}, '', url.toString());
   }, [selectedProjectIds]);
+
+  // Update URL when selected task changes (panel or floating window)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const currentTaskParam = url.searchParams.get('task');
+    const activeId = selectedTask?.id || selectedTaskId;
+
+    if (activeId) {
+      if (currentTaskParam !== activeId) {
+        url.searchParams.set('task', activeId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } else {
+      if (currentTaskParam) {
+        url.searchParams.delete('task');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [selectedTask, selectedTaskId]);
 
   // Fetch tasks when selectedProjectIds changes
   useEffect(() => {

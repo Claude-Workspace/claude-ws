@@ -111,7 +111,10 @@
     "waitFileUpload": "Please wait for files to finish uploading",
     "failedToCreate": "Failed to create task",
     "dragToReorder": "Drag to reorder",
-    "deleteTask": "Delete task"
+    "deleteTask": "Delete task",
+    "moveTo": "Move to",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
   },
   "task": {
     "title": "Title",
@@ -595,6 +598,9 @@
     "rewoundToCheckpoint": "Rewound conversation & files to checkpoint",
     "rewoundConversationOnly": "Rewound conversation only",
     "rewoundConversation": "Rewound conversation to checkpoint",
+    "forkedToCheckpoint": "Forked conversation & files from checkpoint",
+    "forkedConversationOnly": "Forked conversation only",
+    "forkedConversation": "Forked conversation from checkpoint",
     "waitForUpload": "Please wait for files to finish uploading"
   },
   "agentProvider": {

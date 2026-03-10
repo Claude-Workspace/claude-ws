@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(new Uint8Array(zipBuffer), {
         headers: {
           'Content-Type': 'application/zip',
-          'Content-Disposition': \`attachment; filename="${filename}.zip"\`,
+          'Content-Disposition': `attachment; filename="${filename}.zip"`,
           'Content-Length': zipBuffer.length.toString(),
         },
       });
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(new Uint8Array(fileBuffer), {
         headers: {
           'Content-Type': contentType,
-          'Content-Disposition': \`attachment; filename="${filename}"\`,
+          'Content-Disposition': `attachment; filename="${filename}"`,
           'Content-Length': fileBuffer.length.toString(),
         },
       });

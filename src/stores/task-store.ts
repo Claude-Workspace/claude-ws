@@ -32,6 +32,7 @@ interface TaskStore {
   // API calls
   fetchTasks: (projectIds: string[]) => Promise<void>;
   createTask: (projectId: string, title: string, description: string | null) => Promise<Task>;
+  duplicateTask: (task: Task) => Promise<Task>;
   reorderTasks: (taskId: string, newStatus: TaskStatus, newPosition: number) => Promise<void>;
   updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
   renameTask: (taskId: string, title: string) => Promise<void>;
@@ -205,6 +206,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       log.error({ error }, 'Error creating task');
       throw error;
     }
+  },
+
+  duplicateTask: async (task: Task) => {
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: task.projectId,
+        title: task.title,
+        description: task.description,
+        status: 'todo',
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to duplicate task');
+    const newTask = await res.json();
+    get().addTask(newTask);
+    return newTask;
   },
 
   reorderTasks: async (taskId: string, newStatus: TaskStatus, newPosition: number) => {

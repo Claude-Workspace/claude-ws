@@ -333,6 +333,16 @@ export class ClaudeSDKProvider extends EventEmitter implements Provider {
         },
       };
 
+      // Build a clean env for the subprocess:
+      // - Remove proxy ANTHROPIC_BASE_URL (subprocess uses OAuth directly)
+      // - Remove CLAUDECODE to prevent nested session detection
+      // - Remove CLAUDE_CODE_ENTRYPOINT so SDK sets it to 'sdk-ts'
+      const subprocessEnv = { ...process.env };
+      delete subprocessEnv.ANTHROPIC_BASE_URL;
+      delete subprocessEnv.ANTHROPIC_PROXIED_BASE_URL;
+      delete subprocessEnv.CLAUDECODE;
+      delete subprocessEnv.CLAUDE_CODE_ENTRYPOINT;
+
       log.info({
         endpoint: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
         prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
@@ -345,12 +355,15 @@ export class ClaudeSDKProvider extends EventEmitter implements Provider {
         prompt,
         options: {
           ...queryOptions,
+          env: subprocessEnv,
           ...(resolvedClaudePath ? { pathToClaudeCodeExecutable: resolvedClaudePath } : {}),
           systemPrompt: {
             type: 'preset' as const,
             preset: 'claude_code' as const,
             append: systemPromptAppend || '',
           },
+          // Capture stderr from the spawned Claude process for debugging
+          stderr: (data: string) => { log.error({ stderr: data.slice(0, 500), attemptId }, 'Claude process stderr'); },
         },
       });
 
