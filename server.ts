@@ -37,7 +37,7 @@ import { shellManager } from './src/lib/shell-manager';
 import { terminalManager } from './src/lib/terminal-manager';
 import { db, schema } from './src/lib/db';
 import { createLogger } from './src/lib/logger';
-import { safeCompare } from './src/lib/api-auth';
+import { safeCompare } from './src/lib/timing-safe-compare';
 
 const log = createLogger('Server');
 import { eq } from 'drizzle-orm';
