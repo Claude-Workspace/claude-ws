@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Trash, Download, Copy, Loader2, FileText, FilePlus, FolderPlus, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Copy, Loader2, FileText, FilePlus, FolderPlus, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   ContextMenu,
@@ -10,42 +10,22 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { useSidebarStore } from '@/stores/sidebar-store';
 import { FileUploadDialog } from './file-upload-dialog';
+import { DeleteDialog, CreateDialog } from './file-tree-context-menu-dialogs';
 import type { FileEntry } from '@/types';
 
 interface FileTreeContextMenuProps {
-  /** File or folder entry to show context menu for */
   entry: FileEntry;
-  /** Root path of the project (for path validation) */
   rootPath: string;
-  /** Callback when file is deleted successfully */
   onDelete?: () => void;
-  /** Callback to trigger inline rename */
   onRename?: () => void;
-  /** Callback when file/folder is created successfully */
   onRefresh?: () => void;
-  /** Child element that triggers the context menu */
   children: React.ReactNode;
 }
 
-interface FileTreeContextMenuContentProps {
+export interface FileTreeContextMenuContentProps {
   entry: FileEntry;
   rootPath: string;
   onDelete?: () => void;
@@ -55,80 +35,20 @@ interface FileTreeContextMenuContentProps {
 }
 
 export function FileTreeContextMenuContent({
-  entry,
-  rootPath,
-  onDelete,
-  onRename,
-  onRefresh,
-  itemType = 'context',
+  entry, rootPath, onDelete, onRename, onRefresh, itemType = 'context',
 }: FileTreeContextMenuContentProps) {
   const t = useTranslations('sidebar');
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
-  const [createName, setCreateName] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const openTab = useSidebarStore((state) => state.openTab);
-  const closeTabByFilePath = useSidebarStore((state) => state.closeTabByFilePath);
 
   const fullPath = `${rootPath}/${entry.path}`;
   const isDirectory = entry.type === 'directory';
-
-  // Select the appropriate item component based on type
   const MenuItem = itemType === 'context' ? ContextMenuItem : DropdownMenuItem;
   const MenuSeparator = itemType === 'context' ? ContextMenuSeparator : DropdownMenuSeparator;
 
-  // Focus input when dialog opens
-  useEffect(() => {
-    if (createDialogOpen && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [createDialogOpen]);
-
-  /**
-   * Handle file/folder deletion with confirmation
-   */
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const res = await fetch('/api/files/operations', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: fullPath, rootPath }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Delete failed');
-      }
-
-      // Close tab if file is open in editor
-      if (entry.type === 'file') {
-        closeTabByFilePath(fullPath);
-      }
-
-      toast.success(
-    entry.type === 'directory' ? t('folderDeleted') : t('fileDeleted')
-      );
-      setDeleteDialog(false);
-      onDelete?.();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('deleteFailed'));
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  /**
-   * Handle file/folder download
-   * - Files: download directly without ZIP
-   * - Folders: download as ZIP archive
-   */
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -137,270 +57,76 @@ export function FileTreeContextMenuContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: fullPath, rootPath }),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Download failed');
-      }
-
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Download failed'); }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       try {
         const a = document.createElement('a');
         a.href = url;
-        // Use .zip extension for folders, original filename for files
-        a.download = entry.type === 'directory'
-          ? `${entry.name}.zip`
-          : entry.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-
+        a.download = entry.type === 'directory' ? `${entry.name}.zip` : entry.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } finally { URL.revokeObjectURL(url); }
       toast.success(t('downloadStarted'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('deleteFailed'));
-    } finally {
-      setIsDownloading(false);
-    }
+    } finally { setIsDownloading(false); }
   };
 
-  /**
-   * Copy absolute file path to clipboard
-   */
   const handleCopyPath = async () => {
-    try {
-      await navigator.clipboard.writeText(fullPath);
-      toast.success(t('pathCopied'));
-    } catch {
-      toast.error(t('failedToCopyPath'));
-    }
-  };
-
-  /**
-   * Open create dialog for file or folder
-   */
-  const openCreateDialog = (type: 'file' | 'folder') => {
-    setCreateType(type);
-    setCreateName('');
-    setCreateDialogOpen(true);
-  };
-
-  /**
-   * Handle create file/folder submission
-   */
-  const handleCreate = async () => {
-    const trimmedName = createName.trim();
-    if (!trimmedName) {
-      toast.error(t('nameCannotBeEmpty'));
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      const res = await fetch('/api/files/operations', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parentPath: fullPath,
-          rootPath,
-          name: trimmedName,
-          type: createType,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Create failed');
-      }
-
-      const data = await res.json();
-
-      toast.success(
-        `${createType === 'folder' ? 'Folder' : 'File'} created`
-      );
-
-      setCreateDialogOpen(false);
-
-      // Refresh file tree
-      onRefresh?.();
-
-      // If created a file, open it in editor
-      if (createType === 'file' && data.path) {
-        openTab(data.path);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Create failed');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleCreateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !isCreating) {
-      e.preventDefault();
-      handleCreate();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setCreateDialogOpen(false);
-    }
+    try { await navigator.clipboard.writeText(fullPath); toast.success(t('pathCopied')); }
+    catch { toast.error(t('failedToCopyPath')); }
   };
 
   return (
     <>
-      {/* Show create options only for directories */}
       {isDirectory && (
         <>
-          <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('file'); }}>
-            <FilePlus className="mr-2 size-4" />
-            {t('newFile')}
+          <MenuItem onClick={(e) => { e.preventDefault(); setCreateType('file'); setCreateDialogOpen(true); }}>
+            <FilePlus className="mr-2 size-4" />{t('newFile')}
           </MenuItem>
-          <MenuItem onClick={(e) => { e.preventDefault(); openCreateDialog('folder'); }}>
-            <FolderPlus className="mr-2 size-4" />
-            {t('newFolder')}
+          <MenuItem onClick={(e) => { e.preventDefault(); setCreateType('folder'); setCreateDialogOpen(true); }}>
+            <FolderPlus className="mr-2 size-4" />{t('newFolder')}
           </MenuItem>
           <MenuItem onClick={(e) => { e.preventDefault(); setUploadDialogOpen(true); }}>
-            <Upload className="mr-2 size-4" />
-            {t('uploadFiles')}
+            <Upload className="mr-2 size-4" />{t('uploadFiles')}
           </MenuItem>
           <MenuSeparator />
         </>
       )}
-
       <MenuItem onClick={handleDownload} disabled={isDownloading}>
-        {isDownloading ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
-        ) : (
-          <Download className="mr-2 size-4" />
-        )}
+        {isDownloading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Download className="mr-2 size-4" />}
         {t('download')}
         {isDownloading && <span className="ml-auto text-xs text-muted-foreground">Preparing...</span>}
       </MenuItem>
-      <MenuItem onClick={handleCopyPath}>
-        <Copy className="mr-2 size-4" />
-        {t('copyPath')}
-      </MenuItem>
-      <MenuItem onClick={onRename}>
-        <FileText className="mr-2 size-4" />
-        {t('rename')}
-      </MenuItem>
-      <MenuItem
-        onClick={(e) => {
-          e.preventDefault();
-          setDeleteDialog(true);
-        }}
-        className="text-destructive focus:text-destructive"
-      >
-        <Trash className="mr-2 size-4" />
+      <MenuItem onClick={handleCopyPath}><Copy className="mr-2 size-4" />{t('copyPath')}</MenuItem>
+      <MenuItem onClick={onRename}><FileText className="mr-2 size-4" />{t('rename')}</MenuItem>
+      <MenuItem onClick={(e) => { e.preventDefault(); setDeleteDialog(true); }} className="text-destructive focus:text-destructive">
         {t('delete')}
       </MenuItem>
 
-      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t('delete')} {entry.type === 'directory' ? t('newFolder').toLowerCase() : t('newFile').toLowerCase().replace('new ', '')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('deleteConfirm', { name: entry.name })}
-              {entry.type === 'directory' && ' and all its contents'}? This
-              action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : t('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t('create')} {createType === 'folder' ? t('newFolder') : t('newFile')}
-            </DialogTitle>
-            <DialogDescription>
-              {createType === 'file'
-                ? t('createFile', { name: createName || '...', location: entry.name })
-                : t('createFolder', { name: createName || '...', location: entry.name })
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="create-name">Name</Label>
-              <Input
-                id="create-name"
-                ref={inputRef}
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                onKeyDown={handleCreateKeyDown}
-                placeholder={createType === 'folder' ? 'folder-name' : 'file-name.ts'}
-                disabled={isCreating}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateDialogOpen(false)}
-              disabled={isCreating}
-            >
-              {t('cancel')}
-            </Button>
-            <Button onClick={handleCreate} disabled={isCreating}>
-              {isCreating ? 'Creating...' : t('create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Upload Dialog - only for directories */}
+      <DeleteDialog open={deleteDialog} onOpenChange={setDeleteDialog}
+        entry={entry} fullPath={fullPath} rootPath={rootPath} onDelete={onDelete} />
+      <CreateDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}
+        createType={createType} entry={entry} fullPath={fullPath} rootPath={rootPath} onRefresh={onRefresh} />
       {isDirectory && (
-        <FileUploadDialog
-          open={uploadDialogOpen}
-          onOpenChange={setUploadDialogOpen}
-          targetPath={fullPath}
-          rootPath={rootPath}
-          targetName={entry.name}
-          onUploadSuccess={onRefresh}
-        />
+        <FileUploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}
+          targetPath={fullPath} rootPath={rootPath} targetName={entry.name} onUploadSuccess={onRefresh} />
       )}
     </>
   );
 }
 
-export function FileTreeContextMenu({
-  entry,
-  rootPath,
-  onDelete,
-  onRename,
-  onRefresh,
-  children,
-}: FileTreeContextMenuProps) {
+/**
+ * FileTreeContextMenu - Right-click context menu wrapper for file/folder tree items.
+ * Menu content (actions + dialogs) lives in FileTreeContextMenuContent.
+ */
+export function FileTreeContextMenu({ entry, rootPath, onDelete, onRename, onRefresh, children }: FileTreeContextMenuProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
-        <FileTreeContextMenuContent
-          entry={entry}
-          rootPath={rootPath}
-          onDelete={onDelete}
-          onRename={onRename}
-          onRefresh={onRefresh}
-          itemType="context"
-        />
+        <FileTreeContextMenuContent entry={entry} rootPath={rootPath}
+          onDelete={onDelete} onRename={onRename} onRefresh={onRefresh} itemType="context" />
       </ContextMenuContent>
     </ContextMenu>
   );

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, FilePlus, FolderPlus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileTreeItem } from './file-tree-item';
 import { UnifiedSearch, SearchResultsView, type SearchResults } from './unified-search';
@@ -27,8 +26,7 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
-  const isComponentMountedRef = useRef(true);
-  const fetchedKeyRef = useRef<string | null>(null);
+  const isComponentMountedRef = useRef(true); const fetchedKeyRef = useRef<string | null>(null);
 
   // Fetch file tree
   useEffect(() => {
@@ -87,31 +85,17 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
 
   const handleFileClick = useCallback(
     (path: string, lineNumber?: number, column?: number, matchLength?: number) => {
-      // DEBUG: Log file click
       console.log('[FileTree] handleFileClick called', { path, lineNumber, column, matchLength });
-
-      // Immediate selection update (synchronous, high priority)
       setSelectedFile(path);
-
-      // Open tab immediately (synchronous for instant feedback)
       openTab(path);
-
-      // Set editor position immediately if provided
-      if (lineNumber !== undefined) {
-        setEditorPosition({ lineNumber, column, matchLength });
-      } else {
-        setEditorPosition(null);
-      }
-
-      // Call external callback
+      if (lineNumber !== undefined) setEditorPosition({ lineNumber, column, matchLength });
+      else setEditorPosition(null);
       onFileSelect?.(path, lineNumber, column, matchLength);
     },
     [onFileSelect]
   );
 
-  const handleSearchChange = useCallback((results: SearchResults | null) => {
-    setSearchResults(results);
-  }, []);
+  const handleSearchChange = useCallback((results: SearchResults | null) => { setSearchResults(results); }, []);
 
   // Get root directory entry for creating files/folders at project root
   const rootEntry: FileEntry = {
@@ -146,7 +130,6 @@ export function FileTree({ onFileSelect }: FileTreeProps) {
         </div>
       );
     });
-
     // Add create buttons at the end of root level items
     if (level === 0) {
       return (
