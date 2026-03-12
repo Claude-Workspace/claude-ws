@@ -4,6 +4,11 @@ import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
+import {
+  runAttemptsMigrations,
+  runTasksMigrations,
+  runCheckpointsMigrations,
+} from './db-migration-alter-table-helpers';
 
 // Load .env from user's CWD (not packageRoot) for direct script usage
 const userCwd = process.env.CLAUDE_WS_USER_CWD || process.cwd();
@@ -39,6 +44,7 @@ export const db = drizzle(sqlite, { schema });
 
 // Initialize database tables
 export function initDb() {
+  // Create core tables
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -131,88 +137,10 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_shells_project ON shells(project_id, status);
   `);
 
-  // Migration: Add session_id column if it doesn't exist (for existing databases)
-  try {
-    sqlite.exec(`ALTER TABLE attempts ADD COLUMN session_id TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add display_prompt column for showing original user input
-  try {
-    sqlite.exec(`ALTER TABLE attempts ADD COLUMN display_prompt TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add chat_init column to tasks for tracking if chat has been initialized
-  try {
-    sqlite.exec(`ALTER TABLE tasks ADD COLUMN chat_init INTEGER NOT NULL DEFAULT 0`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add git_commit_hash column to checkpoints for file rewind
-  try {
-    sqlite.exec(`ALTER TABLE checkpoints ADD COLUMN git_commit_hash TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add rewind columns to tasks for conversation context rewind
-  try {
-    sqlite.exec(`ALTER TABLE tasks ADD COLUMN rewind_session_id TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-  try {
-    sqlite.exec(`ALTER TABLE tasks ADD COLUMN rewind_message_uuid TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add last_model column to tasks for per-task model selection
-  try {
-    sqlite.exec(`ALTER TABLE tasks ADD COLUMN last_model TEXT`);
-  } catch {
-    // Column already exists, ignore error
-  }
-
-  // Migration: Add usage tracking columns to attempts
-  const usageColumns = [
-    { name: 'total_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'input_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'output_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'cache_creation_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'cache_read_tokens', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'total_cost_usd', type: "TEXT NOT NULL DEFAULT '0'" },
-    { name: 'num_turns', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'duration_ms', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'context_used', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'context_limit', type: 'INTEGER NOT NULL DEFAULT 200000' },
-    { name: 'context_percentage', type: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'baseline_context', type: 'INTEGER NOT NULL DEFAULT 0' },
-  ];
-  for (const col of usageColumns) {
-    try {
-      sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
-    } catch {
-      // Column already exists, ignore error
-    }
-  }
-
-  // Migration: Add output_format and output_schema columns for custom output formatting
-  const outputFormatColumns = [
-    { name: 'output_format', type: 'TEXT' },
-    { name: 'output_schema', type: 'TEXT' },
-  ];
-  for (const col of outputFormatColumns) {
-    try {
-      sqlite.exec(`ALTER TABLE attempts ADD COLUMN ${col.name} ${col.type}`);
-    } catch {
-      // Column already exists, ignore error
-    }
-  }
+  // Run ALTER TABLE migrations for existing databases
+  runAttemptsMigrations(sqlite);
+  runTasksMigrations(sqlite);
+  runCheckpointsMigrations(sqlite);
 
   // Agent Factory tables
   sqlite.exec(`

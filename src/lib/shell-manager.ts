@@ -10,7 +10,6 @@
 
 import { EventEmitter } from 'events';
 import { spawn, type ChildProcess } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { createLogBuffer, type LogBuffer, type LogEntry } from './circular-buffer';
 import { createLogger } from './logger';
@@ -24,6 +23,11 @@ import {
   removeShell,
   cleanupAllShells,
 } from './shell-cleanup-and-stop';
+import {
+  setupProcessHandlers,
+  toShellInfo,
+  readShellLogs,
+} from './shell-instance-output-helpers';
 
 const log = createLogger('ShellManager');
 
@@ -121,42 +125,11 @@ class ShellManager extends EventEmitter {
     };
 
     this.shells.set(shellId, instance);
-    this.setupProcessHandlers(child, instance);
+    setupProcessHandlers(child, instance, this);
     this.emit('started', { shellId, projectId, pid: child.pid, command });
 
     log.debug({ shellId, pid: child.pid }, 'Shell started');
     return shellId;
-  }
-
-  /** Attach stdout/stderr/exit/error handlers to a spawned child process */
-  private setupProcessHandlers(child: ChildProcess, instance: ShellInstance): void {
-    const { shellId, projectId } = instance;
-
-    child.stdout?.on('data', (data: Buffer) => {
-      const content = data.toString();
-      instance.logBuffer.push({ type: 'stdout', content, timestamp: Date.now() });
-      this.emit('output', { shellId, projectId, type: 'stdout', content });
-    });
-
-    child.stderr?.on('data', (data: Buffer) => {
-      const content = data.toString();
-      instance.logBuffer.push({ type: 'stderr', content, timestamp: Date.now() });
-      this.emit('output', { shellId, projectId, type: 'stderr', content });
-    });
-
-    child.on('exit', (code, signal) => {
-      log.debug({ shellId, code, signal }, 'Shell exited');
-      instance.exitCode = code;
-      instance.exitSignal = signal;
-      this.emit('exit', { shellId, projectId, code, signal });
-    });
-
-    child.on('error', (error) => {
-      log.error({ shellId, err: error }, 'Shell error');
-      const content = `Process error: ${error.message}`;
-      instance.logBuffer.push({ type: 'stderr', content, timestamp: Date.now() });
-      this.emit('output', { shellId, projectId, type: 'stderr', content });
-    });
   }
 
   /** Stop a running shell process */
@@ -178,47 +151,19 @@ class ShellManager extends EventEmitter {
   getShellInfo(shellId: string): ShellInfo | undefined {
     const shell = this.shells.get(shellId);
     if (!shell) return undefined;
-    return this.toShellInfo(shell);
+    return toShellInfo(shell);
   }
 
   /** Get all shell infos for a project */
   getShellInfosByProject(projectId: string): ShellInfo[] {
-    return this.getShellsByProject(projectId).map(s => this.toShellInfo(s));
-  }
-
-  private toShellInfo(s: ShellInstance): ShellInfo {
-    return {
-      shellId: s.shellId,
-      projectId: s.projectId,
-      attemptId: s.attemptId,
-      command: s.command,
-      pid: s.pid,
-      startedAt: s.startedAt,
-      isRunning: s.exitCode === null,
-      exitCode: s.exitCode,
-    };
+    return this.getShellsByProject(projectId).map(s => toShellInfo(s));
   }
 
   /** Get recent logs from a shell (reads from log file for external processes) */
   getRecentLogs(shellId: string, lines: number = 100): LogEntry[] {
     const shell = this.shells.get(shellId);
     if (!shell) return [];
-
-    if (shell.logFile && existsSync(shell.logFile)) {
-      try {
-        const content = readFileSync(shell.logFile, 'utf-8');
-        const logLines = content.split('\n').slice(-lines);
-        return logLines.map(line => ({
-          type: 'stdout' as const,
-          content: line,
-          timestamp: Date.now(),
-        }));
-      } catch (err) {
-        log.warn({ logFile: shell.logFile, err }, 'Failed to read log file');
-      }
-    }
-
-    return shell.logBuffer.getLast(lines);
+    return readShellLogs(shell, lines);
   }
 
   /** Check if a shell is running */

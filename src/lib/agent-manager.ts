@@ -21,6 +21,7 @@ import { createLogger } from '@/lib/logger';
 import { getActiveProvider, type Provider, type ProviderSession } from '@/lib/providers';
 import { buildOutputFormatPrompt } from '@/lib/agent-output-handler';
 import { wireProviderEvents, type EventWiringContext } from '@/lib/agent-event-wiring';
+import { PersistentQuestionStore, type PersistentQuestionData } from '@/lib/agent-persistent-question-store';
 
 const log = createLogger('AgentManager');
 
@@ -67,8 +68,7 @@ class AgentManager extends EventEmitter {
   // Track Bash tool_use commands to correlate with BGPID results
   private pendingBashCommands = new Map<string, { command: string; attemptId: string }>();
   // Persistent question storage — survives agent cleanup (keyed by taskId)
-  // Used when CLI auto-handles AskUserQuestion and the attempt completes before user answers
-  private persistentQuestions = new Map<string, { attemptId: string; toolUseId: string; questions: unknown[]; timestamp: number }>();
+  private persistentQuestionStore = new PersistentQuestionStore();
 
   constructor() {
     super();
@@ -194,16 +194,16 @@ class AgentManager extends EventEmitter {
   }
 
   // Persistent question methods — question data survives agent cleanup
-  setPersistentQuestion(taskId: string, data: { attemptId: string; toolUseId: string; questions: unknown[]; timestamp: number }): void {
-    this.persistentQuestions.set(taskId, data);
+  setPersistentQuestion(taskId: string, data: PersistentQuestionData): void {
+    this.persistentQuestionStore.set(taskId, data);
   }
 
-  getPersistentQuestion(taskId: string): { attemptId: string; toolUseId: string; questions: unknown[]; timestamp: number } | null {
-    return this.persistentQuestions.get(taskId) || null;
+  getPersistentQuestion(taskId: string): PersistentQuestionData | null {
+    return this.persistentQuestionStore.get(taskId);
   }
 
   clearPersistentQuestion(taskId: string): void {
-    this.persistentQuestions.delete(taskId);
+    this.persistentQuestionStore.clear(taskId);
   }
 
   async sendInput(attemptId: string, _input: string): Promise<boolean> {

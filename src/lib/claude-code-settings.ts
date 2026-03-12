@@ -14,77 +14,17 @@
  * - If server started without API key in env, SDK fails
  */
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { parse as parseDotenv } from 'dotenv';
 import { createLogger } from './logger';
+import {
+  loadEnvFile,
+  loadClaudeCodeSettings,
+  loadClaudeJsonConfig,
+} from './claude-code-config-file-loaders';
 
 const log = createLogger('ClaudeCodeSettings');
-
-interface ClaudeCodeSettings {
-  env?: Record<string, string>;
-}
-
-interface ClaudeJsonConfig {
-  primaryApiKey?: string;
-}
-
-
-/**
- * Parse .env file content into key-value pairs
- */
-function loadEnvFile(filePath: string): Record<string, string> | null {
-  if (!existsSync(filePath)) {
-    return null;
-  }
-
-  try {
-    const content = readFileSync(filePath, 'utf-8');
-    return parseDotenv(content);
-  } catch (error) {
-    log.warn({ filePath, error }, `Failed to parse ${filePath}`);
-    return null;
-  }
-}
-
-/**
- * Load Claude Code CLI settings from ~/.claude/settings.json
- */
-function loadClaudeCodeSettings(): ClaudeCodeSettings | null {
-  const settingsPath = join(homedir(), '.claude', 'settings.json');
-
-  if (!existsSync(settingsPath)) {
-    return null;
-  }
-
-  try {
-    const content = readFileSync(settingsPath, 'utf-8');
-    return JSON.parse(content) as ClaudeCodeSettings;
-  } catch (error) {
-    log.warn({ settingsPath, error }, `Failed to parse ${settingsPath}`);
-    return null;
-  }
-}
-
-/**
- * Load Claude Code CLI config from ~/.claude.json (OAuth login API key)
- */
-function loadClaudeJsonConfig(): ClaudeJsonConfig | null {
-  const configPath = join(homedir(), '.claude.json');
-
-  if (!existsSync(configPath)) {
-    return null;
-  }
-
-  try {
-    const content = readFileSync(configPath, 'utf-8');
-    return JSON.parse(content) as ClaudeJsonConfig;
-  } catch (error) {
-    log.warn({ configPath, error }, `Failed to parse ${configPath}`);
-    return null;
-  }
-}
 
 /**
  * LLM config keys we care about
@@ -102,7 +42,7 @@ const LLM_CONFIG_KEYS = [
 ];
 
 /**
- * Apply Claude Code settings from the highest priority available source
+ * Apply Claude Code settings from the highest priority available source.
  *
  * Priority order (highest to lowest):
  * 1. ~/.claude/settings.json → env object (SDK uses this, highest priority)
@@ -174,26 +114,18 @@ export function applyClaudeCodeSettingsFallback(projectPath?: string): void {
 }
 
 /**
- * Check if env object has valid LLM config
- * Valid means either:
- * - ANTHROPIC_API_KEY is set, OR
- * - Both ANTHROPIC_AUTH_TOKEN AND ANTHROPIC_MODEL are set
+ * Check if env object has valid LLM config.
+ * Valid means either ANTHROPIC_API_KEY is set, or both ANTHROPIC_AUTH_TOKEN and ANTHROPIC_MODEL.
  */
 function hasValidLLMConfig(env: Record<string, string>): boolean {
-  // Option 1: API key is sufficient
-  if (env.ANTHROPIC_API_KEY) {
-    return true;
-  }
-  // Option 2: Auth token + model are both required
-  if (env.ANTHROPIC_AUTH_TOKEN && env.ANTHROPIC_MODEL) {
-    return true;
-  }
+  if (env.ANTHROPIC_API_KEY) return true;
+  if (env.ANTHROPIC_AUTH_TOKEN && env.ANTHROPIC_MODEL) return true;
   return false;
 }
 
 /**
- * Apply env config to process.env (only LLM keys)
- * Overwrites existing values since caller already determined this is the highest priority source
+ * Apply env config to process.env (only LLM keys).
+ * Overwrites existing values since caller already determined this is the highest priority source.
  */
 function applyEnvConfig(env: Record<string, string>): void {
   for (const key of LLM_CONFIG_KEYS) {
@@ -223,8 +155,8 @@ function logCurrentConfig(): void {
 }
 
 /**
- * Get LLM env settings merged from all config sources
- * Returns merged env with full priority chain applied
+ * Get LLM env settings merged from all config sources.
+ * Returns merged env with full priority chain applied.
  *
  * @param projectPath - Optional project path for project-level .claude/.env
  */
