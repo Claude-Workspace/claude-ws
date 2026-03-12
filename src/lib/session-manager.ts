@@ -7,14 +7,16 @@
  * - Managing session lifecycle including forking after rewind
  */
 
-import { db, schema } from './db';
+import { db, schema } from '@/lib/db';
 import { eq, desc, and, inArray } from 'drizzle-orm';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as readline from 'readline';
-
-import { createLogger } from './logger';
+import { createLogger } from '@/lib/logger';
+import {
+  getSessionFilePath,
+  sessionFileExists,
+  validateSessionFile,
+  findLastGoodMessageInSession,
+} from '@/lib/session-manager-file-operations';
+import { getConversationSummary } from '@/lib/session-manager-conversation-summary';
 
 const log = createLogger('SessionManager');
 
@@ -25,7 +27,7 @@ export interface SessionOptions {
 
 export class SessionManager {
   /**
-   * Save session ID for an attempt
+   * Save session ID for an attempt.
    * Always saves to DB — file validation happens at resume time via getSessionOptionsWithAutoFix
    * (The SDK reports session IDs before the .jsonl file is fully written, so checking here causes a race condition)
    */
@@ -38,24 +40,18 @@ export class SessionManager {
   }
 
   /**
-   * Get the last session ID for a task (for resume)
-   * Returns sessions from completed or cancelled attempts ONLY
+   * Get the last session ID for a task (for resume).
+   * Returns sessions from completed or cancelled attempts ONLY.
    *
    * NOTE: Failed attempts are excluded because they may have empty/corrupted
-   * session files that cannot be resumed. When an attempt fails during init
-   * (e.g., API error, invalid model), the session file may be empty or have
-   * only queue operations, causing Claude Code to exit with code 1 on resume.
-   *
-   * This means retrying after a failure starts a fresh session, but this is
-   * safer than cascading resume failures. Users can manually continue from
-   * the last successful checkpoint if needed.
+   * session files. When an attempt fails during init the session file may be
+   * empty or have only queue operations, causing Claude Code to exit with code 1
+   * on resume. Retrying after a failure starts a fresh session instead.
    */
   async getLastSessionId(taskId: string): Promise<string | null> {
     const lastResumableAttempt = await db.query.attempts.findFirst({
       where: and(
         eq(schema.attempts.taskId, taskId),
-        // Only resume from completed or cancelled - NOT failed
-        // Failed attempts may have empty/corrupted session files
         inArray(schema.attempts.status, ['completed', 'cancelled'])
       ),
       orderBy: [desc(schema.attempts.createdAt)],
@@ -74,32 +70,27 @@ export class SessionManager {
   }
 
   /**
-   * Get SDK session options for a task
-   * Returns { resume, resumeSessionAt } if task was rewound to resume at specific point
-   * Otherwise returns { resume } for normal continuation
+   * Get SDK session options for a task.
+   * Returns { resume, resumeSessionAt } if task was rewound to resume at a specific point,
+   * otherwise returns { resume } for normal continuation.
    */
   async getSessionOptions(taskId: string): Promise<SessionOptions> {
-    // Check if task has rewind state (after rewind)
     const task = await db.query.tasks.findFirst({
       where: eq(schema.tasks.id, taskId),
     });
 
     if (task?.rewindSessionId && task?.rewindMessageUuid) {
       log.info(`Resuming at message ${task.rewindMessageUuid} for task ${taskId}`);
-      return {
-        resume: task.rewindSessionId,
-        resumeSessionAt: task.rewindMessageUuid,
-      };
+      return { resume: task.rewindSessionId, resumeSessionAt: task.rewindMessageUuid };
     }
 
-    // Otherwise use normal resume from last successful attempt
     const sessionId = await this.getLastSessionId(taskId);
     return sessionId ? { resume: sessionId } : {};
   }
 
   /**
-   * Clear rewind state after it's been used
-   * Called after successful resume to prevent re-rewinding
+   * Clear rewind state after it's been used.
+   * Called after successful resume to prevent re-rewinding.
    */
   async clearRewindState(taskId: string): Promise<void> {
     await db
@@ -110,7 +101,7 @@ export class SessionManager {
   }
 
   /**
-   * Check if task has pending rewind
+   * Check if task has a pending rewind
    */
   async hasPendingRewind(taskId: string): Promise<boolean> {
     const task = await db.query.tasks.findFirst({
@@ -120,191 +111,43 @@ export class SessionManager {
   }
 
   /**
-   * Set rewind state for a task
-   * Called when user rewinds to a checkpoint
+   * Set rewind state for a task.
+   * Called when user rewinds to a checkpoint.
    */
   async setRewindState(taskId: string, sessionId: string, messageUuid: string): Promise<void> {
     await db
       .update(schema.tasks)
-      .set({
-        rewindSessionId: sessionId,
-        rewindMessageUuid: messageUuid,
-        updatedAt: Date.now(),
-      })
+      .set({ rewindSessionId: sessionId, rewindMessageUuid: messageUuid, updatedAt: Date.now() })
       .where(eq(schema.tasks.id, taskId));
     log.info(`Set rewind state for task ${taskId}: session=${sessionId}, message=${messageUuid}`);
   }
 
-  /**
-   * Get the file path for a session ID
-   * Returns null if file doesn't exist
-   */
-  getSessionFilePath(sessionId: string): string | null {
-    const claudeDir = path.join(os.homedir(), '.claude');
-    const projectsDir = path.join(claudeDir, 'projects');
-
-    if (!fs.existsSync(projectsDir)) {
-      return null;
-    }
-
-    const projectDirs = fs.readdirSync(projectsDir);
-    for (const projectDir of projectDirs) {
-      const candidatePath = path.join(projectsDir, projectDir, `${sessionId}.jsonl`);
-      if (fs.existsSync(candidatePath)) {
-        return candidatePath;
-      }
-    }
-    return null;
-  }
+  // File operation delegates
+  getSessionFilePath = getSessionFilePath;
+  sessionFileExists = sessionFileExists;
+  validateSessionFile = validateSessionFile;
+  findLastGoodMessageInSession = findLastGoodMessageInSession;
 
   /**
-   * Check if a session file exists
-   */
-  sessionFileExists(sessionId: string): boolean {
-    return this.getSessionFilePath(sessionId) !== null;
-  }
-
-  /**
-   * Validate session file - exists and has content
-   * Returns { valid: true } or { valid: false, reason: string }
-   */
-  validateSessionFile(sessionId: string): { valid: boolean; reason?: string } {
-    const filePath = this.getSessionFilePath(sessionId);
-
-    if (!filePath) {
-      return { valid: false, reason: 'file_not_found' };
-    }
-
-    try {
-      const stats = fs.statSync(filePath);
-      if (stats.size === 0) {
-        return { valid: false, reason: 'file_empty' };
-      }
-
-      // Check for actual conversation content (not just infrastructure entries)
-      // Stub sessions with only queue-operation/file-history-snapshot entries can't be resumed
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim());
-      if (lines.length === 0) {
-        return { valid: false, reason: 'no_valid_entries' };
-      }
-
-      let hasConversationContent = false;
-      for (const line of lines) {
-        try {
-          const entry = JSON.parse(line);
-          if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'result') {
-            hasConversationContent = true;
-            break;
-          }
-        } catch {
-          return { valid: false, reason: 'invalid_json' };
-        }
-      }
-
-      if (!hasConversationContent) {
-        return { valid: false, reason: 'no_conversation_content' };
-      }
-
-      return { valid: true };
-    } catch (err) {
-      return { valid: false, reason: 'read_error' };
-    }
-  }
-
-  /**
-   * Check if a session file has API errors at the end and find the last good message
-   * Returns the UUID of the last successful assistant message, or null if session is clean
-   */
-  async findLastGoodMessageInSession(sessionId: string): Promise<string | null> {
-    const sessionFilePath = this.getSessionFilePath(sessionId);
-
-    if (!sessionFilePath) {
-      log.debug(`Session file not found for ${sessionId}`);
-      return null;
-    }
-
-    // Read the file and check for API errors
-    const lines: string[] = [];
-    const fileStream = fs.createReadStream(sessionFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-
-    for await (const line of rl) {
-      if (line.trim()) {
-        lines.push(line);
-      }
-    }
-
-    // Check if session ends with API error
-    let hasApiErrorAtEnd = false;
-    for (let i = lines.length - 1; i >= Math.max(0, lines.length - 10); i--) {
-      try {
-        const entry = JSON.parse(lines[i]);
-        if (entry.isApiErrorMessage) {
-          hasApiErrorAtEnd = true;
-          break;
-        }
-      } catch {
-        log.error(`Failed to parse session line ${i} for session ${sessionId}: ${lines[i]}`);
-        const lastLines = lines.slice(-20);
-        log.error(`Last ${lastLines.length} lines of session ${sessionId}:\n${lastLines.join('\n')}`);
-      }
-    }
-
-    if (!hasApiErrorAtEnd) {
-      return null; // Session is clean
-    }
-
-    log.info(`Session ${sessionId} has API errors at end, finding last good message`);
-
-    // Find the last successful assistant message (not an API error)
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const entry = JSON.parse(lines[i]);
-        if (entry.type === 'assistant' && !entry.isApiErrorMessage && entry.uuid) {
-          log.info(`Found last good message: ${entry.uuid}`);
-          return entry.uuid;
-        }
-      } catch {
-        // Skip invalid JSON
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Get SDK session options for a task with automatic corruption detection
-   * Handles:
-   * - Missing session files (don't resume)
-   * - Empty/corrupted session files (don't resume)
-   * - Sessions with API errors at end (rewind to last good message)
+   * Get SDK session options with automatic corruption detection.
+   * Handles missing/empty/corrupted session files and sessions with API errors.
    */
   async getSessionOptionsWithAutoFix(taskId: string): Promise<SessionOptions> {
     const options = await this.getSessionOptions(taskId);
 
-    // If already using rewind, no need to check
-    if (options.resumeSessionAt) {
-      return options;
-    }
+    if (options.resumeSessionAt) return options;
 
-    // If we have a session to resume, validate it
     if (options.resume) {
-      // Validate session file exists and has content
-      const validation = this.validateSessionFile(options.resume);
+      const validation = validateSessionFile(options.resume);
       if (!validation.valid) {
         log.warn(`Session file invalid for ${options.resume}: ${validation.reason}, starting fresh`);
-        return {}; // Don't resume - start fresh
+        return {};
       }
 
-      // Check if session has API errors at end
-      const lastGoodMessage = await this.findLastGoodMessageInSession(options.resume);
+      const lastGoodMessage = await findLastGoodMessageInSession(options.resume);
       if (lastGoodMessage) {
         log.info(`Auto-fixing corrupted session ${options.resume}, rewinding to ${lastGoodMessage}`);
-        return {
-          resume: options.resume,
-          resumeSessionAt: lastGoodMessage,
-        };
+        return { resume: options.resume, resumeSessionAt: lastGoodMessage };
       }
     }
 
@@ -312,64 +155,10 @@ export class SessionManager {
   }
 
   /**
-   * Extract a conversation summary from a task's attempt logs
-   * Used by compact to carry context into a fresh session
-   * Returns the last assistant message text (most recent context)
+   * Extract a conversation summary from a task's attempt logs.
+   * Used by compact to carry context into a fresh session.
    */
-  async getConversationSummary(taskId: string): Promise<string> {
-    // Get the most recent completed/cancelled attempt
-    const lastAttempt = await db.query.attempts.findFirst({
-      where: and(
-        eq(schema.attempts.taskId, taskId),
-        inArray(schema.attempts.status, ['completed', 'cancelled'])
-      ),
-      orderBy: [desc(schema.attempts.createdAt)],
-    });
-
-    if (!lastAttempt) return '';
-
-    // Get the original prompt from the first attempt for this task
-    const firstAttempt = await db.query.attempts.findFirst({
-      where: eq(schema.attempts.taskId, taskId),
-      orderBy: [schema.attempts.createdAt],
-    });
-    const originalPrompt = firstAttempt?.displayPrompt || firstAttempt?.prompt || '';
-
-    // Get the last assistant message from the most recent attempt
-    const logs = await db.query.attemptLogs.findMany({
-      where: eq(schema.attemptLogs.attemptId, lastAttempt.id),
-    });
-
-    let lastAssistantText = '';
-    for (let i = logs.length - 1; i >= 0; i--) {
-      if (logs[i].type !== 'json') continue;
-      try {
-        const data = JSON.parse(logs[i].content);
-        if (data.type === 'assistant' && data.message?.content) {
-          const text = data.message.content
-            .filter((b: any) => b.type === 'text')
-            .map((b: any) => b.text)
-            .join(' ');
-          if (text.trim()) {
-            lastAssistantText = text.substring(0, 4000);
-            break;
-          }
-        }
-      } catch {
-        // Skip parse errors
-      }
-    }
-
-    let summary = '';
-    if (originalPrompt) {
-      summary += `Original task: ${originalPrompt.substring(0, 500)}\n\n`;
-    }
-    if (lastAssistantText) {
-      summary += `Most recent assistant response:\n${lastAssistantText}`;
-    }
-
-    return summary;
-  }
+  getConversationSummary = getConversationSummary;
 }
 
 // Singleton instance

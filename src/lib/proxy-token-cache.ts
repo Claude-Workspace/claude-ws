@@ -1,35 +1,20 @@
 /**
  * Proxy Token Cache - Shared cache module for count_tokens responses
  *
- * This module provides the caching logic used by the Anthropic proxy endpoint.
- * It's separated from the route to allow importing from server.ts without
+ * Provides in-memory + disk-backed caching for Anthropic token count responses.
+ * Separated from the route handler to allow importing from server.ts without
  * Next.js AsyncLocalStorage issues.
  */
 
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
-import { join } from 'path';
-
-import { createLogger } from './logger';
+import { createLogger } from '@/lib/logger';
+import { loadAllFromDisk, saveToFile, deleteFile } from '@/lib/proxy-token-cache-disk-storage';
 
 const log = createLogger('ProxyTokenCache');
 
 // Cache configuration
 const CACHE_MAX_SIZE = 500;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-// Cache directory
-const DATA_DIR = process.env.DATA_DIR || './data';
-const CACHE_DIR = join(DATA_DIR, 'token-cache');
-
-// Ensure cache directory exists
-try {
-  if (!existsSync(CACHE_DIR)) {
-    mkdirSync(CACHE_DIR, { recursive: true });
-  }
-} catch (err) {
-  log.warn({ data: err }, '[ProxyTokenCache] Failed to create cache directory:');
-}
 
 export interface CachedResponse {
   status: number;
@@ -43,103 +28,25 @@ export interface CachedResponse {
 const cache = new Map<string, CachedResponse>();
 
 // Stats for monitoring
-const stats = {
-  hits: 0,
-  misses: 0,
-  bypassed: 0,
-};
+const stats = { hits: 0, misses: 0, bypassed: 0 };
 
 /**
- * Get file path for a cache key
+ * Check if a cached entry has expired
  */
-function getCacheFilePath(key: string): string {
-  return join(CACHE_DIR, `${key}.json`);
+export function isExpired(entry: CachedResponse): boolean {
+  return Date.now() - entry.cachedAt > CACHE_TTL_MS;
 }
 
-/**
- * Load cache entry from file
- */
-function loadFromFile(key: string): CachedResponse | null {
-  try {
-    const filePath = getCacheFilePath(key);
-    if (!existsSync(filePath)) return null;
-    const content = readFileSync(filePath, 'utf-8');
-    return JSON.parse(content) as CachedResponse;
-  } catch {
-    return null;
-  }
-}
+// Load persisted cache entries from disk on module load
+loadAllFromDisk(cache, isExpired);
 
 /**
- * Save cache entry to file
- */
-function saveToFile(key: string, entry: CachedResponse): void {
-  try {
-    const filePath = getCacheFilePath(key);
-    writeFileSync(filePath, JSON.stringify(entry), 'utf-8');
-  } catch (err) {
-    log.warn({ data: err }, '[ProxyTokenCache] Failed to save cache file:');
-  }
-}
-
-/**
- * Delete cache file
- */
-function deleteFile(key: string): void {
-  try {
-    const filePath = getCacheFilePath(key);
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
-    }
-  } catch {
-    // Ignore deletion errors
-  }
-}
-
-/**
- * Load all cached entries from disk on startup
- */
-function loadCacheFromDisk(): void {
-  try {
-    if (!existsSync(CACHE_DIR)) return;
-    const files = readdirSync(CACHE_DIR).filter(f => f.endsWith('.json'));
-    let loaded = 0;
-    let expired = 0;
-
-    for (const file of files) {
-      const key = file.replace('.json', '');
-      const entry = loadFromFile(key);
-      if (entry) {
-        if (isExpired(entry)) {
-          deleteFile(key);
-          expired++;
-        } else {
-          cache.set(key, entry);
-          loaded++;
-        }
-      }
-    }
-
-    if (loaded > 0 || expired > 0) {
-    }
-  } catch (err) {
-    log.warn({ data: err }, '[ProxyTokenCache] Failed to load cache from disk:');
-  }
-}
-
-// Load cache from disk on module load
-loadCacheFromDisk();
-
-/**
- * Generate cache key from request body
+ * Generate cache key from request body (hashes model + tools)
  */
 export function generateCacheKey(body: string): string {
   try {
     const parsed = JSON.parse(body);
-    const hashInput = JSON.stringify({
-      model: parsed.model,
-      tools: parsed.tools,
-    });
+    const hashInput = JSON.stringify({ model: parsed.model, tools: parsed.tools });
     return createHash('sha256').update(hashInput).digest('hex').slice(0, 16);
   } catch {
     return createHash('sha256').update(body).digest('hex').slice(0, 16);
@@ -147,14 +54,7 @@ export function generateCacheKey(body: string): string {
 }
 
 /**
- * Check if cached entry has expired
- */
-export function isExpired(entry: CachedResponse): boolean {
-  return Date.now() - entry.cachedAt > CACHE_TTL_MS;
-}
-
-/**
- * Evict oldest entry if cache is full
+ * Evict the oldest entry if the cache is at capacity
  */
 export function evictIfNeeded(): void {
   if (cache.size >= CACHE_MAX_SIZE) {
@@ -167,40 +67,23 @@ export function evictIfNeeded(): void {
 }
 
 /**
- * Get cached response
+ * Get a cached response by key
  */
 export function getCached(key: string): CachedResponse | undefined {
   return cache.get(key);
 }
 
 /**
- * Set cached response
+ * Store a response in the cache (memory + disk)
  */
 export function setCached(key: string, entry: CachedResponse): void {
   cache.set(key, entry);
   saveToFile(key, entry);
 }
 
-/**
- * Record a cache hit
- */
-export function recordHit(): void {
-  stats.hits++;
-}
-
-/**
- * Record a cache miss
- */
-export function recordMiss(): void {
-  stats.misses++;
-}
-
-/**
- * Record a bypassed request
- */
-export function recordBypassed(): void {
-  stats.bypassed++;
-}
+export function recordHit(): void { stats.hits++; }
+export function recordMiss(): void { stats.misses++; }
+export function recordBypassed(): void { stats.bypassed++; }
 
 /**
  * Get cache statistics for monitoring
@@ -218,7 +101,6 @@ export function getCacheStats() {
 }
 
 /**
- * Log cache stats
+ * Log cache stats (no-op placeholder kept for call-site compatibility)
  */
-export function logCacheStats() {
-}
+export function logCacheStats() {}
