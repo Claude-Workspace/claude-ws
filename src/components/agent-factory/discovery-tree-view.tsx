@@ -1,5 +1,10 @@
 'use client';
 
+/**
+ * Tree view component for displaying discovered plugins in the discovery dialog.
+ * Renders folders and plugin leaf nodes with checkboxes, status badges, and import buttons.
+ */
+
 import { memo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -7,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RefreshCw, RotateCcw, ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import { DiscoveredPlugin, DiscoveredNode } from '@/types/agent-factory';
 import { DiscoveredWithStatus, getAllItemsInFolder, getNodeKey } from '@/components/agent-factory/discovery-comparison-utils';
+import { DiscoveryTreeNodeStatusBadge } from '@/components/agent-factory/discovery-tree-node-status-badge';
 
 export interface TreeNodeProps {
   node: DiscoveredNode;
@@ -24,28 +30,10 @@ export interface TreeNodeProps {
 
 function getTypeColor(type: string) {
   switch (type) {
-    case 'skill':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    case 'command':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    case 'agent':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const t = useTranslations('agentFactory');
-  switch (status) {
-    case 'new':
-      return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t('newStatus')}</span>;
-    case 'update':
-      return <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">{t('update')}</span>;
-    case 'current':
-      return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">{t('current')}</span>;
-    default:
-      return null;
+    case 'skill':   return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    case 'command': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    case 'agent':   return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+    default:        return 'bg-gray-100 text-gray-800';
   }
 }
 
@@ -54,33 +42,21 @@ function computeFolderState(node: DiscoveredNode, statusMap: Map<string, Discove
   const selectedItems = items.filter(item => selectedIds.has(getNodeKey(item, 0)));
   const isSelected = items.length > 0 && selectedItems.length === items.length;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < items.length;
-
   const statuses = items.map(item => statusMap.get(`${item.type}-${item.name}`)?.status);
   const hasNew = statuses.includes('new');
   const hasUpdate = statuses.includes('update');
   const hasCurrent = statuses.includes('current');
   const hasActionableItems = hasNew || hasUpdate;
-
   let folderStatus: 'new' | 'update' | 'current' | 'mixed' = 'mixed';
   if (hasNew && !hasUpdate && !hasCurrent) folderStatus = 'new';
   else if (hasUpdate && !hasNew && !hasCurrent) folderStatus = 'update';
   else if (hasCurrent && !hasNew && !hasUpdate) folderStatus = 'current';
-
   return { isSelected, isIndeterminate, folderStatus, hasActionableItems, itemCount: items.length };
 }
 
 export const TreeNode = memo(function TreeNode({
-  node,
-  index,
-  level,
-  statusMap,
-  expandedFolders,
-  selectedIds,
-  processingIds,
-  onToggleFolder,
-  onToggleSelection,
-  onImport,
-  onClick
+  node, index, level, statusMap, expandedFolders, selectedIds, processingIds,
+  onToggleFolder, onToggleSelection, onImport, onClick,
 }: TreeNodeProps) {
   const t = useTranslations('agentFactory');
   const key = getNodeKey(node, index);
@@ -93,10 +69,10 @@ export const TreeNode = memo(function TreeNode({
   let folderStatus: 'new' | 'update' | 'current' | 'mixed' = 'mixed';
 
   if (node.type === 'folder') {
-    const folderState = computeFolderState(node, statusMap, selectedIds);
-    isSelected = folderState.isSelected;
-    hasActionableItems = folderState.hasActionableItems;
-    folderStatus = folderState.folderStatus;
+    const state = computeFolderState(node, statusMap, selectedIds);
+    isSelected = state.isSelected;
+    hasActionableItems = state.hasActionableItems;
+    folderStatus = state.folderStatus;
   } else {
     isSelected = selectedIds.has(key);
     if (nodeStatus?.status !== 'current') hasActionableItems = true;
@@ -127,15 +103,8 @@ export const TreeNode = memo(function TreeNode({
       >
         {node.type === 'folder' ? (
           <>
-            <button
-              onClick={() => onToggleFolder(key)}
-              className="p-0 hover:bg-muted rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
+            <button onClick={() => onToggleFolder(key)} className="p-0 hover:bg-muted rounded">
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
             <Folder className="w-4 h-4 text-muted-foreground" />
             <Checkbox
@@ -153,9 +122,7 @@ export const TreeNode = memo(function TreeNode({
         ) : (
           <>
             <div className="w-4" />
-            <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(node.type)}`}>
-              {node.type}
-            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(node.type)}`}>{node.type}</span>
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelection(node, key)}
@@ -164,21 +131,16 @@ export const TreeNode = memo(function TreeNode({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium">{node.name}</span>
-                <StatusBadge status={nodeStatus?.status || 'new'} />
+                <DiscoveryTreeNodeStatusBadge status={nodeStatus?.status || 'new'} />
               </div>
               {node.description && (
-                <p className="text-sm text-muted-foreground line-clamp-1">
-                  {node.description}
-                </p>
+                <p className="text-sm text-muted-foreground line-clamp-1">{node.description}</p>
               )}
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onImport(node);
-              }}
+              onClick={(e) => { e.stopPropagation(); onImport(node); }}
               disabled={nodeStatus?.status === 'current' || isProcessing}
             >
               {isProcessing ? (
@@ -186,10 +148,7 @@ export const TreeNode = memo(function TreeNode({
               ) : nodeStatus?.status === 'current' ? (
                 'Current'
               ) : nodeStatus?.status === 'update' ? (
-                <>
-                  <RotateCcw className="w-3 h-3 mr-1" />
-                  {t('update')}
-                </>
+                <><RotateCcw className="w-3 h-3 mr-1" />{t('update')}</>
               ) : (
                 t('import')
               )}

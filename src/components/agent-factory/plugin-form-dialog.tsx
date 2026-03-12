@@ -27,77 +27,48 @@ function toKebabCase(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function PluginFormDialog({
-  open,
-  onOpenChange,
-  plugin,
-}: PluginFormDialogProps) {
+export function PluginFormDialog({ open, onOpenChange, plugin }: PluginFormDialogProps) {
   const t = useTranslations('agentFactory');
   const tCommon = useTranslations('common');
   const { createPlugin, updatePlugin, error } = useAgentFactoryStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [name, setName] = useState('');
   const [type, setType] = useState<'skill' | 'command' | 'agent'>('skill');
   const [description, setDescription] = useState('');
   const [sourcePath, setSourcePath] = useState('');
   const [storageType, setStorageType] = useState<'local' | 'imported' | 'external'>('local');
 
-  // Generate preview path for new plugins
   const previewPath = useMemo(() => {
     if (plugin) return sourcePath;
     if (!name) return '~/.claude/agent-factory/...';
     const slug = toKebabCase(name);
-    if (type === 'skill') {
-      return `~/.claude/agent-factory/skills/${slug}/SKILL.md`;
-    } else if (type === 'command') {
-      return `~/.claude/agent-factory/commands/${slug}.md`;
-    } else {
-      return `~/.claude/agent-factory/agents/${slug}.md`;
-    }
-  }, [name, type, plugin]);
+    if (type === 'skill') return `~/.claude/agent-factory/skills/${slug}/SKILL.md`;
+    if (type === 'command') return `~/.claude/agent-factory/commands/${slug}.md`;
+    return `~/.claude/agent-factory/agents/${slug}.md`;
+  }, [name, type, plugin, sourcePath]);
 
   useEffect(() => {
     if (plugin) {
       setName(plugin.name);
-      // Skip setting type for agent_set as this form doesn't support it
-      if (plugin.type !== 'agent_set') {
-        setType(plugin.type as 'skill' | 'command' | 'agent');
-      }
+      if (plugin.type !== 'agent_set') setType(plugin.type as 'skill' | 'command' | 'agent');
       setDescription(plugin.description || '');
       setSourcePath(plugin.sourcePath || '');
       setStorageType(plugin.storageType);
     } else {
-      setName('');
-      setType('skill');
-      setDescription('');
-      setSourcePath('');
-      setStorageType('local');
+      setName(''); setType('skill'); setDescription(''); setSourcePath(''); setStorageType('local');
     }
   }, [plugin, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      return;
-    }
-
+    if (!name.trim()) return;
     setIsSubmitting(true);
     try {
       if (plugin) {
-        const data: UpdatePluginDTO = {
-          name: name.trim(),
-          description: description.trim() || undefined,
-          sourcePath: sourcePath.trim(),
-        };
+        const data: UpdatePluginDTO = { name: name.trim(), description: description.trim() || undefined, sourcePath: sourcePath.trim() };
         await updatePlugin(plugin.id, data);
       } else {
-        const data: CreatePluginDTO = {
-          type,
-          name: name.trim(),
-          description: description.trim() || undefined,
-          storageType,
-        };
+        const data: CreatePluginDTO = { type, name: name.trim(), description: description.trim() || undefined, storageType };
         await createPlugin(data);
       }
       onOpenChange(false);
@@ -112,18 +83,13 @@ export function PluginFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {plugin ? t('editPlugin') : t('createNewPlugin')}
-          </DialogTitle>
+          <DialogTitle>{plugin ? t('editPlugin') : t('createNewPlugin')}</DialogTitle>
           <DialogDescription>
-            {plugin
-              ? t('updatePluginDescription')
-              : t('addPluginDescription')}
+            {plugin ? t('updatePluginDescription') : t('addPluginDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Plugin Type (only for new plugins) */}
           {!plugin && (
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('type')}</label>
@@ -140,52 +106,29 @@ export function PluginFormDialog({
             </div>
           )}
 
-          {/* Name */}
           <div className="space-y-2">
             <label className="text-sm font-medium">{t('name')} *</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('pluginName')}
-              disabled={isSubmitting}
-              required
-            />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('pluginName')} disabled={isSubmitting} required />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <label className="text-sm font-medium">{t('pluginDescription')}</label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('pluginDescription')}
-              disabled={isSubmitting}
-            />
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('pluginDescription')} disabled={isSubmitting} />
           </div>
 
-          {/* Source Path - show for editing, read-only preview for new */}
           {plugin ? (
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('sourcePath')} *</label>
-              <Input
-                value={sourcePath}
-                onChange={(e) => setSourcePath(e.target.value)}
-                placeholder="/path/to/plugin"
-                disabled={isSubmitting}
-                required
-              />
+              <Input value={sourcePath} onChange={(e) => setSourcePath(e.target.value)} placeholder="/path/to/plugin" disabled={isSubmitting} required />
             </div>
           ) : (
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('sourcePath')}</label>
-              <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded border">
-                {previewPath}
-              </div>
+              <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded border">{previewPath}</div>
               <p className="text-xs text-muted-foreground">{t('pathAutoGenerated')}</p>
             </div>
           )}
 
-          {/* Storage Type (only for new plugins) */}
           {!plugin && (
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('storageType')}</label>
@@ -202,21 +145,12 @@ export function PluginFormDialog({
             </div>
           )}
 
-          {/* Error */}
           {error && (
-            <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950 p-2 rounded">
-              {error}
-            </div>
+            <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950 p-2 rounded">{error}</div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting || !name.trim()}>
