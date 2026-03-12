@@ -23,7 +23,7 @@ function createConcurrencyLimit(concurrency: number) {
 // ==========================================
 const config = {
     apiBaseUrl: process.env.API_HOOK_URL as string,
-    targetPrefix: "__PROJECT_ID__",
+    targetPrefix: "PROJECT_ID",
 };
 
 if (!config.apiBaseUrl || config.targetPrefix.includes("PROJECT_ID")) {
@@ -79,22 +79,6 @@ async function uploadFile(s3Key: string, filePath: string) {
         console.error(`✅ Upload thành công: ${s3Key}\n`);
     } else {
         console.error(`❌ Lỗi upload ${s3Key} (HTTP ${response.status}): ${response.statusText}\n`);
-    }
-}
-
-// ==========================================
-// Gọi API xóa file cũ trên MinIO
-// ==========================================
-async function deleteFile(s3Key: string) {
-    const res = await fetch(
-        `${config.apiBaseUrl}/api/sync/delete?key=${encodeURIComponent(s3Key)}`,
-        { method: "DELETE" }
-    );
-
-    if (res.ok) {
-        console.error(`🗑️  Đã xóa file cũ trên MinIO: ${s3Key}`);
-    } else {
-        console.error(`❌ Lỗi khi xóa ${s3Key}: HTTP ${res.status}`);
     }
 }
 
@@ -195,28 +179,10 @@ async function runCheck() {
 
     await Promise.all(checkTasks);
 
-    // Phát hiện file cũ trên MinIO không còn tồn tại local (đổi tên / xóa)
-    const localS3Keys = new Set(
-        allFiles.map((filePath) =>
-            config.targetPrefix + "/" +
-            path.relative(LOCAL_DATA_DIR, filePath).split(path.sep).join("/")
-        )
-    );
-
-    let deletedFiles = 0;
-    for (const [key] of manifestMap) {
-        if (!localS3Keys.has(key)) {
-            console.error(`\n🗑️  [STALE] ${key} không còn tồn tại local → xóa trên MinIO...`);
-            await deleteFile(key);
-            deletedFiles++;
-        }
-    }
-
     console.error(`\n🎉 HOÀN TẤT KIỂM TRA ĐỒNG BỘ:`);
     console.error(`   - File mới tạo  : ${newFiles}`);
     console.error(`   - File thay đổi : ${changedFiles}`);
     console.error(`   - File giống S3 : ${unchangedFiles}`);
-    console.error(`   - File đã xóa   : ${deletedFiles}`);
 }
 
 runCheck().catch(console.error);

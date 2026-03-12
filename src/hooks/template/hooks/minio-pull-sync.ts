@@ -24,7 +24,7 @@ function createConcurrencyLimit(concurrency: number) {
 // ==========================================
 const config = {
     apiBaseUrl: process.env.API_HOOK_URL as string,
-    targetPrefix: "__PROJECT_ID__",
+    targetPrefix: "PROJECT_ID",
 };
 
 if (!config.apiBaseUrl || config.targetPrefix.includes("PROJECT_ID")) {
@@ -149,7 +149,7 @@ async function syncLocal(manifest: ManifestEntry[]) {
     console.error(`\n=================== BƯỚC 2: ĐỒNG BỘ LOCAL ===================`);
     console.error(`🚀 Bắt đầu đồng bộ ${manifest.length} objects...`);
 
-    let stats = { new: 0, updated: 0, skipped: 0, errors: 0, deleted: 0 };
+    let stats = { new: 0, updated: 0, skipped: 0, errors: 0 };
     let completed = 0;
     const limit = createConcurrencyLimit(MAX_CONCURRENT_DOWNLOADS);
 
@@ -188,59 +188,6 @@ async function syncLocal(manifest: ManifestEntry[]) {
 
     await Promise.all(tasks);
 
-    // ==========================================
-    // BƯỚC 3: DỌN DẸP LOCAL (Xoá file không có trên S3)
-    // ==========================================
-    console.error(`\n\n🧹 Đang kiểm tra file thừa trên Local...`);
-    try {
-        const validLocalPaths = new Set(manifest.map((m) => {
-            const stripped = m.key.startsWith(config.targetPrefix + "/")
-                ? m.key.slice(config.targetPrefix.length + 1)
-                : m.key;
-            return path.resolve(LOCAL_DATA_DIR, stripped);
-        }));
-
-        async function cleanExtraFiles(dir: string) {
-            try {
-                const list = await fs.readdir(dir, { withFileTypes: true });
-                for (const dirent of list) {
-                    const fullPath = path.resolve(dir, dirent.name);
-
-                    // QUAN TRỌNG: Bỏ qua các thư mục được bảo vệ
-                    if (dirent.isDirectory() && PROTECTED_DIRS.includes(dirent.name)) {
-                        console.error(`🛡️  Bảo vệ thư mục: ${dirent.name}/ (không xóa)`);
-                        continue;
-                    }
-
-                    if (dirent.isDirectory()) {
-                        await cleanExtraFiles(fullPath);
-                        try {
-                            const remaining = await fs.readdir(fullPath);
-                            if (remaining.length === 0) await fs.rmdir(fullPath);
-                        } catch (e) { }
-                    } else {
-                        // Bỏ qua các file state trong thư mục tmp
-                        if (fullPath === path.resolve(LOCAL_STATE_FILE) ||
-                            fullPath === path.resolve(MANIFEST_FILE) ||
-                            fullPath.startsWith(path.resolve(TMP_DIR))) continue;
-
-                        if (!validLocalPaths.has(fullPath)) {
-                            await fs.unlink(fullPath);
-                            stats.deleted++;
-                            console.error(`🗑️ Đã xoá file thừa: ${path.relative(process.cwd(), fullPath)}`);
-                        }
-                    }
-                }
-            } catch (err: any) {
-                if (err.code !== "ENOENT") throw err;
-            }
-        }
-
-        await cleanExtraFiles(path.resolve(LOCAL_DATA_DIR));
-    } catch (e: any) {
-        console.error(`❌ Lỗi khi dọn dẹp local: ${e.message}`);
-    }
-
     console.error(`\n💾 Đang lưu trạng thái đồng bộ ra file: ${LOCAL_STATE_FILE}...`);
     await fs.writeFile(LOCAL_STATE_FILE, JSON.stringify(manifest, null, 2));
 
@@ -248,7 +195,6 @@ async function syncLocal(manifest: ManifestEntry[]) {
     console.error(`  - Tải mới   : ${stats.new} file`);
     console.error(`  - Cập nhật  : ${stats.updated} file`);
     console.error(`  - Bỏ qua    : ${stats.skipped} file`);
-    console.error(`  - Đã xoá    : ${stats.deleted} file (Thừa)`);
     console.error(`  - Lỗi       : ${stats.errors} file`);
 }
 
