@@ -12,87 +12,28 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  getStoredApiKey,
+  storeApiKey,
+  verifyApiKey,
+} from '@/components/auth/api-key-localstorage-and-server-verify-utils';
 
-// Extend global types for fetch patching
-declare global {
-  interface Window {
-    fetch: typeof fetch & { _apiKeyPatched?: boolean };
-  }
-}
+// Re-export utilities consumed by other modules
+export {
+  getStoredApiKey,
+  storeApiKey,
+  clearStoredApiKey,
+  checkAuthRequired,
+  verifyApiKey,
+} from '@/components/auth/api-key-localstorage-and-server-verify-utils';
 
-const API_KEY_STORAGE_KEY = 'claude-kanban:api-key';
+export { useApiKeyCheck } from '@/components/auth/api-key-required-check-hook';
+export { ApiKeyFetchInterceptorProvider as ApiKeyProvider } from '@/components/auth/api-key-fetch-interceptor-provider';
 
 interface ApiKeyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-}
-
-/**
- * Get stored API key from localStorage
- */
-export function getStoredApiKey(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return localStorage.getItem(API_KEY_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Store API key in localStorage
- */
-export function storeApiKey(apiKey: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
-  } catch {
-    // Silent fail if localStorage is not available
-  }
-}
-
-/**
- * Clear stored API key from localStorage
- */
-export function clearStoredApiKey(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
-  } catch {
-    // Silent fail if localStorage is not available
-  }
-}
-
-/**
- * Check if API key is required by the server
- */
-async function checkAuthRequired(): Promise<boolean> {
-  try {
-    const res = await fetch('/api/auth/verify');
-    const data = await res.json();
-    return data.authRequired === true;
-  } catch {
-    // If check fails, assume auth is not required
-    return false;
-  }
-}
-
-/**
- * Verify API key with the server
- */
-async function verifyApiKey(apiKey: string): Promise<boolean> {
-  try {
-    const res = await fetch('/api/auth/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
-    });
-    const data = await res.json();
-    return data.valid === true;
-  } catch {
-    return false;
-  }
 }
 
 export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProps) {
@@ -102,7 +43,6 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setApiKey('');
@@ -142,13 +82,10 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
       <DialogContent className="sm:max-w-[450px] z-[9999]">
         <DialogHeader>
           <DialogTitle>{t('apiKeyRequired')}</DialogTitle>
-          <DialogDescription>
-            {t('serverRequiresApiKey')}
-          </DialogDescription>
+          <DialogDescription>{t('serverRequiresApiKey')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          {/* API Key Input */}
           <div className="space-y-2">
             <label htmlFor="api-key" className="text-sm font-medium">
               {t('apiKey')}
@@ -166,12 +103,9 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
                 autoFocus
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {t('apiKeyStoredLocally')}
-            </p>
+            <p className="text-xs text-muted-foreground">{t('apiKeyStoredLocally')}</p>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle className="h-4 w-4" />
@@ -179,7 +113,6 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
             </div>
           )}
 
-          {/* Success hint */}
           {!error && apiKey && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Check className="h-4 w-4 text-muted-foreground" />
@@ -187,7 +120,6 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-2">
             <Button
               type="button"
@@ -204,222 +136,5 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * Hook to check if API auth is required and key is stored
- * Returns true if user needs to enter API key
- */
-export function useApiKeyCheck(refreshTrigger = 0): {
-  needsApiKey: boolean;
-  checking: boolean;
-} {
-  const [needsApiKey, setNeedsApiKey] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAuth = async () => {
-      setChecking(true);
-      try {
-        const authRequired = await checkAuthRequired();
-        if (!authRequired) {
-          if (mounted) setNeedsApiKey(false);
-          return;
-        }
-
-        const storedKey = getStoredApiKey();
-        if (!storedKey) {
-          if (mounted) setNeedsApiKey(true);
-          return;
-        }
-
-        // Verify stored key is still valid
-        const valid = await verifyApiKey(storedKey);
-        if (!valid) {
-          clearStoredApiKey();
-          if (mounted) setNeedsApiKey(true);
-          return;
-        }
-
-        if (mounted) setNeedsApiKey(false);
-      } catch {
-        if (mounted) setNeedsApiKey(false);
-      } finally {
-        if (mounted) setChecking(false);
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, [refreshTrigger]);
-
-  return { needsApiKey, checking };
-}
-
-/**
- * Helper to convert Headers to plain object
- */
-function headersToObject(headers: HeadersInit): Record<string, string> {
-  if (headers instanceof Headers) {
-    const obj: Record<string, string> = {};
-    headers.forEach((value, key) => {
-      obj[key] = value;
-    });
-    return obj;
-  }
-  return headers as Record<string, string>;
-}
-
-// Event name for triggering API key dialog from fetch interceptor
-const API_KEY_REQUIRED_EVENT = 'claude-kanban:api-key-required';
-
-/**
- * Dispatch event to trigger API key dialog
- */
-function dispatchApiKeyRequired(): void {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(API_KEY_REQUIRED_EVENT));
-  }
-}
-
-/**
- * Provider that patches global fetch to include API key and handle 401 responses
- * Must be a client component and wrap the app
- */
-export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authRequired, setAuthRequired] = useState(false);
-
-  // Check auth on mount before rendering children
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const needed = await checkAuthRequired();
-        if (!needed) {
-          setAuthChecked(true);
-          return;
-        }
-        setAuthRequired(true);
-
-        // Auth is required — check if we have a valid stored key
-        const storedKey = getStoredApiKey();
-        if (storedKey) {
-          const valid = await verifyApiKey(storedKey);
-          if (valid) {
-            setAuthChecked(true);
-            return;
-          }
-          clearStoredApiKey();
-        }
-
-        // No valid key — show dialog, don't render children
-        setShowAuthDialog(true);
-      } catch {
-        // If check fails, allow through
-        setAuthChecked(true);
-      }
-    };
-
-    check();
-  }, []);
-
-  // Listen for API key required events from fetch interceptor
-  useEffect(() => {
-    const handleApiKeyRequired = () => {
-      setShowAuthDialog(true);
-    };
-
-    window.addEventListener(API_KEY_REQUIRED_EVENT, handleApiKeyRequired);
-    return () => {
-      window.removeEventListener(API_KEY_REQUIRED_EVENT, handleApiKeyRequired);
-    };
-  }, []);
-
-  // Patch fetch immediately on render (synchronously)
-  // This ensures it's available before any useEffect in child components runs
-  if (typeof window !== 'undefined' && !window.fetch._apiKeyPatched) {
-    const originalFetch = window.fetch;
-
-    window.fetch = async (url, options) => {
-      const apiKey = getStoredApiKey();
-      const urlString = typeof url === 'string' ? url : url.toString();
-
-      // Build new headers object with API key if available
-      const existingHeaders = options?.headers
-        ? headersToObject(options.headers)
-        : {};
-
-      const newHeaders: Record<string, string> = {
-        ...existingHeaders,
-      };
-
-      // Add API key if stored
-      if (apiKey) {
-        newHeaders['x-api-key'] = apiKey;
-      }
-
-      // Create new options with merged headers
-      const newOptions: RequestInit = {
-        ...options,
-        headers: newHeaders,
-      };
-
-      const response = await originalFetch(url, newOptions);
-
-      // Check for 401 on API routes (except auth/verify endpoint)
-      const isApiRoute = urlString.includes('/api/');
-      const isVerifyEndpoint = urlString.includes('/api/auth/verify');
-
-      if (response.status === 401 && isApiRoute && !isVerifyEndpoint) {
-        // Clear stored key if it's invalid
-        if (apiKey) {
-          clearStoredApiKey();
-        }
-        // Trigger API key dialog
-        dispatchApiKeyRequired();
-      }
-
-      return response;
-    };
-
-    // Mark as patched to avoid double-patching
-    window.fetch._apiKeyPatched = true;
-  }
-
-  const handleAuthSuccess = () => {
-    setShowAuthDialog(false);
-
-    // Reload page to reinitialize all components with authenticated state
-    window.location.reload();
-  };
-
-  // When auth is required and dialog is showing, block children rendering
-  // This prevents child components from mounting, running effects, and stealing focus
-  if (showAuthDialog && !authChecked) {
-    return (
-      <ApiKeyDialog
-        open={true}
-        onOpenChange={() => {}}
-        onSuccess={handleAuthSuccess}
-      />
-    );
-  }
-
-  return (
-    <>
-      {children}
-      <ApiKeyDialog
-        open={showAuthDialog}
-        onOpenChange={setShowAuthDialog}
-        onSuccess={handleAuthSuccess}
-      />
-    </>
   );
 }

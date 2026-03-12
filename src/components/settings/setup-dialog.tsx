@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { FolderOpen, AlertCircle, Plus, FolderOpen as FolderOpenIcon, Folder } from 'lucide-react';
+import { FolderOpen as FolderOpenIcon, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useProjectStore } from '@/stores/project-store';
-import { FolderBrowserDialog } from './folder-browser-dialog';
+import { FolderBrowserDialog } from '@/components/settings/folder-browser-dialog';
 import { sanitizeDirName } from '@/lib/file-utils';
+import { SetupDialogOpenExistingProjectTab } from '@/components/settings/setup-dialog-open-existing-project-tab';
+import { SetupDialogCreateNewProjectTab } from '@/components/settings/setup-dialog-create-new-project-tab';
 
 type Mode = 'create' | 'open';
 type BrowserMode = 'root' | 'project';
@@ -27,7 +27,6 @@ interface SetupDialogProps {
 
 export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
   const t = useTranslations('settings');
-  const tCommon = useTranslations('common');
   const { createProject, setCurrentProject } = useProjectStore();
   const [mode, setMode] = useState<Mode>('open');
   const [name, setName] = useState('');
@@ -38,18 +37,10 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
   const [folderBrowserOpen, setFolderBrowserOpen] = useState(false);
   const [browserMode, setBrowserMode] = useState<BrowserMode>('project');
 
-  // Reset state when dialog opens
   useEffect(() => {
-    if (open) {
-      setMode('open');
-      setName('');
-      setPath('');
-      setRootPath('');
-      setError('');
-    }
+    if (open) { setMode('open'); setName(''); setPath(''); setRootPath(''); setError(''); }
   }, [open]);
 
-  // Compute sanitized directory name and full project path for create mode
   const dirName = sanitizeDirName(name);
   const fullProjectPath = dirName && rootPath ? `${rootPath}/${dirName}` : '';
 
@@ -58,10 +49,8 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
       setRootPath(selectedPath);
     } else {
       setPath(selectedPath);
-      // Auto-derive name from folder path in "open" mode
       if (mode === 'open' && !name) {
-        const folderName = selectedPath.split('/').filter(Boolean).pop() || '';
-        setName(folderName);
+        setName(selectedPath.split('/').filter(Boolean).pop() || '');
       }
     }
   };
@@ -69,245 +58,77 @@ export function SetupDialog({ open, onOpenChange }: SetupDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!name.trim()) {
-      setError(t('projectNameRequired'));
-      return;
-    }
+    if (!name.trim()) { setError(t('projectNameRequired')); return; }
 
     let finalPath = path;
-
-    // For create mode, build path from root + sanitized name
     if (mode === 'create') {
-      if (!rootPath.trim()) {
-        setError(t('rootFolderRequired'));
-        return;
-      }
+      if (!rootPath.trim()) { setError(t('rootFolderRequired')); return; }
       const sanitizedName = sanitizeDirName(name);
-      if (!sanitizedName) {
-        setError(t('projectNameAlphanumeric'));
-        return;
-      }
+      if (!sanitizedName) { setError(t('projectNameAlphanumeric')); return; }
       finalPath = `${rootPath.trim()}/${sanitizedName}`;
     } else {
-      // Open mode - path is required
-      if (!path.trim()) {
-        setError(t('projectPathRequired'));
-        return;
-      }
+      if (!path.trim()) { setError(t('projectPathRequired')); return; }
     }
 
-    // Validate path format
     if (!finalPath.startsWith('/') && !finalPath.match(/^[A-Za-z]:\\/)) {
-      setError(t('enterAbsolutePath'));
-      return;
+      setError(t('enterAbsolutePath')); return;
     }
 
     setLoading(true);
     try {
       const project = await createProject({ name: name.trim(), path: finalPath.trim() });
-      if (project) {
-        setCurrentProject(project);
-        setName('');
-        setPath('');
-        setRootPath('');
-        onOpenChange(false);
-      }
+      if (project) { setCurrentProject(project); setName(''); setPath(''); setRootPath(''); onOpenChange(false); }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{t('setUpProject')}</DialogTitle>
-          <DialogDescription>
-            {mode === 'open'
-              ? t('selectExistingDescription')
-              : t('configureNewDescription')}
-          </DialogDescription>
-        </DialogHeader>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{t('setUpProject')}</DialogTitle>
+            <DialogDescription>
+              {mode === 'open' ? t('selectExistingDescription') : t('configureNewDescription')}
+            </DialogDescription>
+          </DialogHeader>
 
-        <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-muted p-1.5">
-            <TabsTrigger
-              value="open"
-              className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
-            >
-              <FolderOpenIcon className="h-4 w-4" />
-              {t('openExisting')}
-            </TabsTrigger>
-            <TabsTrigger
-              value="create"
-              className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]"
-            >
-              <Plus className="h-4 w-4" />
-              {t('createNew')}
-            </TabsTrigger>
-          </TabsList>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-muted p-1.5">
+              <TabsTrigger value="open" className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]">
+                <FolderOpenIcon className="h-4 w-4" />{t('openExisting')}
+              </TabsTrigger>
+              <TabsTrigger value="create" className="[&[data-state=active]]:![background-color:rgba(255,255,255,0.2)]">
+                <Plus className="h-4 w-4" />{t('createNew')}
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="open" className="mt-4">
-            <form onSubmit={handleSubmit} className="space-y-6 py-4">
-              {/* Project Path - auto-named from folder */}
-              <div className="space-y-2">
-                <label htmlFor="path-open" className="text-sm font-medium">
-                  {t('projectFolder')}
-                </label>
-                <div className="flex gap-2">
-                  <div
-                    className="relative flex-1 cursor-pointer"
-                    onClick={() => !loading && (setBrowserMode('project'), setFolderBrowserOpen(true))}
-                  >
-                    <FolderOpen className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="path-open"
-                      value={path}
-                      onChange={(e) => setPath(e.target.value)}
-                      placeholder="/path/to/project"
-                      className="pl-8 cursor-pointer"
-                      disabled={loading}
-                      readOnly
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => (setBrowserMode('project'), setFolderBrowserOpen(true))}
-                    disabled={loading}
-                  >
-                    {tCommon('browse')}
-                  </Button>
-                </div>
-                {path && (
-                  <p className="text-xs text-muted-foreground">
-                    {t('projectName')}: <span className="font-medium">{name || t('autoDetected')}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  {error}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  {tCommon('cancel')}
-                </Button>
-                <Button type="submit" disabled={loading || !path}>
-                  {loading ? tCommon('opening') : t('openProject')}
-                </Button>
-              </div>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="create" className="mt-4">
-            <form onSubmit={handleSubmit} className="space-y-6 py-4">
-              {/* Project Name */}
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  {t('projectName')}
-                </label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="my-kanban"
-                  disabled={loading}
+            <TabsContent value="open" className="mt-4">
+              <form onSubmit={handleSubmit}>
+                <SetupDialogOpenExistingProjectTab
+                  path={path} name={name} error={error} loading={loading}
+                  onPathChange={setPath}
+                  onBrowse={() => { setBrowserMode('project'); setFolderBrowserOpen(true); }}
+                  onCancel={() => onOpenChange(false)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {t('folderNameHint')}
-                </p>
-              </div>
+              </form>
+            </TabsContent>
 
-              {/* Root Folder */}
-              <div className="space-y-2">
-                <label htmlFor="root-path" className="text-sm font-medium">
-                  {t('rootFolder')}
-                </label>
-                <div className="flex gap-2">
-                  <div
-                    className="relative flex-1 cursor-pointer"
-                    onClick={() => !loading && (setBrowserMode('root'), setFolderBrowserOpen(true))}
-                  >
-                    <Folder className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="root-path"
-                      value={rootPath}
-                      onChange={(e) => setRootPath(e.target.value)}
-                      placeholder="/home/user/projects"
-                      className="pl-8 cursor-pointer"
-                      disabled={loading}
-                      readOnly
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => (setBrowserMode('root'), setFolderBrowserOpen(true))}
-                    disabled={loading}
-                  >
-                    {tCommon('browse')}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('selectParentFolder')}
-                </p>
-              </div>
-
-              {/* Full Path Preview */}
-              {fullProjectPath && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    {t('projectCreatedAt')}
-                  </label>
-                  <div className="p-3 bg-muted rounded-md text-sm font-mono break-all">
-                    {fullProjectPath}
-                  </div>
-                </div>
-              )}
-
-              {/* Error */}
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  {error}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  {tCommon('cancel')}
-                </Button>
-                <Button type="submit" disabled={loading || !name || !rootPath}>
-                  {loading ? tCommon('creating') : t('createProject')}
-                </Button>
-              </div>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+            <TabsContent value="create" className="mt-4">
+              <form onSubmit={handleSubmit}>
+                <SetupDialogCreateNewProjectTab
+                  name={name} rootPath={rootPath} fullProjectPath={fullProjectPath}
+                  error={error} loading={loading}
+                  onNameChange={setName} onRootPathChange={setRootPath}
+                  onBrowseRoot={() => { setBrowserMode('root'); setFolderBrowserOpen(true); }}
+                  onCancel={() => onOpenChange(false)}
+                />
+              </form>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
 
       <FolderBrowserDialog
         open={folderBrowserOpen}
