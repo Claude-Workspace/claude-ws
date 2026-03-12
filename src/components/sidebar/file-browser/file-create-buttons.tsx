@@ -125,32 +125,32 @@ export function FileCreateButtons({ entry, rootPath, onRefresh }: FileCreateButt
 
   return (
     <>
-      <div className="flex gap-2 w-full">
+      <div className="flex gap-1.5 w-full">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1"
+          className="flex-1 h-7 text-xs px-2"
           onClick={() => openCreateDialog('file')}
         >
-          <FilePlus className="mr-2 size-4" />
+          <FilePlus className="mr-1 size-3.5" />
           File
         </Button>
         <Button
           variant="outline"
           size="sm"
-          className="flex-1"
+          className="flex-1 h-7 text-xs px-2"
           onClick={() => openCreateDialog('folder')}
         >
-          <FolderPlus className="mr-2 size-4" />
+          <FolderPlus className="mr-1 size-3.5" />
           Folder
         </Button>
         <Button
           variant="outline"
           size="sm"
-          className="flex-1"
+          className="flex-1 h-7 text-xs px-2"
           onClick={() => setUploadDialogOpen(true)}
         >
-          <Upload className="mr-2 size-4" />
+          <Upload className="mr-1 size-3.5" />
           Upload
         </Button>
       </div>
