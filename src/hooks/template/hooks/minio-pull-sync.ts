@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import "dotenv/config";
+
+// Load .env from .claude/hooks/ directory
+import { config as dotenvConfig } from "dotenv";
+const hooksDir = path.join(process.cwd(), ".claude", "hooks");
+dotenvConfig({ path: path.join(hooksDir, ".env") });
 
 /** Simple concurrency limiter — avoids p-limit dependency */
 function createConcurrencyLimit(concurrency: number) {
@@ -28,9 +32,19 @@ if (!config.apiBaseUrl || config.targetPrefix.includes("PROJECT_ID")) {
     process.exit(1);
 }
 
-const MANIFEST_FILE = "minio-sync-manifest.json";
-const LOCAL_DATA_DIR = "./data";
-const LOCAL_STATE_FILE = "local-sync-state.json";
+// Cấu hình thư mục tmp
+const TMP_DIR = path.join(process.cwd(), ".claude", "tmp");
+const MANIFEST_FILE = path.join(TMP_DIR, "minio-sync-manifest.json");
+const LOCAL_DATA_DIR = ".";
+const LOCAL_STATE_FILE = path.join(TMP_DIR, "local-sync-state.json");
+
+// Danh sách các thư mục KHÔNG BAO GIỜ được xóa
+const PROTECTED_DIRS = [".claude", "temp", "node_modules", ".git"];
+
+// Hàm tạo thư mục tmp
+async function ensureTmpDir() {
+    await fs.mkdir(TMP_DIR, { recursive: true });
+}
 
 const USE_MD5_HASH = false;
 const MAX_CONCURRENT_DOWNLOADS = 5;
@@ -108,8 +122,21 @@ async function shouldDownload(remote: ManifestEntry, localPath: string): Promise
 }
 
 async function downloadFile(url: string, destination: string) {
+    // Kiểm tra nếu destination trùng với một directory đã tồn tại
+    try {
+        const stats = await fs.stat(destination);
+        if (stats.isDirectory()) {
+            console.error(`⚠️  Skipping: ${destination} (đã tồn tại là directory)`);
+            return;
+        }
+    } catch (e) {
+        // File không tồn tại, tiếp tục download
+    }
+
     const dir = path.dirname(destination);
-    await fs.mkdir(dir, { recursive: true });
+    if (dir !== "." && dir !== process.cwd()) {
+        await fs.mkdir(dir, { recursive: true });
+    }
 
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
@@ -178,6 +205,13 @@ async function syncLocal(manifest: ManifestEntry[]) {
                 const list = await fs.readdir(dir, { withFileTypes: true });
                 for (const dirent of list) {
                     const fullPath = path.resolve(dir, dirent.name);
+
+                    // QUAN TRỌNG: Bỏ qua các thư mục được bảo vệ
+                    if (dirent.isDirectory() && PROTECTED_DIRS.includes(dirent.name)) {
+                        console.error(`🛡️  Bảo vệ thư mục: ${dirent.name}/ (không xóa)`);
+                        continue;
+                    }
+
                     if (dirent.isDirectory()) {
                         await cleanExtraFiles(fullPath);
                         try {
@@ -185,10 +219,10 @@ async function syncLocal(manifest: ManifestEntry[]) {
                             if (remaining.length === 0) await fs.rmdir(fullPath);
                         } catch (e) { }
                     } else {
-                        if (
-                            fullPath === path.resolve(LOCAL_STATE_FILE) ||
-                            fullPath === path.resolve(MANIFEST_FILE)
-                        ) continue;
+                        // Bỏ qua các file state trong thư mục tmp
+                        if (fullPath === path.resolve(LOCAL_STATE_FILE) ||
+                            fullPath === path.resolve(MANIFEST_FILE) ||
+                            fullPath.startsWith(path.resolve(TMP_DIR))) continue;
 
                         if (!validLocalPaths.has(fullPath)) {
                             await fs.unlink(fullPath);
@@ -223,6 +257,7 @@ async function syncLocal(manifest: ManifestEntry[]) {
 // ==========================================
 async function runAll() {
     try {
+        await ensureTmpDir(); // Tạo thư mục tmp trước khi chạy
         const manifest = await generateUrls();
         await syncLocal(manifest);
     } catch (e) {

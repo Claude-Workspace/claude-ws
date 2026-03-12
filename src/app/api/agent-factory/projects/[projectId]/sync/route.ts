@@ -238,15 +238,23 @@ export async function POST(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Read project settings
-    const settings = readSettingsFile(project.path);
-    if (!settings) {
-      return NextResponse.json({ error: 'Project settings not found. Please configure settings first.' }, { status: 400 });
+    // Read request body
+    const body = await request.json().catch(() => ({}));
+    const { componentIds = [], agentSetIds = [] } = body;
+
+    // Fallback to reading from project settings file if body is empty
+    if (componentIds.length === 0 && agentSetIds.length === 0) {
+      const settings = readSettingsFile(project.path);
+      if (!settings) {
+        return NextResponse.json({ error: 'No components provided and no project settings found.' }, { status: 400 });
+      }
+      componentIds.push(...settings.selectedComponents);
+      agentSetIds.push(...settings.selectedAgentSets);
     }
 
     const allComponentIds = [
-      ...settings.selectedComponents,
-      ...settings.selectedAgentSets,
+      ...componentIds,
+      ...agentSetIds,
     ];
 
     if (allComponentIds.length === 0) {

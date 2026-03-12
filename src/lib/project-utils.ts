@@ -68,10 +68,22 @@ export async function setupProjectDefaults(projectPath: string, projectId: strin
             }
         }
 
-        // 3. Create empty .session_permissions file
+        // 3. Create empty .session_permissions file and make it executable
         const sessionPermsPath = join(claudeDir, '.session_permissions');
         try {
             await writeFile(sessionPermsPath, '', 'utf-8');
+            // Make .session_permissions executable
+            await new Promise<void>((resolve, reject) => {
+                const chmodProcess = spawn('chmod', ['+x', sessionPermsPath]);
+                chmodProcess.on('close', (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(new Error(`chmod failed with code ${code}`));
+                    }
+                });
+                chmodProcess.on('error', reject);
+            });
         } catch (e) {
             console.error('[project-utils] Failed to create .session_permissions', e);
         }
@@ -126,8 +138,8 @@ export async function setupProjectDefaults(projectPath: string, projectId: strin
             console.error('[project-utils] Failed to copy hook templates for new project', e);
         }
 
-        // 5. Generate local .env file for the sync hooks
-        const envPath = join(projectPath, '.env');
+        // 5. Generate local .env file for the sync hooks in .claude/hooks/
+        const envPath = join(hooksDir, '.env');
         try {
             await access(envPath);
         } catch {

@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
-import "dotenv/config";
+
+// Load .env from .claude/hooks/ directory
+import { config as dotenvConfig } from "dotenv";
+const hooksDir = path.join(process.cwd(), ".claude", "hooks");
+dotenvConfig({ path: path.join(hooksDir, ".env") });
 
 /** Simple concurrency limiter — avoids p-limit dependency */
 function createConcurrencyLimit(concurrency: number) {
@@ -14,9 +18,6 @@ function createConcurrencyLimit(concurrency: number) {
     };
 }
 
-const LOCAL_DATA_DIR = "./data";
-const STATE_FILE = "local-sync-state.json";
-
 // ==========================================
 // CẤU HÌNH
 // ==========================================
@@ -28,6 +29,17 @@ const config = {
 if (!config.apiBaseUrl || config.targetPrefix.includes("PROJECT_ID")) {
     console.error("❌ Thiếu cấu hình API_HOOK_URL trong .env hoặc PROJECT_ID chưa được khởi tạo!");
     process.exit(1);
+}
+
+// Cấu hình thư mục tmp
+const TMP_DIR = path.join(process.cwd(), ".claude", "tmp");
+const LOCAL_DATA_DIR = ".";
+const STATE_FILE = path.join(TMP_DIR, "local-sync-state.json");
+const IGNORED_DIRS = [".claude", "temp", "node_modules", ".git"];
+
+// Hàm tạo thư mục tmp
+async function ensureTmpDir() {
+    await fs.mkdir(TMP_DIR, { recursive: true });
 }
 
 export interface ManifestEntry {
@@ -94,7 +106,13 @@ async function scanDirectory(dir: string, fileList: string[] = []) {
         const files = await fs.readdir(dir, { withFileTypes: true });
         for (const file of files) {
             const filePath = path.join(dir, file.name);
+
             if (file.isDirectory()) {
+                // Skip ignored directories
+                if (IGNORED_DIRS.includes(file.name)) {
+                    console.error(`⏭️  Skipping ignored directory: ${filePath}`);
+                    continue;
+                }
                 await scanDirectory(filePath, fileList);
             } else {
                 fileList.push(filePath);
@@ -107,6 +125,7 @@ async function scanDirectory(dir: string, fileList: string[] = []) {
 }
 
 async function runCheck() {
+    await ensureTmpDir(); // Tạo thư mục tmp trước khi chạy
     console.error(`🔍 Bắt đầu quét file trong '${LOCAL_DATA_DIR}' và so sánh với '${STATE_FILE}'...`);
 
     // Đọc state file (được tạo bởi 0-demo-sync-all.ts)

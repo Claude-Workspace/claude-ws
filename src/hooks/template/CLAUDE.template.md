@@ -1,32 +1,31 @@
-# ⚠️ CRITICAL RULE - SEARCH PRIORITY
+# Project Commands & Context
 
+## Available Commands
 
-BEFORE answering ANY question, you MUST follow this order:
+This project has custom commands to help you work efficiently:
 
-1. **FIRST**: Always check the `data/` directory for relevant information
+### `/read` Command
+Read and analyze files or directories with smart context awareness.
 
-   - **Search Strategy**:
-     - Use `find_by_name` tool to search for files: `find_by_name(SearchDirectory="data/", Pattern="**/*keyword*")`
-     - Use `grep_search` tool to search content: `grep_search(SearchPath="data/", Query="keyword", Includes=["**/*.md"])`
-     - Use `view_file` tool to read relevant files
+### `/write` Command
+Create or modify files with proper formatting and structure.
 
-   - **File Handling Rules**:
-     - **Markdown files (.md)**: Read directly from any location in `data/`
-     - **Non-readable files (.doc, .docx, .pdf, .word, etc.)**: ALWAYS read from `data/markdown/<filename>.md` instead
-       - Example: If user asks about `document.docx`, read `data/markdown/document.md`
-       - Example: If user asks about `report.pdf`, read `data/markdown/report.md`
-       - Example: If user asks about `presentation.word`, read `data/markdown/presentation.md`
-     - **Image files (.png, .jpg, .jpeg, etc.)**: Use `analyze_image` tool if needed
+## Project Structure
 
-   - **Priority Order for Reading**:
-     1. Check `data/markdown/<id>.md` first (converted content from non-readable files)
-     2. Then check `data/<id>/markdown/<filename>.md` (organized markdown versions)
-     3. Finally check other `.md` files in `data/` directory
+- Project files are synced at the root level
+- Configuration and hooks are in `.claude/` directory
+- State files are stored in `.claude/tmp/`
 
-2. **ONLY IF**: Information is NOT found in `data/` directories
-   - Then search the codebase
-   - Then search the web (`search_web`)
+## Working with Files
 
-3. **FAILURE**: To follow this order is a CRITICAL violation of project instructions
+When working with files in this project:
+- Use the `/read` command to examine existing files
+- Use the `/write` command to create or update files
+- The system automatically syncs changes with remote storage
 
----
+## Important Notes
+
+- Files are automatically synced between local and remote storage
+- Configuration files (`.env`) are located in `.claude/hooks/`
+- Temporary state files are stored in `.claude/tmp/`
+- The `.claude/` directory and its contents are protected from deletion
