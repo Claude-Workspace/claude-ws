@@ -48,6 +48,13 @@ export function GitGraphToolbarHeader({
       {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
       <span className="flex-1">Graph</span>
 
+      {/* Action loading label */}
+      {actionLoading && (
+        <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+          {t(`${actionLoading}ing` as 'fetching' | 'pulling' | 'pushing')}
+        </span>
+      )}
+
       <div className="flex items-center gap-0.5">
         {/* Branch filter toggle */}
         <button
@@ -68,7 +75,7 @@ export function GitGraphToolbarHeader({
           className="p-0.5 hover:bg-accent rounded"
           onClick={(e) => { e.stopPropagation(); onFetch(); }}
           disabled={actionLoading !== null}
-          title={t('fetch')}
+          title={actionLoading === 'fetch' ? t('fetching') : t('fetch')}
         >
           <ArrowDownToLine className={cn('size-3.5', actionLoading === 'fetch' && 'animate-pulse')} />
         </button>
@@ -77,7 +84,7 @@ export function GitGraphToolbarHeader({
           className="p-0.5 hover:bg-accent rounded"
           onClick={(e) => { e.stopPropagation(); onPull(); }}
           disabled={actionLoading !== null}
-          title={t('pull')}
+          title={actionLoading === 'pull' ? t('pulling') : t('pull')}
         >
           <RotateCcw className={cn('size-3.5', actionLoading === 'pull' && 'animate-spin')} />
         </button>
@@ -86,7 +93,7 @@ export function GitGraphToolbarHeader({
           className="p-0.5 hover:bg-accent rounded"
           onClick={(e) => { e.stopPropagation(); onPush(); }}
           disabled={actionLoading !== null}
-          title={t('push')}
+          title={actionLoading === 'push' ? t('pushing') : t('push')}
         >
           <ArrowUpFromLine className={cn('size-3.5', actionLoading === 'push' && 'animate-pulse')} />
         </button>
