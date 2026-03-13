@@ -24,11 +24,11 @@ function createConcurrencyLimit(concurrency: number) {
 // ==========================================
 const config = {
     apiBaseUrl: process.env.API_HOOK_URL as string,
-    targetPrefix: "PROJECT_ID",
+    targetPrefix: "__PROJECT_ID__",
 };
 
-if (!config.apiBaseUrl || config.targetPrefix.includes("PROJECT_ID")) {
-    console.error("❌ Thiếu cấu hình API_HOOK_URL trong .env hoặc PROJECT_ID chưa được khởi tạo!");
+if (!config.apiBaseUrl) {
+    console.error("❌ Thiếu cấu hình API_HOOK_URL trong .env!");
     process.exit(1);
 }
 

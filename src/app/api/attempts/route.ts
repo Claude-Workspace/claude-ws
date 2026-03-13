@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const projectDirName = `${projectId}-${sanitizedProjectName}`;
-      const projectPath = projectRootPath
+      const projectPath = (projectRootPath && projectRootPath.trim() !== '')
         ? join(projectRootPath, projectDirName)
         : join(process.env.CLAUDE_WS_USER_CWD || process.cwd(), 'data', 'projects', projectDirName);
 

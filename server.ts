@@ -201,9 +201,11 @@ app.prepare().then(async () => {
               const { join } = await import('path');
 
               const projectDirName = `${projectId}-${projectName}`;
-              const projectPath = projectRootPath
+              log.info({ projectRootPath, userCwd, projectDirName }, '[Socket] Debug project path creation');
+              const projectPath = (projectRootPath && projectRootPath.trim() !== '')
                 ? join(projectRootPath, projectDirName)
                 : join(userCwd, 'data', 'projects', projectDirName);
+              log.info({ projectPath, projectRootPath, userCwd }, '[Socket] Final project path');
 
               try {
                 const { setupProjectDefaults } = await import('./src/lib/project-utils');
