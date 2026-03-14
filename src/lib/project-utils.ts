@@ -68,27 +68,7 @@ export async function setupProjectDefaults(projectPath: string, projectId: strin
             }
         }
 
-        // 3. Create empty .session_permissions file and make it executable
-        const sessionPermsPath = join(claudeDir, '.session_permissions');
-        try {
-            await writeFile(sessionPermsPath, '', 'utf-8');
-            // Make .session_permissions executable
-            await new Promise<void>((resolve, reject) => {
-                const chmodProcess = spawn('chmod', ['+x', sessionPermsPath]);
-                chmodProcess.on('close', (code) => {
-                    if (code === 0) {
-                        resolve();
-                    } else {
-                        reject(new Error(`chmod failed with code ${code}`));
-                    }
-                });
-                chmodProcess.on('error', reject);
-            });
-        } catch (e) {
-            console.error('[project-utils] Failed to create .session_permissions', e);
-        }
-
-        // 4. Copy hook and settings templates
+        // 3. Copy hook and settings templates
 
         try {
             const pullSyncPath = join(templateHooksDir, 'hooks', 'minio-pull-sync.ts');
@@ -101,44 +81,15 @@ export async function setupProjectDefaults(projectPath: string, projectId: strin
             pushSyncContent = pushSyncContent.replace(/__PROJECT_ID__/g, projectId);
             await writeFile(join(hooksDir, 'minio-push-sync.ts'), pushSyncContent, 'utf-8');
 
-            // Copy block-write.sh hook and make it executable
-            const blockWriteHookPath = join(templateHooksDir, 'hooks', 'block-write.sh');
-            const blockWriteDestPath = join(hooksDir, 'block-write.sh');
-            await copyFile(blockWriteHookPath, blockWriteDestPath);
-
-            // Make the hook executable using spawn for cross-platform compatibility
-            await new Promise<void>((resolve, reject) => {
-                const chmodProcess = spawn('chmod', ['+x', blockWriteDestPath]);
-                chmodProcess.on('close', (code) => {
-                    if (code === 0) {
-                        resolve();
-                    } else {
-                        reject(new Error(`chmod failed with code ${code}`));
-                    }
-                });
-                chmodProcess.on('error', reject);
-            });
-
             await copyFile(
                 join(templateHooksDir, 'settings.json'),
                 join(claudeDir, 'settings.json')
-            );
-
-            // Copy command files
-            await copyFile(
-                join(templateHooksDir, 'commands', 'write.md'),
-                join(commandsDir, 'write.md')
-            );
-
-            await copyFile(
-                join(templateHooksDir, 'commands', 'edit.md'),
-                join(commandsDir, 'edit.md')
             );
         } catch (e) {
             console.error('[project-utils] Failed to copy hook templates for new project', e);
         }
 
-        // 5. Generate local .env file for the sync hooks in .claude/hooks/
+        // 3. Generate local .env file for the sync hooks in .claude/hooks/
         const envPath = join(hooksDir, '.env');
         try {
             await access(envPath);

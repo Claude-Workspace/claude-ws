@@ -9,17 +9,12 @@ All file operations happen in the **root directory** (`./`) of this project. Alw
 - **Edit:** `str_replace` tool with relative path
 - **Delete:** `bash_tool` → `rm ./path/to/file` (confirm with user first)
 
-Protected — never modify: `.claude/`, `tmp/`, `node_modules/`, `.git/`
+Protected — never modify: `.claude/`, `tmp/`, `node_modules/`, `.git`
 
-## Commands
-- `/read` — Read and analyze files or directories
-- `/write` — Create or modify files
+## Sync & Storage
+Files in `./` are auto-synced with remote storage via `.claude/hooks/`. API endpoint and project ID are pre-configured in `.claude/hooks/.env` — do not modify.
 
 ## Skills
 Before starting any task, check for relevant skill files:
 - **Global skills:** `~/.claude/skills` (docx, pdf, pptx, xlsx, frontend-design, etc.)
 - **Local project skills:** `./.claude/skills`
-
-
-## Sync & Storage
-Files in `./` are auto-synced with remote storage via `.claude/hooks/`. API endpoint and project ID are pre-configured in `.claude/hooks/.env` — do not modify.

@@ -20,7 +20,7 @@ function createConcurrencyLimit(concurrency: number) {
 }
 
 // ==========================================
-// CẤU HÌNH
+// CONFIGURATION
 // ==========================================
 const config = {
     apiBaseUrl: process.env.API_HOOK_URL as string,
@@ -28,20 +28,20 @@ const config = {
 };
 
 if (!config.apiBaseUrl) {
-    console.error("❌ Thiếu cấu hình API_HOOK_URL trong .env!");
+    console.error("❌ Missing API_HOOK_URL in .env!");
     process.exit(1);
 }
 
-// Cấu hình thư mục tmp
+// Temporary directory configuration
 const TMP_DIR = path.join(process.cwd(), ".claude", "tmp");
 const MANIFEST_FILE = path.join(TMP_DIR, "minio-sync-manifest.json");
 const LOCAL_DATA_DIR = ".";
 const LOCAL_STATE_FILE = path.join(TMP_DIR, "local-sync-state.json");
 
-// Danh sách các thư mục KHÔNG BAO GIỜ được xóa
+// List of directories to NEVER delete
 const PROTECTED_DIRS = [".claude", "temp", "node_modules", ".git"];
 
-// Hàm tạo thư mục tmp
+// Create temporary directory
 async function ensureTmpDir() {
     await fs.mkdir(TMP_DIR, { recursive: true });
 }
@@ -58,35 +58,35 @@ export interface ManifestEntry {
 }
 
 // ==========================================
-// PHẦN 1: LẤY MANIFEST TỪ API
+// STEP 1: GET MANIFEST FROM API
 // ==========================================
 async function generateUrls(): Promise<ManifestEntry[]> {
-    console.error(`\n=================== BƯỚC 1: LẤY DỮ LIỆU TỪ API ===================`);
-    console.error(`🔍 Đang gọi API để lấy manifest với folder '${config.targetPrefix}'...`);
+    console.error(`\n=================== STEP 1: FETCH DATA FROM API ===================`);
+    console.error(`🔍 Calling API to get manifest for folder '${config.targetPrefix}'...`);
 
     const url = `${config.apiBaseUrl}/api/sync/manifest?folder=${encodeURIComponent(config.targetPrefix)}`;
     const response = await fetch(url);
 
     if (!response.ok) {
-        throw new Error(`API manifest thất bại: HTTP ${response.status} ${response.statusText}`);
+        throw new Error(`API manifest failed: HTTP ${response.status} ${response.statusText}`);
     }
 
     const json = await response.json();
     if (json.status !== "success") {
-        throw new Error(`API manifest lỗi: ${json.message}`);
+        throw new Error(`API manifest error: ${json.message}`);
     }
 
     const allObjects: ManifestEntry[] = json.data;
-    console.error(`Đã lấy được ${allObjects.length} files từ API.`);
+    console.error(`Got ${allObjects.length} files from API.`);
 
     await fs.writeFile(MANIFEST_FILE, JSON.stringify(allObjects, null, 2));
-    console.error(`💾 Đã ghi Manifest ra file: ${MANIFEST_FILE}`);
+    console.error(`💾 Manifest saved to file: ${MANIFEST_FILE}`);
 
     return allObjects;
 }
 
 // ==========================================
-// PHẦN 2: ĐỒNG BỘ VỀ LOCAL
+// STEP 2: SYNC LOCAL
 // ==========================================
 async function calculateMD5(filePath: string): Promise<string> {
     const hash = crypto.createHash("md5");
@@ -100,37 +100,37 @@ async function shouldDownload(remote: ManifestEntry, localPath: string): Promise
         const stats = await fs.stat(localPath);
 
         if (stats.size !== remote.size) {
-            return `Kích thước thay đổi (Local: ${stats.size} != Remote: ${remote.size})`;
+            return `Size changed (Local: ${stats.size} != Remote: ${remote.size})`;
         }
 
         if (USE_MD5_HASH && remote.eTag) {
             const localHash = await calculateMD5(localPath);
-            if (localHash !== remote.eTag) return `Nội dung thay đổi (MD5 không khớp)`;
+            if (localHash !== remote.eTag) return `Content changed (MD5 mismatch)`;
         } else {
             const remoteTime = new Date(remote.lastModified).getTime();
             const localTime = stats.mtime.getTime();
             if (Math.abs(remoteTime - localTime) > 2000 && remoteTime > localTime) {
-                return `Remote file mới hơn (Local có từ ${stats.mtime.toISOString()})`;
+                return `Remote file is newer (Local from ${stats.mtime.toISOString()})`;
             }
         }
 
         return null;
     } catch (error: any) {
-        if (error.code === "ENOENT") return "File mới";
-        return `Lỗi check file: ${error.message}`;
+        if (error.code === "ENOENT") return "New file";
+        return `File check error: ${error.message}`;
     }
 }
 
 async function downloadFile(url: string, destination: string) {
-    // Kiểm tra nếu destination trùng với một directory đã tồn tại
+    // Check if destination conflicts with an existing directory
     try {
         const stats = await fs.stat(destination);
         if (stats.isDirectory()) {
-            console.error(`⚠️  Skipping: ${destination} (đã tồn tại là directory)`);
+            console.error(`⚠️  Skipping: ${destination} (already exists as directory)`);
             return;
         }
     } catch (e) {
-        // File không tồn tại, tiếp tục download
+        // File doesn't exist, continue with download
     }
 
     const dir = path.dirname(destination);
@@ -146,8 +146,8 @@ async function downloadFile(url: string, destination: string) {
 }
 
 async function syncLocal(manifest: ManifestEntry[]) {
-    console.error(`\n=================== BƯỚC 2: ĐỒNG BỘ LOCAL ===================`);
-    console.error(`🚀 Bắt đầu đồng bộ ${manifest.length} objects...`);
+    console.error(`\n=================== STEP 2: SYNC LOCAL ===================`);
+    console.error(`🚀 Starting to sync ${manifest.length} objects...`);
 
     let stats = { new: 0, updated: 0, skipped: 0, errors: 0 };
     let completed = 0;
@@ -155,8 +155,8 @@ async function syncLocal(manifest: ManifestEntry[]) {
 
     const tasks = manifest.map((remote) =>
         limit(async () => {
-            // Strip targetPrefix để lưu local phẳng hơn
-            // VD: "698c42f.../markdown/x.md" → "markdown/x.md"
+            // Strip targetPrefix for cleaner local path
+            // E.g.: "698c42f.../markdown/x.md" → "markdown/x.md"
             const strippedKey = remote.key.startsWith(config.targetPrefix + "/")
                 ? remote.key.slice(config.targetPrefix.length + 1)
                 : remote.key;
@@ -170,11 +170,11 @@ async function syncLocal(manifest: ManifestEntry[]) {
                     const remoteDate = new Date(remote.lastModified);
                     await fs.utimes(localPath, remoteDate, remoteDate).catch(() => { });
 
-                    console.error(`\n✅ Đã tải: ${remote.key} (${reason})`);
-                    if (reason.includes("mới")) stats.new++;
+                    console.error(`\n✅ Downloaded: ${remote.key} (${reason})`);
+                    if (reason.includes("new")) stats.new++;
                     else stats.updated++;
                 } catch (err: any) {
-                    console.error(`\n❌ LỖI TẢI ${remote.key}: ${err.message}`);
+                    console.error(`\n❌ DOWNLOAD FAILED ${remote.key}: ${err.message}`);
                     stats.errors++;
                 }
             } else {
@@ -182,32 +182,32 @@ async function syncLocal(manifest: ManifestEntry[]) {
             }
 
             completed++;
-            process.stdout.write(`\r[${completed}/${manifest.length}] Đang xử lý... `);
+            process.stdout.write(`\r[${completed}/${manifest.length}] Processing... `);
         })
     );
 
     await Promise.all(tasks);
 
-    console.error(`\n💾 Đang lưu trạng thái đồng bộ ra file: ${LOCAL_STATE_FILE}...`);
+    console.error(`\n💾 Saving sync state to file: ${LOCAL_STATE_FILE}...`);
     await fs.writeFile(LOCAL_STATE_FILE, JSON.stringify(manifest, null, 2));
 
-    console.error("\n🎉 ĐỒNG BỘ HOÀN TẤT!");
-    console.error(`  - Tải mới   : ${stats.new} file`);
-    console.error(`  - Cập nhật  : ${stats.updated} file`);
-    console.error(`  - Bỏ qua    : ${stats.skipped} file`);
-    console.error(`  - Lỗi       : ${stats.errors} file`);
+    console.error("\n🎉 SYNC COMPLETE!");
+    console.error(`  - New files   : ${stats.new}`);
+    console.error(`  - Updated    : ${stats.updated}`);
+    console.error(`  - Skipped    : ${stats.skipped}`);
+    console.error(`  - Errors     : ${stats.errors}`);
 }
 
 // ==========================================
-// CHẠY CHƯƠNG TRÌNH
+// MAIN EXECUTION
 // ==========================================
 async function runAll() {
     try {
-        await ensureTmpDir(); // Tạo thư mục tmp trước khi chạy
+        await ensureTmpDir(); // Create tmp directory before running
         const manifest = await generateUrls();
         await syncLocal(manifest);
     } catch (e) {
-        console.error("❌ Lỗi chương trình chính:", e);
+        console.error("❌ Main program error:", e);
     }
 }
 

@@ -1,16 +1,5 @@
 {
     "hooks": {
-        "PreToolUse": [
-            {
-                "matcher": "Write|Edit|MultiEdit|Bash",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": ".claude/hooks/block-write.sh"
-                    }
-                ]
-            }
-        ],
         "UserPromptSubmit": [
             {
                 "matcher": "",

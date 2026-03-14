@@ -19,7 +19,7 @@ function createConcurrencyLimit(concurrency: number) {
 }
 
 // ==========================================
-// CẤU HÌNH
+// CONFIGURATION
 // ==========================================
 const config = {
     apiBaseUrl: process.env.API_HOOK_URL as string,
@@ -27,17 +27,17 @@ const config = {
 };
 
 if (!config.apiBaseUrl) {
-    console.error("❌ Thiếu cấu hình API_HOOK_URL trong .env!");
+    console.error("❌ Missing API_HOOK_URL in .env!");
     process.exit(1);
 }
 
-// Cấu hình thư mục tmp
+// Temporary directory configuration
 const TMP_DIR = path.join(process.cwd(), ".claude", "tmp");
 const LOCAL_DATA_DIR = ".";
 const STATE_FILE = path.join(TMP_DIR, "local-sync-state.json");
 const IGNORED_DIRS = [".claude", "temp", "node_modules", ".git"];
 
-// Hàm tạo thư mục tmp
+// Function to create tmp directory
 async function ensureTmpDir() {
     await fs.mkdir(TMP_DIR, { recursive: true });
 }
@@ -51,10 +51,10 @@ export interface ManifestEntry {
 }
 
 // ==========================================
-// Gọi API lấy presigned PUT URL rồi upload file
+// Call API to get presigned PUT URL then upload file
 // ==========================================
 async function uploadFile(s3Key: string, filePath: string) {
-    // Bước 1: Lấy presigned PUT URL từ API
+    // Step 1: Get presigned PUT URL from API
     const urlRes = await fetch(`${config.apiBaseUrl}/api/sync/upload-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,28 +62,28 @@ async function uploadFile(s3Key: string, filePath: string) {
     });
 
     if (!urlRes.ok) {
-        console.error(`❌ Lấy upload URL thất bại cho ${s3Key}: HTTP ${urlRes.status}`);
+        console.error(`❌ Failed to get upload URL for ${s3Key}: HTTP ${urlRes.status}`);
         return;
     }
 
     const { url } = await urlRes.json();
     console.error(`🔗 [Upload Link] - ${s3Key}`);
 
-    // Bước 2: Đọc file và PUT lên MinIO qua presigned URL
+    // Step 2: Read file and PUT to MinIO via presigned URL
     const fileBuffer = await fs.readFile(filePath);
-    console.error(`⏳ Đang upload ${filePath} lên MinIO...`);
+    console.error(`⏳ Uploading ${filePath} to MinIO...`);
 
     const response = await fetch(url, { method: "PUT", body: fileBuffer });
 
     if (response.ok) {
-        console.error(`✅ Upload thành công: ${s3Key}\n`);
+        console.error(`✅ Upload successful: ${s3Key}\n`);
     } else {
-        console.error(`❌ Lỗi upload ${s3Key} (HTTP ${response.status}): ${response.statusText}\n`);
+        console.error(`❌ Upload error ${s3Key} (HTTP ${response.status}): ${response.statusText}\n`);
     }
 }
 
 // ==========================================
-// Quét toàn bộ file trong thư mục data (Đệ quy)
+// Scan all files in data directory (Recursive)
 // ==========================================
 async function scanDirectory(dir: string, fileList: string[] = []) {
     try {
@@ -103,25 +103,25 @@ async function scanDirectory(dir: string, fileList: string[] = []) {
             }
         }
     } catch (err: any) {
-        if (err.code !== "ENOENT") console.error(`Lỗi đọc thư mục ${dir}:`, err);
+        if (err.code !== "ENOENT") console.error(`Error reading directory ${dir}:`, err);
     }
     return fileList;
 }
 
 async function runCheck() {
-    await ensureTmpDir(); // Tạo thư mục tmp trước khi chạy
-    console.error(`🔍 Bắt đầu quét file trong '${LOCAL_DATA_DIR}' và so sánh với '${STATE_FILE}'...`);
+    await ensureTmpDir(); // Create tmp directory before running
+    console.error(`🔍 Starting to scan files in '${LOCAL_DATA_DIR}' and compare with '${STATE_FILE}'...`);
 
-    // Đọc state file (được tạo bởi 0-demo-sync-all.ts)
+    // Read state file (created by 0-demo-sync-all.ts)
     let manifestData: ManifestEntry[] = [];
     try {
         manifestData = JSON.parse(await fs.readFile(STATE_FILE, "utf-8"));
     } catch {
-        console.error(`❌ Không tìm thấy '${STATE_FILE}'. Chạy script đồng bộ (0-demo-sync-all) trước!`);
+        console.error(`❌ '${STATE_FILE}' not found. Run sync script (0-demo-sync-all) first!`);
         return;
     }
 
-    // Map key → ManifestEntry để tra cứu nhanh
+    // Map key → ManifestEntry for quick lookup
     const manifestMap = new Map<string, ManifestEntry>();
     for (const entry of manifestData) {
         manifestMap.set(entry.key, entry);
@@ -129,7 +129,7 @@ async function runCheck() {
 
     const allFiles = await scanDirectory(LOCAL_DATA_DIR);
     if (allFiles.length === 0) {
-        console.error(`❌ Thư mục '${LOCAL_DATA_DIR}' hoàn toàn trống!`);
+        console.error(`❌ Directory '${LOCAL_DATA_DIR}' is completely empty!`);
         return;
     }
 
@@ -140,15 +140,15 @@ async function runCheck() {
     const MAX_CONCURRENT_CHECKS = 10;
     const limit = createConcurrencyLimit(MAX_CONCURRENT_CHECKS);
 
-    console.error(`Đang phân tích ${allFiles.length} file cục bộ...`);
+    console.error(`Analyzing ${allFiles.length} local files...`);
 
     const checkTasks = allFiles.map((filePath) =>
         limit(async () => {
-            // Lấy relative path từ local data dir, VD: "markdown/ronaldo.md"
+            // Get relative path from local data dir, e.g.: "markdown/ronaldo.md"
             const relativePath = path.relative(LOCAL_DATA_DIR, filePath);
 
-            // Thêm targetPrefix để tạo S3 key đầy đủ
-            // VD: "markdown/ronaldo.md" → "698c42f.../markdown/ronaldo.md"
+            // Add targetPrefix to create full S3 key
+            // e.g.: "markdown/ronaldo.md" → "698c42f.../markdown/ronaldo.md"
             const s3Key = config.targetPrefix + "/" + relativePath.split(path.sep).join("/");
 
             const stats = await fs.stat(filePath);
@@ -179,10 +179,10 @@ async function runCheck() {
 
     await Promise.all(checkTasks);
 
-    console.error(`\n🎉 HOÀN TẤT KIỂM TRA ĐỒNG BỘ:`);
-    console.error(`   - File mới tạo  : ${newFiles}`);
-    console.error(`   - File thay đổi : ${changedFiles}`);
-    console.error(`   - File giống S3 : ${unchangedFiles}`);
+    console.error(`\n🎉 SYNC CHECK COMPLETE:`);
+    console.error(`   - New files   : ${newFiles}`);
+    console.error(`   - Changed     : ${changedFiles}`);
+    console.error(`   - Unchanged   : ${unchangedFiles}`);
 }
 
 runCheck().catch(console.error);
