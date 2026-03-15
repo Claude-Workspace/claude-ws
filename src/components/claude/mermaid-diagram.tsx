@@ -3,10 +3,21 @@
 import { memo, useMemo } from 'react';
 import { renderMermaidSVG, THEMES } from 'beautiful-mermaid';
 import { useTheme } from 'next-themes';
+import DOMPurify from 'dompurify';
 
 interface MermaidDiagramProps {
   code: string;
 }
+
+// Configure DOMPurify for SVG sanitization
+const purifyConfig = {
+  // Allow SVG elements and attributes needed for mermaid diagrams
+  USE_PROFILES: { svg: true, svgFilters: true },
+  // Allow specific attributes that mermaid uses
+  ADD_ATTR: ['viewBox', 'preserveAspectRatio', 'xmlns'],
+  // Allow data URIs for images if needed
+  ADD_URI_SAFE_ATTR: ['xlink:href'],
+};
 
 export const MermaidDiagram = memo(function MermaidDiagram({ code }: MermaidDiagramProps) {
   const { resolvedTheme } = useTheme();
@@ -15,12 +26,15 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code }: MermaidDiag
   const { svg, error } = useMemo(() => {
     const colors = isDark ? THEMES['github-dark'] : THEMES['github-light'];
     try {
+      const renderedSvg = renderMermaidSVG(code, { ...colors, transparent: true, padding: 32 });
+      // Sanitize SVG to prevent XSS attacks
+      const sanitizedSvg = DOMPurify.sanitize(renderedSvg, purifyConfig);
       return {
-        svg: renderMermaidSVG(code, { ...colors, transparent: true, padding: 32 }),
+        svg: sanitizedSvg,
         error: null,
       };
     } catch (err) {
-      return { svg: null, error: err as Error };
+      return { svg: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   }, [code, isDark]);
 
