@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/claude/code-block';
+import { MermaidDiagram } from '@/components/claude/mermaid-diagram';
 import { ExternalLink, FileText, Folder } from 'lucide-react';
 
 // Simple hash function for content comparison
@@ -121,6 +122,9 @@ function createMarkdownComponents(
       codeString = codeString.replace(/\n$/, '');
       const isMultiLine = codeString.includes('\n');
       if (!inline && (match || isMultiLine)) {
+        if (match?.[1] === 'mermaid') {
+          return <MermaidDiagram code={codeString} />;
+        }
         return <CodeBlock code={codeString} language={match?.[1]} />;
       }
       return (

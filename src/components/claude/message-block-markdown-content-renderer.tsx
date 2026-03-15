@@ -4,6 +4,7 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from '@/components/claude/code-block';
+import { MermaidDiagram } from '@/components/claude/mermaid-diagram';
 import { ClickableFilePath } from '@/components/claude/clickable-file-path';
 import { isValidFilePath } from '@/lib/file-path-detector';
 
@@ -45,6 +46,9 @@ export const markdownComponents = {
     codeString = codeString.replace(/\n$/, '');
     const isMultiLine = codeString.includes('\n');
     if (!inline && (match || isMultiLine)) {
+      if (match?.[1] === 'mermaid') {
+        return <MermaidDiagram code={codeString} />;
+      }
       return <CodeBlock code={codeString} language={match?.[1]} />;
     }
 
